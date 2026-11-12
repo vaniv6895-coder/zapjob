@@ -1,15 +1,19 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
-import { initDB, saveMessage } from './db.js';
+import { initDB, saveMessage, isAiPaused } from './db.js';
 import { downloadWhatsAppMedia, sendWhatsAppText } from './whatsapp.js';
 import { downloadTelegramMedia, sendTelegramText } from './telegram.js';
 import { downloadMessengerMedia, sendMessengerText } from './messenger.js';
 import { uploadMedia } from './storage.js';
 import { generateAgentReply } from './ai.js';
+import { registerPanelRoutes } from './panel.js';
 
 dotenv.config();
 
 const app = Fastify({ logger: true });
+
+// Registra o Painel CRM (/painel)
+registerPanelRoutes(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
 app.get('/webhook', async (req, reply) => {
@@ -55,6 +59,9 @@ app.post('/webhook', async (req, reply) => {
 
       await saveMessage('whatsapp', from, 'user', textContent, type, savedMediaUrl);
 
+      // Se a IA estiver pausada manualmente no painel, não responde automático
+      if (await isAiPaused('whatsapp', from)) return;
+
       const aiReply = await generateAgentReply(
         'whatsapp',
         from,
@@ -82,7 +89,7 @@ app.post('/webhook', async (req, reply) => {
 
       if (msg.attachments?.[0]) {
         const att = msg.attachments[0];
-        mediaType = att.type; // 'image', 'video', 'audio'
+        mediaType = att.type;
         const downloaded = await downloadMessengerMedia(att.payload.url);
         mediaBuffer = downloaded.buffer;
         mediaMime = downloaded.mimeType;
@@ -94,6 +101,8 @@ app.post('/webhook', async (req, reply) => {
       if (!textContent && !savedMediaUrl) return;
 
       await saveMessage('messenger', senderId, 'user', textContent, mediaType, savedMediaUrl);
+
+      if (await isAiPaused('messenger', senderId)) return;
 
       const aiReply = await generateAgentReply(
         'messenger',
@@ -154,6 +163,8 @@ app.post('/webhook/telegram', async (req, reply) => {
     if (!textContent && !savedMediaUrl) return;
 
     await saveMessage('telegram', chatId, 'user', textContent, mediaType, savedMediaUrl);
+
+    if (await isAiPaused('telegram', chatId)) return;
 
     const aiReply = await generateAgentReply(
       'telegram',
