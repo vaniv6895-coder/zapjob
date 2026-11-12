@@ -12,6 +12,30 @@ dotenv.config();
 
 const app = Fastify({ logger: true });
 
+// Página inicial neutra (para aprovação de domínio na Meta)
+app.get('/', async (req, reply) => {
+  return reply.status(200).type('text/html; charset=utf-8').send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mia Digital Studio - Atendimento Oficial</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; padding: 20px; }
+    .card { background: #1e293b; padding: 36px; border-radius: 16px; max-width: 420px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    h1 { font-size: 22px; margin-bottom: 10px; color: #38bdf8; }
+    p { font-size: 15px; color: #94a3b8; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Mia Digital Studio</h1>
+    <p>Canal oficial de atendimento e suporte ao cliente.</p>
+  </div>
+</body>
+</html>`);
+});
+
 // Registra o Painel CRM (/painel)
 registerPanelRoutes(app);
 
