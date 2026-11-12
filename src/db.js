@@ -31,7 +31,41 @@ export async function initDB() {
       updated_at TIMESTAMP DEFAULT NOW(),
       PRIMARY KEY (channel, phone)
     );
+
+    CREATE TABLE IF NOT EXISTS bot_settings (
+      key VARCHAR(50) PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
+}
+
+export async function getBotSettings() {
+  const res = await pool.query(`SELECT key, value FROM bot_settings`);
+  const map = {};
+  for (const row of res.rows) {
+    map[row.key] = row.value;
+  }
+  return {
+    link_telegram: map.link_telegram || process.env.LINK_TELEGRAM_VIP || 'https://t.me/seu_canal_previas',
+    link_fatalfans: map.link_fatalfans || process.env.LINK_FATAL_FANS || 'https://fatalfans.com/seu_perfil',
+    link_fanvue: map.link_fanvue || process.env.LINK_FANVUE || 'https://fanvue.com/seu_perfil',
+    price_brl: map.price_brl || 'R$ 49,90/mês',
+    price_eur: map.price_eur || '25€/mês',
+    price_usd: map.price_usd || '$25 USD/mês',
+    price_gbp: map.price_gbp || '£22/month',
+  };
+}
+
+export async function saveBotSettings(settings) {
+  const entries = Object.entries(settings);
+  for (const [key, value] of entries) {
+    await pool.query(
+      `INSERT INTO bot_settings (key, value)
+       VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $2`,
+      [key, String(value || '').trim()]
+    );
+  }
 }
 
 export async function saveMessage(channel, phone, role, content, mediaType = 'text', mediaUrl = null) {
@@ -43,7 +77,6 @@ export async function saveMessage(channel, phone, role, content, mediaType = 'te
 }
 
 export async function getMemory(channelOrPhone, phoneOrLimit = 30, maybeLimit = 30) {
-  // Compatível tanto com getMemory('whatsapp', phone, 30) quanto getMemory(phone, 30)
   if (typeof phoneOrLimit === 'string') {
     const res = await pool.query(
       `SELECT role, content, media_type, media_url, created_at
