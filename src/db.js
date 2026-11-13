@@ -36,6 +36,16 @@ export async function initDB() {
       key VARCHAR(50) PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS vitrine_analytics (
+      id SERIAL PRIMARY KEY,
+      event_type VARCHAR(20) NOT NULL,
+      button_name TEXT,
+      source TEXT,
+      country TEXT,
+      device TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `);
 }
 
@@ -147,4 +157,59 @@ export async function getConversationMessages(channel, phone, limit = 100) {
     [String(channel), String(phone), limit]
   );
   return res.rows.reverse();
+}
+
+export async function trackVitrineEvent({ eventType, buttonName, source, country, device }) {
+  await pool.query(
+    `INSERT INTO vitrine_analytics (event_type, button_name, source, country, device)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      String(eventType || 'view'),
+      buttonName ? String(buttonName) : null,
+      String(source || 'Direto'),
+      String(country || 'Desconhecido'),
+      String(device || 'Mobile'),
+    ]
+  );
+}
+
+export async function getVitrineStats() {
+  const [totalsRes, buttonsRes, sourcesRes, countriesRes] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE event_type = 'view')::int AS total_views,
+        COUNT(*) FILTER (WHERE event_type = 'click')::int AS total_clicks,
+        COUNT(*) FILTER (WHERE event_type = 'view' AND created_at >= NOW() - INTERVAL '24 hours')::int AS views_24h,
+        COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '24 hours')::int AS clicks_24h
+      FROM vitrine_analytics
+    `),
+    pool.query(`
+      SELECT COALESCE(button_name, 'Outro') AS name, COUNT(*)::int AS total
+      FROM vitrine_analytics
+      WHERE event_type = 'click'
+      GROUP BY button_name
+      ORDER BY total DESC
+    `),
+    pool.query(`
+      SELECT COALESCE(source, 'Direto') AS name, COUNT(*)::int AS total
+      FROM vitrine_analytics
+      GROUP BY source
+      ORDER BY total DESC
+      LIMIT 10
+    `),
+    pool.query(`
+      SELECT COALESCE(country, 'Desconhecido') AS name, COUNT(*)::int AS total
+      FROM vitrine_analytics
+      GROUP BY country
+      ORDER BY total DESC
+      LIMIT 10
+    `),
+  ]);
+
+  return {
+    totals: totalsRes.rows[0],
+    buttons: buttonsRes.rows,
+    sources: sourcesRes.rows,
+    countries: countriesRes.rows,
+  };
 }

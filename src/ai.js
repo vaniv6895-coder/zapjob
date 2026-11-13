@@ -174,4 +174,5 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
-}
+}  
+

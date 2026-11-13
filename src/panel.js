@@ -10,7 +10,9 @@ import {
   setAiPaused,
   isAiPaused,
   getBotSettings,
-  saveBotSettings
+  saveBotSettings,
+  trackVitrineEvent,
+  getVitrineStats
 } from './db.js';
 import { sendWhatsAppText } from './whatsapp.js';
 import { sendTelegramText } from './telegram.js';
@@ -63,6 +65,39 @@ export function registerPanelRoutes(app) {
     }
     return true;
   }
+
+  // Rota pública (CORS liberado) para a vitrine externa registrar visitas e cliques
+  app.options('/api/vitrine/track', async (req, reply) => {
+    reply
+      .header('Access-Control-Allow-Origin', '*')
+      .header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      .header('Access-Control-Allow-Headers', 'Content-Type')
+      .send();
+  });
+
+  app.post('/api/vitrine/track', async (req, reply) => {
+    reply.header('Access-Control-Allow-Origin', '*');
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch { body = {}; }
+    }
+    const country = req.headers['cf-ipcountry'] || body.country || 'Desconhecido';
+    await trackVitrineEvent({
+      eventType: body.eventType,
+      buttonName: body.buttonName,
+      source: body.source,
+      country,
+      device: body.device,
+    });
+    return { ok: true };
+  });
+
+  // Relatório de cliques da vitrine para o /painel
+  app.get('/api/panel/analytics', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const stats = await getVitrineStats();
+    return { stats };
+  });
 
   // Listar todas as conversas (WhatsApp, Telegram, Messenger)
   app.get('/api/panel/conversations', async (req, reply) => {
@@ -121,7 +156,7 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
-// Upload de mídia pré-gravada (Áudio PTT, Vídeo, Imagem) para o Cloudflare R2
+  // Upload de mídia pré-gravada (Áudio PTT, Vídeo, Imagem) para o Cloudflare R2
   app.post('/api/panel/upload-media', async (req, reply) => {
     if (!checkAuth(req, reply)) return;
     const data = await req.file();
@@ -181,9 +216,9 @@ const PANEL_HTML = `<!DOCTYPE html>
     body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
     /* Login & Modais */
-    #login-screen, #settings-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    #settings-modal { display: none; overflow-y: auto; }
-    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+    #login-screen, #settings-modal, #analytics-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    #settings-modal, #analytics-modal { display: none; overflow-y: auto; }
+    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 460px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
     .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
     .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
     .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
@@ -195,14 +230,25 @@ const PANEL_HTML = `<!DOCTYPE html>
     .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 16px; }
     .btn-secondary { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3942; background: transparent; color: #8696a0; font-size: 14px; cursor: pointer; margin-top: 8px; }
 
+    /* Analytics Grid */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .kpi-card { background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #2a3942; }
+    .kpi-val { font-size: 22px; font-weight: bold; color: #00a884; }
+    .kpi-lbl { font-size: 11px; color: #8696a0; margin-top: 2px; }
+    .stat-section { margin-top: 14px; }
+    .stat-section h4 { font-size: 13px; color: #38bdf8; margin-bottom: 6px; border-bottom: 1px solid #2a3942; padding-bottom: 4px; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid rgba(42,57,66,0.4); }
+    .stat-count { font-weight: bold; color: #25d366; }
+
     /* App Layout */
     #app { display: flex; height: 100vh; width: 100%; }
-    #sidebar { width: 360px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
-    .sidebar-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-    .sidebar-header h3 { font-size: 16px; }
-    .header-actions { display: flex; gap: 6px; align-items: center; }
-    .nav-pill { background: #005c4b; color: #25d366; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; text-decoration: none; }
+    #sidebar { width: 380px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
+    .sidebar-header { background: #202c33; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .sidebar-header h3 { font-size: 15px; }
+    .header-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .nav-pill { background: #005c4b; color: #25d366; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; text-decoration: none; }
     .nav-pill.blue { background: #1c3d5a; color: #38bdf8; }
+    .nav-pill.amber { background: #451a03; color: #fbbf24; }
     .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
     .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
@@ -293,14 +339,24 @@ const PANEL_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <div id="analytics-modal">
+    <div class="modal-box">
+      <h2>📊 Cliques e Origem da Vitrine</h2>
+      <p>Dados em tempo real de visitas e cliques nos botões da sua bio.</p>
+      <div id="analytics-content">Carregando...</div>
+      <button class="btn-secondary" onclick="closeAnalytics()">Fechar</button>
+    </div>
+  </div>
+
   <div id="app">
     <div id="sidebar">
       <div class="sidebar-header">
         <h3>Conversas</h3>
         <div class="header-actions">
+          <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
           <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
           <button class="nav-pill" onclick="openSettings()">Links VIP</button>
-          <button onclick="logout()" style="background:none;border:none;color:#8696a0;cursor:pointer;font-size:12px;">Sair</button>
+          <button onclick="logout()" style="background:none;border:none;color:#8696a0;cursor:pointer;font-size:11px;">Sair</button>
         </div>
       </div>
       <div class="filter-bar">
@@ -314,7 +370,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para editar <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
+        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para ver <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -380,6 +436,34 @@ const PANEL_HTML = `<!DOCTYPE html>
     function logout() {
       localStorage.removeItem('panel_pwd');
       location.reload();
+    }
+
+    async function openAnalytics() {
+      document.getElementById('analytics-modal').style.display = 'flex';
+      document.getElementById('analytics-content').innerHTML = 'Carregando estatísticas...';
+      const res = await fetch('/api/panel/analytics', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { stats } = await res.json();
+      const t = stats.totals || {};
+
+      const renderRows = (arr) =>
+        arr && arr.length
+          ? arr.map(r => \`<div class="stat-row"><span>\${escapeHtml(r.name)}</span><span class="stat-count">\${r.total}</span></div>\`).join('')
+          : '<div style="font-size:12px;color:#8696a0;padding:4px 0;">Nenhum dado registrado ainda.</div>';
+
+      document.getElementById('analytics-content').innerHTML = \`
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-val">\${t.views_24h || 0}</div><div class="kpi-lbl">Visitas (24h) • Total: \${t.total_views || 0}</div></div>
+          <div class="kpi-card"><div class="kpi-val">\${t.clicks_24h || 0}</div><div class="kpi-lbl">Cliques (24h) • Total: \${t.total_clicks || 0}</div></div>
+        </div>
+        <div class="stat-section"><h4>Cliques por Botão</h4>\${renderRows(stats.buttons)}</div>
+        <div class="stat-section"><h4>De onde vieram (Origem)</h4>\${renderRows(stats.sources)}</div>
+        <div class="stat-section"><h4>Países / Idiomas</h4>\${renderRows(stats.countries)}</div>
+      \`;
+    }
+
+    function closeAnalytics() {
+      document.getElementById('analytics-modal').style.display = 'none';
     }
 
     async function openSettings() {
