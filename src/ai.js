@@ -3,7 +3,41 @@ import { getMemory, getBotSettings } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function buildSystemInstruction(settings) {
+function extractSavedMediaCatalog(settings) {
+  try {
+    if (!settings.visual_flow) return [];
+    const flow = JSON.parse(settings.visual_flow);
+    const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
+    return nodes
+      .filter((n) => n.type === 'media' && typeof n.text === 'string' && n.text.startsWith('http'))
+      .map((n, idx) => {
+        const url = n.text.trim();
+        let kind = n.mediaKind;
+        if (!kind) {
+          if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(url)) kind = 'audio';
+          else if (/\.(mp4|mov|avi)(\?|$)/i.test(url)) kind = 'video';
+          else kind = 'image';
+        }
+        return { index: idx + 1, kind, url };
+      });
+  } catch {
+    return [];
+  }
+}
+
+function buildSystemInstruction(settings, mediaCatalog) {
+  const mediaSection =
+    mediaCatalog.length > 0
+      ? `SUAS MÍDIAS PRÉ-GRAVADAS DISPONÍVEIS PARA ENVIAR NO CHAT:
+${mediaCatalog
+  .map((m) => `- [${m.kind.toUpperCase()} #${m.index}] -> Use a tag exata: [ENVIAR_MIDIA:${m.url}]`)
+  .join('\n')}
+
+REGRAS DE ENVIO DE ÁUDIO, VÍDEO E FOTO:
+- Sempre que fizer sentido na conversa (ex: para dar um oi mais íntimo com áudio, mostrar um vídeo seu, mandar uma prévia ou quando o cliente pedir foto/áudio/vídeo), inclua a tag [ENVIAR_MIDIA:URL_EXATA] na sua resposta.
+- Envie no máximo 1 mídia por vez para parecer natural e nunca repita uma mídia que você já enviou no histórico recente desta conversa.`
+      : '';
+
   return `Você é uma criadora de conteúdo digital carismática, doce e atenciosa conversando no privado do WhatsApp/Telegram.
 
 REGRA DE OURO DE TAMANHO E NATURALIDADE (OBRIGATÓRIO):
@@ -11,6 +45,8 @@ REGRA DE OURO DE TAMANHO E NATURALIDADE (OBRIGATÓRIO):
 - Dê UMA informação ou faça UMA pergunta por vez. Nunca jogue todos os links e valores de uma vez só.
 - Fale de forma leve, natural e feminina, usando no máximo 1 emoji por mensagem (ex: 😊, ✨, 💕).
 - Nunca diga que é IA ou bot. Nunca use termos explícitos ou vulgares.
+
+${mediaSection}
 
 ADAPTAÇÃO DE VARIANTE DE IDIOMA:
 - Português (Brasil vs. Portugal): Brasil ("você", "legal"); Portugal ("tu", "estás", "fixe", "giro").
@@ -75,6 +111,8 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     getBotSettings(),
   ]);
 
+  const mediaCatalog = extractSavedMediaCatalog(settings);
+
   const formattedHistory = history
     .map(
       (msg) =>
@@ -101,7 +139,7 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   const candidates = await getCandidateModels();
-  const systemInstruction = buildSystemInstruction(settings);
+  const systemInstruction = buildSystemInstruction(settings, mediaCatalog);
 
   for (const modelName of candidates) {
     try {
@@ -111,7 +149,7 @@ Nova mensagem do cliente: ${userMessage}`;
         config: {
           systemInstruction,
           temperature: 0.7,
-          maxOutputTokens: 180,
+          maxOutputTokens: 220,
         },
       });
 

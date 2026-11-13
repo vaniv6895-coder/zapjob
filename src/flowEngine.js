@@ -46,18 +46,15 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
   const edges = Array.isArray(flow.edges) ? flow.edges : [];
 
-  // Verifica histórico para saber se o cliente já recebeu o fluxo inicial antes
   const history = await getMemory(channel, userId, 30);
   const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
 
-  // Helper para pegar o próximo balão conectado
   const getNextNodes = (nodeId) =>
     edges
       .filter((e) => e.from === nodeId)
       .map((e) => nodes.find((n) => n.id === e.to))
       .filter(Boolean);
 
-  // 1. Verifica se existe algum balão de CONDIÇÃO que bate com a mensagem atual do cliente
   const msgLower = (userMessage || '').toLowerCase();
   const matchedCondition = nodes.find((n) => {
     if (n.type !== 'condition' || !n.text) return false;
@@ -69,9 +66,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     return keywords.some((kw) => msgLower.includes(kw));
   });
 
-  // 2. Define ponto de partida no fluxo visual:
-  // - Se bateu uma Condição específica, segue a partir dela
-  // - Se é o primeiro contato do cliente e existe um Gatilho Inicial, segue a partir do Gatilho
   let startNode = null;
   if (matchedCondition) {
     startNode = matchedCondition;
@@ -94,9 +88,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
       if (current.type === 'delay') {
         const secs = Math.min(15, Math.max(1, Number(current.text) || 3));
-        if (channel === 'whatsapp' && lastMessageId) {
-          await sendWhatsAppTyping(lastMessageId);
-        }
+        if (channel === 'whatsapp' && lastMessageId) await sendWhatsAppTyping(lastMessageId);
         await sleep(secs * 1000);
       } else if (current.type === 'message' && current.text?.trim()) {
         if (channel === 'whatsapp' && lastMessageId) {
@@ -115,11 +107,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         }
         await sendChannelMedia(channel, userId, url, kind);
         await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
-        executedFlowSummary.push(`Você acabou de enviar um(a) ${kind} pré-gravado(a) ao cliente.`);
+        executedFlowSummary.push(`Você acabou de enviar um(a) ${kind} (${url}) ao cliente.`);
       } else if (current.type === 'ai') {
         reachedAiNode = true;
         aiExtraInstruction = current.text || '';
-        break; // Passa o bastão para a IA Gemini continuar de forma natural
+        break;
       }
 
       const nexts = getNextNodes(current.id);
@@ -127,9 +119,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  // Decide se chama a IA Gemini:
-  // - Sempre chama se não houve fluxo visual disparado agora (conversa normal em andamento)
-  // - OU se o fluxo visual executado terminou conectado em um balão "Agente IA Gemini"
   const shouldCallAi = !startNode || reachedAiNode;
 
   if (shouldCallAi) {
@@ -139,13 +128,35 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
     let contextualMessage = userMessage;
     if (executedFlowSummary.length > 0) {
-      contextualMessage = `${userMessage}\n\n[SISTEMA - Ações do fluxo já enviadas agora ao cliente: ${executedFlowSummary.join(' | ')}. Continue a conversa naturalmente sem repetir o que já foi enviado.${aiExtraInstruction ? ` Foco atual: ${aiExtraInstruction}` : ''}]`;
+      contextualMessage = `${userMessage}\n\n[SISTEMA - Ações já enviadas agora: ${executedFlowSummary.join(' | ')}. Continue a conversa naturalmente sem repetir o que já foi enviado.${aiExtraInstruction ? ` Foco: ${aiExtraInstruction}` : ''}]`;
     }
 
-    const aiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
-    if (aiReply) {
-      await saveMessage(channel, userId, 'assistant', aiReply, 'text', null);
-      await sendChannelText(channel, userId, aiReply);
+    const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
+    if (rawAiReply) {
+      // Extrai tags [ENVIAR_MIDIA:https://...] escolhidas pela IA
+      const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
+      const mediaUrls = [];
+      let match;
+      while ((match = mediaRegex.exec(rawAiReply)) !== null) {
+        mediaUrls.push(match[1]);
+      }
+
+      const cleanText = rawAiReply.replace(mediaRegex, '').trim();
+
+      if (cleanText) {
+        await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
+        await sendChannelText(channel, userId, cleanText);
+      }
+
+      for (const url of mediaUrls) {
+        const kind = detectMediaKind(url);
+        if (channel === 'whatsapp' && lastMessageId) {
+          await sendWhatsAppTyping(lastMessageId);
+          await sleep(1200);
+        }
+        await sendChannelMedia(channel, userId, url, kind);
+        await saveMessage(channel, userId, 'assistant', `[${kind} enviado pela IA]`, kind, url);
+      }
     }
   }
 }
