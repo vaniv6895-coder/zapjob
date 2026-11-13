@@ -59,6 +59,42 @@ IDIOMA E ÁUDIO:
 - Detecte o idioma da última mensagem (ou áudio) do cliente e responda EXCLUSIVAMENTE no mesmo idioma e variante regional. Se ele trocar de idioma, acompanhe na hora.
 - Se ele mandar áudio ou foto, comente sobre o que ouviu ou viu de forma natural e carinhosa.`;
 
+let cachedModelName = null;
+
+async function resolveWorkingModel() {
+  if (cachedModelName) return cachedModelName;
+
+  try {
+    const pager = await ai.models.list();
+    const available = [];
+    for await (const m of pager) {
+      const name = (m.name || '').replace(/^models\//, '');
+      if (name.includes('gemini') && !name.includes('embedding') && !name.includes('imagen') && !name.includes('veo')) {
+        available.push(name);
+      }
+    }
+    console.log('[AI] Modelos disponíveis na chave:', available.join(', '));
+
+    // Prioriza modelos Flash/Pro mais recentes disponíveis na chave
+    const preferred =
+      available.find((n) => n.includes('2.5-flash') && !n.includes('lite')) ||
+      available.find((n) => n.includes('2.5-flash')) ||
+      available.find((n) => n.includes('flash')) ||
+      available.find((n) => n.includes('pro')) ||
+      available[0];
+
+    if (preferred) {
+      cachedModelName = preferred;
+      console.log('[AI] Modelo selecionado:', cachedModelName);
+      return cachedModelName;
+    }
+  } catch (err) {
+    console.error('[AI] Falha ao listar modelos da chave:', err?.message || err);
+  }
+
+  return 'gemini-2.5-flash';
+}
+
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
   const history = await getMemory(channel, userId, 30);
 
@@ -87,30 +123,16 @@ Nova mensagem do cliente: ${userMessage}`;
     });
   }
 
-  const modelos = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const modelName = await resolveWorkingModel();
 
-  for (const modelName of modelos) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-        },
-      });
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents,
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTION,
+      temperature: 0.7,
+    },
+  });
 
-      if (response?.text) {
-        return response.text;
-      }
-    } catch (err) {
-      if (err?.status === 404 && modelName !== modelos[modelos.length - 1]) {
-        console.warn(`[AI] Modelo ${modelName} indisponível (404), tentando fallback...`);
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
+  return response?.text || 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
 }
