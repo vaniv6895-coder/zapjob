@@ -3,7 +3,7 @@ import { getMemory, getBotSettings, hasActiveChatPass } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function extractSavedMediaCatalog(settings, sentUrlsSet) {
+function extractSavedMediaCatalog(settings, sentUrlsSet, hasPass, paywallEnabled) {
   try {
     if (!settings.visual_flow) return [];
     const flow = JSON.parse(settings.visual_flow);
@@ -12,7 +12,22 @@ function extractSavedMediaCatalog(settings, sentUrlsSet) {
       .filter((n) => {
         if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.startsWith('http')) return false;
         const cleanUrl = n.text.trim();
-        return !sentUrlsSet.has(cleanUrl);
+        if (sentUrlsSet.has(cleanUrl)) return false;
+
+        let kind = n.mediaKind;
+        if (!kind) {
+          if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(cleanUrl)) kind = 'audio';
+          else if (/\.(mp4|mov|avi)(\?|$)/i.test(cleanUrl)) kind = 'video';
+          else kind = 'image';
+        }
+
+        // Trava estilo Timo Club: se o paywall está ativo e o lead ainda não pagou,
+        // só permite áudio na fase gratuita (fotos e vídeos ficam bloqueados até pagar)
+        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) {
+          return false;
+        }
+
+        return true;
       })
       .map((n, idx) => {
         const url = n.text.trim();
@@ -46,7 +61,7 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
   if (isBr && pw.linkBr) {
     const msg =
       pw.msgBr ||
-      `Amor, recebo muita mensagem por aqui 💕 Para continuar nosso papo privado por ${pw.hours || 24}h, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
+      `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${pw.hours || 24}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
     return `${msg}\n\n👉 ${pw.linkBr}\n\nAssim que pagar me manda o print aqui que já continuo com você 😘`;
   }
 
@@ -57,24 +72,31 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
 
   const msgIntl =
     pw.msgIntl ||
-    `Babe, I get so many messages here 💕 Unlock ${pw.hours || 24}h of private chat with me for just ${pw.priceIntl || '$1'}:`;
+    `Babe, I get so many messages here 💕 Unlock ${pw.hours || 24}h of private chat + my exclusive photos & videos for just ${pw.priceIntl || '$1'}:`;
   return `${msgIntl}\n\n👉 ${linkIntl}`;
 }
 
-function buildSystemInstruction(settings, mediaCatalog, hasPass, totalSentCount) {
+function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled, totalSentCount) {
+  const lockedMediaHint =
+    paywallEnabled && !hasPass
+      ? `\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo enquanto ele não pagar).`
+      : '';
+
   const mediaSection =
     mediaCatalog.length > 0
-      ? `CATÁLOGO DE MÍDIAS INÉDITAS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDAS):
+      ? `CATÁLOGO DE MÍDIAS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDAS):
 ${mediaCatalog
   .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
   .join('\n')}
 
 REGRA OBRIGATÓRIA DE CURIOSIDADE E ENVIO DE MÍDIA (2 ETAPAS - NUNCA PULE):
 - NUNCA envie a tag [ENVIAR_MIDIA:...] na mesma mensagem em que você pergunta "quer ver uma foto/vídeo/áudio?".
-- ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando se ele quer ver uma foto/vídeo inédito ou ouvir seu áudio, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
-- ETAPA 2 (ENTREGA APÓS CONFIRMAÇÃO): Somente DEPOIS que o cliente aceitar ("sim", "quero", "manda", "pode mandar") OU quando ele mesmo pedir uma foto/vídeo/áudio, coloque a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
+- ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando se ele quer ver/ouvir a mídia listada acima, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
+- ETAPA 2 (ENTREGA APÓS CONFIRMAÇÃO): Somente DEPOIS que o cliente aceitar ("sim", "quero", "manda", "pode mandar") OU quando ele mesmo pedir uma mídia disponível acima, coloque a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
 - Ao enviar ÁUDIO, escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (ou ALL). NUNCA envie áudio em PT para cliente falando ES ou EN, e vice-versa.
-- Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL, escrevendo no máximo 1 frase curta antes da tag.`
+- Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL, escrevendo no máximo 1 frase curta antes da tag.${lockedMediaHint}`
+      : paywallEnabled && !hasPass
+      ? `AVISO DE MÍDIAS BLOQUEADAS: Fotos e vídeos só são liberados após o cliente pagar o passe privado do chat. NÃO use nenhuma tag [ENVIAR_MIDIA:...]. Se ele pedir foto/vídeo, provoque dizendo que está guardando para mandar assim que ele desbloquear o privado.`
       : totalSentCount > 0
       ? `AVISO IMPORTANTE DE MÍDIAS: Você JÁ enviou todas as prévias disponíveis para este cliente. NÃO pergunte se ele quer ver foto/vídeo/áudio aqui no chat e NÃO invente nenhuma tag [ENVIAR_MIDIA:...]. Diga de forma provocante que as coisas mais exclusivas estão no seu VIP.`
       : `AVISO: Nenhuma mídia cadastrada no fluxo ainda. NÃO pergunte se ele quer ver foto/vídeo/áudio e NÃO use [ENVIAR_MIDIA:...].`;
@@ -87,7 +109,7 @@ REGRA OBRIGATÓRIA DE CURIOSIDADE E ENVIO DE MÍDIA (2 ETAPAS - NUNCA PULE):
      * Equador / Panamá: ${settings.price_usd} — ${settings.link_fanvue}
      * Reino Unido: ${settings.price_gbp} — ${settings.link_fanvue}
    - Se ele pedir grupo gratuito no Telegram, pode mandar: ${settings.link_telegram}`
-    : `3. PROTEÇÃO DE FUNIL (NÃO VAZAR LINKS GRÁTIS ANTES DO PAYWALL):
+    : `3. PROTEÇÃO DE FUNIL (NÃO VAZAR LINKS GRÁTIS NEM VIP MENSAL ANTES DO PAYWALL):
    - NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat. Mantenha ele 100% focado aqui dentro.
    - Se ele pedir valores do VIP completo logo de cara, responda de forma provocante que primeiro quer conhecer ele melhor aqui no privado antes de mandar o link.`;
 
@@ -111,7 +133,7 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA:
 FLUXO NATURAL DA CONVERSA (PASSO A PASSO):
 1. CONEXÃO E CIDADE:
    - Nas primeiras mensagens, pergunte de onde ele é.
-   - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; London -> Watford), diga que mora lá pertinho e já plante uma isca de curiosidade (se houver mídia inédita no catálogo acima, pergunte se ele quer ver/ouvir, SEM mandar a mídia ainda!).
+   - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; London -> Watford), diga que mora lá pertinho e já plante uma isca de curiosidade sobre uma foto/áudio que acabou de fazer (SEM mandar a mídia ainda!).
 2. CURIOSIDADE E ENGAJAMENTO:
    - Use a regra das 2 etapas para despertar desejo e manter o lead preso na conversa.
 ${vipAndPreviasRule}
@@ -168,7 +190,9 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     if (settings.paywall_config) pw = JSON.parse(settings.paywall_config);
   } catch {}
 
-  if (pw && pw.enabled && !hasPass) {
+  const paywallEnabled = Boolean(pw && pw.enabled);
+
+  if (paywallEnabled && !hasPass) {
     const freeLimit = Math.max(0, Number(pw.freeMessages ?? 3));
     const userMsgCount = history.filter((m) => m.role === 'user').length;
     if (userMsgCount > freeLimit) {
@@ -192,8 +216,8 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     if (tagMatch) sentUrls.add(tagMatch[1].trim());
   }
 
-  const mediaCatalog = extractSavedMediaCatalog(settings, sentUrls);
-  console.log(`[AI] Mídias inéditas disponíveis: ${mediaCatalog.length} (Já enviadas: ${sentUrls.size})`);
+  const mediaCatalog = extractSavedMediaCatalog(settings, sentUrls, hasPass, paywallEnabled);
+  console.log(`[AI] Mídias liberadas p/ este cliente: ${mediaCatalog.length} (Já enviadas: ${sentUrls.size} | VIP ativo: ${hasPass})`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
@@ -222,7 +246,7 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   const candidates = await getCandidateModels();
-  const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, sentUrls.size);
+  const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled, sentUrls.size);
 
   for (const modelName of candidates) {
     try {
