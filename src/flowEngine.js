@@ -13,6 +13,37 @@ function detectMediaKind(url, declaredKind) {
   return 'image';
 }
 
+// Detecta o idioma da mensagem do cliente (PT, ES ou EN) com fallback pelo DDI do número
+function detectClientLanguage(text, userId) {
+  const t = (text || '').toLowerCase();
+
+  // Palavras típicas em Espanhol
+  if (/\b(hola|buenas|quetal|qué tal|como estas|cómo estás|guapa|hermosa|cuanto|cuánto|precio|de donde|de dónde|españa|ecuador|panama|panamá|mexico|méxico|colombia|chile|argentina|peru|perú)\b/i.test(t) || /[¿¡ñáéíóú]/i.test(t)) {
+    // Diferencia palavras exclusivas do português (ç, ã, õ, você, oi, tudo)
+    if (!/\b(voc[eê]|tudo bem|oi|ol[aá]|obrigado|pre[cç]o|quanto custa)\b/i.test(t) && !/[çãõ]/i.test(t)) {
+      return 'ES';
+    }
+  }
+
+  // Palavras típicas em Inglês
+  if (/\b(hi|hello|hey|how are you|what's up|whats up|beautiful|gorgeous|cute|how much|price|where are you from|link|pic|pics|photo|video|voice)\b/i.test(t)) {
+    return 'EN';
+  }
+
+  // Palavras típicas em Português
+  if (/\b(oi|ol[aá]|tudo bem|td bem|bom dia|boa tarde|boa noite|linda|gata|quanto|valor|pre[cç]o|voc[eê]|vc|de onde)\b/i.test(t) || /[çãõ]/i.test(t)) {
+    return 'PT';
+  }
+
+  // Fallback pelo DDI do WhatsApp caso o cliente mande só "👋" ou "?"
+  const phone = String(userId || '').replace(/\D/g, '');
+  if (phone.startsWith('55') || phone.startsWith('351')) return 'PT';
+  if (/^(34|593|507|52|54|57|56|51|58|591|595|598|506|503|502|504|505)/.test(phone)) return 'ES';
+  if (/^(1|44|61|64|353)/.test(phone)) return 'EN';
+
+  return 'PT';
+}
+
 async function sendChannelText(channel, userId, text) {
   if (!text?.trim()) return;
   if (channel === 'whatsapp') await sendWhatsAppText(userId, text);
@@ -49,7 +80,12 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
   const edges = Array.isArray(flow.edges) ? flow.edges : [];
 
-  console.log(`[FlowEngine] Usuário: ${userId} | Nodes: ${nodes.length} | Edges: ${edges.length} | IA Pausada: ${aiPaused}`);
+  const history = await getMemory(channel, userId, 30);
+  const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
+  const isFirstContact = !assistantAlreadyReplied;
+  const clientLang = detectClientLanguage(userMessage, userId);
+
+  console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | IA Pausada: ${aiPaused}`);
 
   const getNextNodes = (nodeId) =>
     edges
@@ -68,13 +104,10 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     return keywords.some((kw) => msgLower.includes(kw));
   });
 
-  const history = await getMemory(channel, userId, 30);
-  const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
-
   let startNode = null;
   if (matchedCondition) {
     startNode = matchedCondition;
-  } else if (aiPaused || !assistantAlreadyReplied) {
+  } else if (aiPaused || isFirstContact) {
     startNode = nodes.find((n) => n.type === 'trigger') || null;
   }
 
@@ -105,10 +138,17 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         await saveMessage(channel, userId, 'assistant', current.text.trim(), 'text', null);
         executedFlowSummary.push(`Você enviou a mensagem: "${current.text.trim()}"`);
       } else if (current.type === 'media' && current.text?.trim().startsWith('http')) {
+        // Se o balão conectado tiver um idioma específico diferente do cliente, pula ele
+        if (current.mediaLang && current.mediaLang !== 'ALL' && current.mediaLang !== clientLang) {
+          const nexts = getNextNodes(current.id);
+          queue.push(...nexts);
+          continue;
+        }
+
         const url = current.text.trim();
         const kind = detectMediaKind(url, current.mediaKind);
         try {
-          console.log(`[FlowEngine] Enviando ${kind} do fluxo para ${userId}: ${url}`);
+          console.log(`[FlowEngine] Enviando ${kind} (${clientLang}) do fluxo para ${userId}: ${url}`);
           if (channel === 'whatsapp' && lastMessageId) {
             await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
             await sleep(1500);
@@ -131,6 +171,36 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
+  // GATILHO AUTOMÁTICO DE BOAS-VINDAS POR IDIOMA NO 1º CONTATO:
+  // Se for a 1ª mensagem do cliente e houver um áudio cadastrado com o idioma dele (e descrição "boas-vindas" ou "oi"), dispara agora!
+  if (isFirstContact && !sentMediaInThisTurn) {
+    const welcomeAudio = nodes.find((n) => {
+      if (n.type !== 'media' || !n.text?.trim().startsWith('http')) return false;
+      const kind = detectMediaKind(n.text.trim(), n.mediaKind);
+      if (kind !== 'audio') return false;
+      const matchesLang = n.mediaLang === clientLang;
+      const isWelcomeLabel = /boas|vindas|oi|hola|hi|inicio|inicial|sauda/i.test(n.mediaLabel || '');
+      return matchesLang && isWelcomeLabel;
+    });
+
+    if (welcomeAudio) {
+      const url = welcomeAudio.text.trim();
+      try {
+        console.log(`[FlowEngine] Disparando áudio de boas-vindas (${clientLang}) para ${userId}: ${url}`);
+        if (channel === 'whatsapp' && lastMessageId) {
+          await sendWhatsAppTyping(lastMessageId, 'audio');
+          await sleep(1800);
+        }
+        await sendChannelMedia(channel, userId, url, 'audio');
+        await saveMessage(channel, userId, 'assistant', `[Áudio de boas-vindas ${clientLang} enviado]`, 'audio', url);
+        executedFlowSummary.push(`Você acabou de enviar seu áudio de boas-vindas em ${clientLang} (${welcomeAudio.mediaLabel || ''}).`);
+        sentMediaInThisTurn = true;
+      } catch (err) {
+        console.error('[FlowEngine] Erro ao enviar áudio de boas-vindas:', err?.response?.data || err.message);
+      }
+    }
+  }
+
   const shouldCallAi = !aiPaused && (!startNode || reachedAiNode);
 
   if (shouldCallAi) {
@@ -138,9 +208,9 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       await sendWhatsAppTyping(lastMessageId, 'text');
     }
 
-    let contextualMessage = userMessage;
+    let contextualMessage = `${userMessage}\n\n[IDIOMA DETECTADO DO CLIENTE: ${clientLang}]`;
     if (executedFlowSummary.length > 0) {
-      contextualMessage = `${userMessage}\n\n[SISTEMA - Ações já enviadas agora: ${executedFlowSummary.join(' | ')}. Continue a conversa naturalmente sem repetir o que já foi enviado.${aiExtraInstruction ? ` Foco: ${aiExtraInstruction}` : ''}]`;
+      contextualMessage += `\n[SISTEMA - Ações já enviadas agora: ${executedFlowSummary.join(' | ')}. Continue a conversa naturalmente em ${clientLang} sem repetir o que já foi enviado.${aiExtraInstruction ? ` Foco: ${aiExtraInstruction}` : ''}]`;
     }
 
     const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
@@ -152,19 +222,22 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         mediaUrls.push(match[1]);
       }
 
-      // Fallback automático: se o cliente pediu foto/amostra/vídeo/áudio e a IA não colocou a tag,
-      // pega uma mídia cadastrada no /fluxo e dispara automaticamente!
+      // Fallback automático filtrado pelo idioma do cliente
       if (mediaUrls.length === 0 && !sentMediaInThisTurn) {
         const allMediaNodes = nodes.filter((n) => n.type === 'media' && n.text?.trim().startsWith('http'));
         if (allMediaNodes.length > 0) {
           let requestedKind = null;
-          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver)\b/i.test(msgLower)) requestedKind = 'image';
-          else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o)\b/i.test(msgLower)) requestedKind = 'video';
-          else if (/\b([aá]udio|voz|fala comigo|manda voz)\b/i.test(msgLower)) requestedKind = 'audio';
+          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo|foto)\b/i.test(msgLower)) requestedKind = 'image';
+          else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o|video)\b/i.test(msgLower)) requestedKind = 'video';
+          else if (/\b([aá]udio|voz|fala comigo|manda voz|voice|audio)\b/i.test(msgLower)) requestedKind = 'audio';
 
           if (requestedKind) {
-            const matching = allMediaNodes.filter((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
-            const chosen = matching[0] || allMediaNodes[0];
+            const matching = allMediaNodes.filter((n) => {
+              const k = detectMediaKind(n.text.trim(), n.mediaKind);
+              const langOk = !n.mediaLang || n.mediaLang === 'ALL' || n.mediaLang === clientLang;
+              return k === requestedKind && langOk;
+            });
+            const chosen = matching[0] || allMediaNodes.find((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
             if (chosen) {
               mediaUrls.push(chosen.text.trim());
             }

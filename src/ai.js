@@ -18,7 +18,9 @@ function extractSavedMediaCatalog(settings) {
           else if (/\.(mp4|mov|avi)(\?|$)/i.test(url)) kind = 'video';
           else kind = 'image';
         }
-        return { index: idx + 1, kind, url };
+        const lang = n.mediaLang || 'ALL';
+        const label = n.mediaLabel ? ` - Contexto: ${n.mediaLabel}` : '';
+        return { index: idx + 1, kind, lang, label, url };
       });
   } catch {
     return [];
@@ -30,13 +32,15 @@ function buildSystemInstruction(settings, mediaCatalog) {
     mediaCatalog.length > 0
       ? `CATÁLOGO DE MÍDIAS PRÉ-GRAVADAS DISPONÍVEIS:
 ${mediaCatalog
-  .map((m) => `- MÍDIA #${m.index} (${m.kind.toUpperCase()}): [ENVIAR_MIDIA:${m.url}]`)
+  .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
   .join('\n')}
 
-REGRA OBRIGATÓRIA DE ENVIO DE FOTO, VÍDEO E ÁUDIO:
-- Quando o cliente pedir foto, vídeo, áudio, prévia ou elogiar você, VOCÊ DEVE OBRIGATORIAMENTE colocar a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
+REGRA OBRIGATÓRIA DE IDIOMA E ENVIO DE FOTO, VÍDEO E ÁUDIO:
+- Identifique o idioma da última mensagem do cliente (Português = PT, Espanhol = ES, Inglês = EN).
+- Ao enviar ÁUDIO, escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (ou ALL). NUNCA envie áudio em PT para cliente falando ES ou EN, e vice-versa.
+- Quando o cliente pedir foto, vídeo, áudio, prévia ou quando fizer sentido na conversa, VOCÊ DEVE OBRIGATORIAMENTE colocar a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
 - Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL.
-- Escreva no máximo 1 frase curta antes da tag para sobrar espaço para a URL completa.`
+- Escreva no máximo 1 frase curta no idioma do cliente antes da tag para sobrar espaço para a URL completa.`
       : 'AVISO: Nenhuma mídia cadastrada no fluxo ainda.';
 
   return `Você é uma criadora de conteúdo digital carismática, doce e atenciosa conversando no privado do WhatsApp/Telegram.
