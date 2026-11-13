@@ -94,11 +94,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
       if (current.type === 'delay') {
         const secs = Math.min(15, Math.max(1, Number(current.text) || 3));
-        if (channel === 'whatsapp' && lastMessageId) await sendWhatsAppTyping(lastMessageId);
+        if (channel === 'whatsapp' && lastMessageId) await sendWhatsAppTyping(lastMessageId, 'text');
         await sleep(secs * 1000);
       } else if (current.type === 'message' && current.text?.trim()) {
         if (channel === 'whatsapp' && lastMessageId) {
-          await sendWhatsAppTyping(lastMessageId);
+          await sendWhatsAppTyping(lastMessageId, 'text');
           await sleep(1000);
         }
         await sendChannelText(channel, userId, current.text.trim());
@@ -110,8 +110,8 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         try {
           console.log(`[FlowEngine] Enviando ${kind} do fluxo para ${userId}: ${url}`);
           if (channel === 'whatsapp' && lastMessageId) {
-            await sendWhatsAppTyping(lastMessageId);
-            await sleep(1000);
+            await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
+            await sleep(1500);
           }
           await sendChannelMedia(channel, userId, url, kind);
           await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
@@ -135,7 +135,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   if (shouldCallAi) {
     if (channel === 'whatsapp' && lastMessageId) {
-      await sendWhatsAppTyping(lastMessageId);
+      await sendWhatsAppTyping(lastMessageId, 'text');
     }
 
     let contextualMessage = userMessage;
@@ -184,8 +184,8 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         try {
           console.log(`[FlowEngine] Enviando ${kind} para ${userId}: ${url}`);
           if (channel === 'whatsapp' && lastMessageId) {
-            await sendWhatsAppTyping(lastMessageId);
-            await sleep(1000);
+            await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
+            await sleep(1500);
           }
           await sendChannelMedia(channel, userId, url, kind);
           await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, url);

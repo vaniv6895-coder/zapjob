@@ -19,23 +19,26 @@ import { uploadMedia } from './storage.js';
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
-function convertAudioBufferToMp3(inputBuffer) {
+function convertAudioBufferToOggOpus(inputBuffer) {
   return new Promise((resolve, reject) => {
     const tmpIn = path.join(os.tmpdir(), `in_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`);
-    const tmpOut = path.join(os.tmpdir(), `out_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`);
+    const tmpOut = path.join(os.tmpdir(), `out_${Date.now()}_${Math.random().toString(36).slice(2)}.ogg`);
 
     fs.writeFileSync(tmpIn, inputBuffer);
 
     ffmpeg(tmpIn)
-      .toFormat('mp3')
-      .audioCodec('libmp3lame')
-      .audioBitrate('64k')
+      .noVideo()
+      .audioCodec('libopus')
+      .audioChannels(1)
+      .audioFrequency(48000)
+      .audioBitrate('32k')
+      .format('ogg')
       .on('end', () => {
         try {
-          const mp3Buffer = fs.readFileSync(tmpOut);
+          const oggBuffer = fs.readFileSync(tmpOut);
           fs.unlinkSync(tmpIn);
           fs.unlinkSync(tmpOut);
-          resolve(mp3Buffer);
+          resolve(oggBuffer);
         } catch (e) {
           reject(e);
         }
@@ -118,7 +121,7 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
-  // Upload de mídia pré-gravada (Áudio, Vídeo, Imagem) para o Cloudflare R2
+// Upload de mídia pré-gravada (Áudio PTT, Vídeo, Imagem) para o Cloudflare R2
   app.post('/api/panel/upload-media', async (req, reply) => {
     if (!checkAuth(req, reply)) return;
     const data = await req.file();
@@ -128,16 +131,15 @@ export function registerPanelRoutes(app) {
     let mimeType = data.mimetype || 'application/octet-stream';
     let cleanName = data.filename.replace(/[^a-zA-Z0-9._-]/g, '');
 
-    // Converte qualquer gravação de áudio/voz do navegador (ogg, webm, wav, m4a) para MP3 real compatível com WhatsApp
-    const isBrowserAudio =
+    const isAudio =
       mimeType.startsWith('audio/') ||
       mimeType.includes('webm') ||
-      /\.(ogg|webm|wav|m4a|opus)$/i.test(cleanName);
+      /\.(ogg|webm|wav|m4a|opus|mp3)$/i.test(cleanName);
 
-    if (isBrowserAudio && !cleanName.toLowerCase().endsWith('.mp3')) {
-      buffer = await convertAudioBufferToMp3(buffer);
-      mimeType = 'audio/mpeg';
-      cleanName = cleanName.replace(/\.[^.]+$/, '') + '.mp3';
+    if (isAudio) {
+      buffer = await convertAudioBufferToOggOpus(buffer);
+      mimeType = 'audio/ogg';
+      cleanName = cleanName.replace(/\.[^.]+$/, '') + '.ogg';
     }
 
     const fileId = `${Date.now()}_${cleanName}`;

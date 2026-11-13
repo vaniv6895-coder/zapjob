@@ -28,8 +28,8 @@ export async function downloadWhatsAppMedia(mediaId) {
   };
 }
 
-// Marca como lida e ativa o indicador "digitando..." no WhatsApp do cliente
-export async function sendWhatsAppTyping(messageId) {
+// Marca como lida e ativa "digitando..." (text) ou "gravando áudio..." (audio)
+export async function sendWhatsAppTyping(messageId, indicatorType = 'text') {
   if (!messageId) return;
   try {
     await axios.post(
@@ -39,7 +39,7 @@ export async function sendWhatsAppTyping(messageId) {
         status: 'read',
         message_id: messageId,
         typing_indicator: {
-          type: 'text',
+          type: indicatorType === 'audio' ? 'audio' : 'text',
         },
       },
       { headers: authHeaders() }
@@ -62,7 +62,7 @@ export async function sendWhatsAppText(to, text) {
   );
 }
 
-// Baixa a mídia do R2, faz upload direto para a Meta (POST /media) e envia pelo media_id
+// Baixa a mídia do R2, faz upload direto para a Meta (POST /media) e envia como Nota de Voz PTT
 export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   let type = mediaKind;
   if (!type) {
@@ -71,12 +71,10 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
     else type = 'image';
   }
 
-  // 1. Baixa o arquivo do link R2
   const fileRes = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
   const buffer = Buffer.from(fileRes.data);
   let contentType = fileRes.headers['content-type'] || '';
 
-  // Ajusta MIME types exigidos pela Cloud API do WhatsApp
   if (type === 'audio') {
     contentType = /\.mp3(\?|$)/i.test(mediaUrl) || contentType.includes('mpeg') ? 'audio/mpeg' : 'audio/ogg';
   } else if (type === 'video' && (!contentType || contentType.includes('octet-stream'))) {
@@ -87,7 +85,6 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
 
   const ext = type === 'audio' ? (contentType === 'audio/mpeg' ? 'mp3' : 'ogg') : type === 'video' ? 'mp4' : 'jpg';
 
-  // 2. Faz upload direto para os servidores da Meta para obter o media_id
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('file', buffer, {
@@ -107,14 +104,16 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
     throw new Error('Falha ao obter media_id da Meta no upload');
   }
 
-  // 3. Dispara a mensagem no WhatsApp usando o media_id oficial
+  const mediaObject = { id: mediaId };
+  if (type === 'audio' && contentType === 'audio/ogg') {
+    mediaObject.voice = true; // Faz chegar com a foto de perfil (Nota de Voz PTT)
+  }
+
   const payload = {
     messaging_product: 'whatsapp',
     to,
     type,
-    [type]: {
-      id: mediaId,
-    },
+    [type]: mediaObject,
   };
 
   await axios.post(`${GRAPH_URL}/${PHONE_NUMBER_ID}/messages`, payload, {
