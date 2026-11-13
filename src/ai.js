@@ -59,40 +59,35 @@ IDIOMA E ÁUDIO:
 - Detecte o idioma da última mensagem (ou áudio) do cliente e responda EXCLUSIVAMENTE no mesmo idioma e variante regional. Se ele trocar de idioma, acompanhe na hora.
 - Se ele mandar áudio ou foto, comente sobre o que ouviu ou viu de forma natural e carinhosa.`;
 
-let cachedModelName = null;
+let workingModelCache = null;
 
-async function resolveWorkingModel() {
-  if (cachedModelName) return cachedModelName;
+async function getCandidateModels() {
+  if (workingModelCache) return [workingModelCache];
+
+  const fallbacks = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
 
   try {
     const pager = await ai.models.list();
     const available = [];
     for await (const m of pager) {
       const name = (m.name || '').replace(/^models\//, '');
-      if (name.includes('gemini') && !name.includes('embedding') && !name.includes('imagen') && !name.includes('veo')) {
+      if (
+        name.includes('gemini') &&
+        name.includes('flash') &&
+        !name.includes('image') &&
+        !name.includes('lite') &&
+        !name.includes('2.0') &&
+        !name.includes('2.5')
+      ) {
         available.push(name);
       }
     }
-    console.log('[AI] Modelos disponíveis na chave:', available.join(', '));
-
-    // Prioriza modelos Flash/Pro mais recentes disponíveis na chave
-    const preferred =
-      available.find((n) => n.includes('2.5-flash') && !n.includes('lite')) ||
-      available.find((n) => n.includes('2.5-flash')) ||
-      available.find((n) => n.includes('flash')) ||
-      available.find((n) => n.includes('pro')) ||
-      available[0];
-
-    if (preferred) {
-      cachedModelName = preferred;
-      console.log('[AI] Modelo selecionado:', cachedModelName);
-      return cachedModelName;
-    }
-  } catch (err) {
-    console.error('[AI] Falha ao listar modelos da chave:', err?.message || err);
+    // Ordena do mais recente (3.8, 3.7...) para o anterior
+    available.sort().reverse();
+    return [...new Set([...available, ...fallbacks])];
+  } catch {
+    return fallbacks;
   }
-
-  return 'gemini-2.5-flash';
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
@@ -123,16 +118,32 @@ Nova mensagem do cliente: ${userMessage}`;
     });
   }
 
-  const modelName = await resolveWorkingModel();
+  const candidates = await getCandidateModels();
 
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      temperature: 0.7,
-    },
-  });
+  for (const modelName of candidates) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.7,
+        },
+      });
 
-  return response?.text || 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
+      if (response?.text) {
+        workingModelCache = modelName;
+        console.log('[AI] Respondido com sucesso usando:', modelName);
+        return response.text;
+      }
+    } catch (err) {
+      if (err?.status === 404) {
+        console.warn(`[AI] ${modelName} retornou 404, testando próximo...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
 }
