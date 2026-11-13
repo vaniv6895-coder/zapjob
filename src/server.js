@@ -4,11 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { initDB, saveMessage, isAiPaused, setAiPaused } from './db.js';
-import { downloadWhatsAppMedia, sendWhatsAppText } from './whatsapp.js';
-import { downloadTelegramMedia, sendTelegramText } from './telegram.js';
-import { downloadMessengerMedia, sendMessengerText } from './messenger.js';
+import { downloadWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
+import { downloadTelegramMedia } from './telegram.js';
+import { downloadMessengerMedia } from './messenger.js';
 import { uploadMedia } from './storage.js';
-import { generateAgentReply } from './ai.js';
+import { runHybridFlow } from './flowEngine.js';
 import { registerPanelRoutes } from './panel.js';
 
 dotenv.config();
@@ -21,14 +21,22 @@ const app = Fastify({ logger: true });
 const clientBuffers = new Map();
 const clientTimers = new Map();
 
-function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMime, sendFn }) {
+function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMime, lastMessageId }) {
   const key = `${channel}:${userId}`;
-  const atual = clientBuffers.get(key) || { textos: [], mediaBuffer: null, mediaMime: null };
+  const atual = clientBuffers.get(key) || {
+    textos: [],
+    mediaBuffer: null,
+    mediaMime: null,
+    lastMessageId: null,
+  };
 
   if (textContent) atual.textos.push(textContent);
   if (mediaBuffer) {
     atual.mediaBuffer = mediaBuffer;
     atual.mediaMime = mediaMime;
+  }
+  if (lastMessageId) {
+    atual.lastMessageId = lastMessageId;
   }
   clientBuffers.set(key, atual);
 
@@ -48,18 +56,14 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
       if (await isAiPaused(channel, userId)) return;
 
       const mensagemAgrupada = pacote.textos.join('\n');
-      const aiReply = await generateAgentReply(
+      await runHybridFlow({
         channel,
         userId,
-        mensagemAgrupada,
-        pacote.mediaBuffer,
-        pacote.mediaMime
-      );
-
-      if (aiReply) {
-        await saveMessage(channel, userId, 'assistant', aiReply, 'text', null);
-        await sendFn(userId, aiReply);
-      }
+        userMessage: mensagemAgrupada,
+        mediaBuffer: pacote.mediaBuffer,
+        mediaMime: pacote.mediaMime,
+        lastMessageId: pacote.lastMessageId,
+      });
     } catch (err) {
       app.log.error(err, `[Buffer 3s] Erro ao processar resposta para ${key}`);
     }
@@ -68,14 +72,6 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
   clientTimers.set(key, timer);
 }
 
-// Loop de escuta/monitoramento ativo a cada 3 segundos
-setInterval(() => {
-  if (clientBuffers.size > 0) {
-    app.log.debug(`[Escuta 3s] ${clientBuffers.size} conversa(s) aguardando janela de 3s...`);
-  }
-}, 3000);
-
-// Habilita upload de áudios, fotos e vídeos pré-gravados (até 50MB)
 app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
 // Página inicial neutra (para aprovação de domínio na Meta)
@@ -148,6 +144,7 @@ app.post('/webhook', async (req, reply) => {
       if (!message) return;
 
       const from = message.from;
+      const messageId = message.id;
       const type = message.type;
       let textContent = '';
       let savedMediaUrl = null;
@@ -173,14 +170,17 @@ app.post('/webhook', async (req, reply) => {
 
       if (await isAiPaused('whatsapp', from)) return;
 
-      // Enfileira no buffer de 3 segundos antes de chamar a IA
+      // Ativa imediatamente o indicador "digitando..." no WhatsApp do cliente
+      sendWhatsAppTyping(messageId);
+
+      // Enfileira no buffer de 3 segundos antes de rodar o fluxo híbrido (Mídias + IA)
       agendarRespostaIA({
         channel: 'whatsapp',
         userId: from,
         textContent,
         mediaBuffer: ['audio', 'image'].includes(type) ? mediaBuffer : null,
         mediaMime: ['audio', 'image'].includes(type) ? mediaMime : null,
-        sendFn: sendWhatsAppText,
+        lastMessageId: messageId,
       });
     }
 
@@ -220,7 +220,7 @@ app.post('/webhook', async (req, reply) => {
         textContent,
         mediaBuffer: ['audio', 'image'].includes(mediaType) ? mediaBuffer : null,
         mediaMime: ['audio', 'image'].includes(mediaType) ? mediaMime : null,
-        sendFn: sendMessengerText,
+        lastMessageId: null,
       });
     }
   } catch (err) {
@@ -280,7 +280,7 @@ app.post('/webhook/telegram', async (req, reply) => {
       textContent,
       mediaBuffer: ['audio', 'image'].includes(mediaType) ? mediaBuffer : null,
       mediaMime: ['audio', 'image'].includes(mediaType) ? mediaMime : null,
-      sendFn: sendTelegramText,
+      lastMessageId: null,
     });
   } catch (err) {
     app.log.error(err, 'Erro no webhook Telegram');

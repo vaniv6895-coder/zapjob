@@ -1,9 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
-import { getMemory } from './db.js';
+import { getMemory, getBotSettings } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const SYSTEM_INSTRUCTION = `Você é uma criadora de conteúdo digital carismática, doce e atenciosa conversando no privado do WhatsApp/Telegram.
+function buildSystemInstruction(settings) {
+  return `Você é uma criadora de conteúdo digital carismática, doce e atenciosa conversando no privado do WhatsApp/Telegram.
 
 REGRA DE OURO DE TAMANHO E NATURALIDADE (OBRIGATÓRIO):
 - NUNCA mande textões ou vários parágrafos. Suas respostas devem ter no MÁXIMO 2 frases curtas (estilo mensagem rápida de WhatsApp de uma pessoa real).
@@ -20,17 +21,18 @@ FLUXO NATURAL DA CONVERSA (PASSO A PASSO):
    - Nas primeiras mensagens, pergunte de onde ele é.
    - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; London -> Watford), diga que mora lá pertinho e faça UMA pergunta leve sobre o dia dele. Mantenha essa mesma cidade fixa até o fim da conversa.
 2. PRÉVIAS GRATUITAS:
-   - Só quando o papo fluir ou ele demonstrar curiosidade sobre você, mande em uma mensagem curta o link do Canal de Prévias gratuito no Telegram: [LINK_DO_CANAL_DE_PREVIAS]
+   - Só quando o papo fluir ou ele demonstrar curiosidade sobre você, mande em uma mensagem curta o link do Canal de Prévias gratuito no Telegram: ${settings.link_telegram}
 3. CANAL VIP PAGO (APENAS QUANDO ELE PEDIR OU PERGUNTAR VALORES):
    - Só passe o valor e o link quando ele perguntar como funciona o VIP, quanto custa ou pedir para ver mais:
-     * Brasil: R$ 49,90/mês — [LINK_ASSINATURA_BRASIL]
-     * Portugal / Espanha: 25€/mês — [LINK_ASSINATURA_EUR]
-     * Equador / Panamá: $25 USD/mês — [LINK_ASSINATURA_USD]
-     * Reino Unido: £22/month — [LINK_ASSINATURA_GBP]
+     * Brasil: ${settings.price_brl} — ${settings.link_fatalfans}
+     * Portugal / Espanha: ${settings.price_eur} — ${settings.link_fanvue}
+     * Equador / Panamá: ${settings.price_usd} — ${settings.link_fanvue}
+     * Reino Unido: ${settings.price_gbp} — ${settings.link_fanvue}
    - Peça de forma simpática para ele mandar o print do comprovante aqui quando assinar.
 
 IDIOMA E ÁUDIO:
 - Responda sempre no mesmo idioma e variante regional da última mensagem/áudio do cliente.`;
+}
 
 let workingModelCache = null;
 
@@ -68,7 +70,10 @@ async function getCandidateModels() {
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
-  const history = await getMemory(channel, userId, 30);
+  const [history, settings] = await Promise.all([
+    getMemory(channel, userId, 30),
+    getBotSettings(),
+  ]);
 
   const formattedHistory = history
     .map(
@@ -96,6 +101,7 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   const candidates = await getCandidateModels();
+  const systemInstruction = buildSystemInstruction(settings);
 
   for (const modelName of candidates) {
     try {
@@ -103,7 +109,7 @@ Nova mensagem do cliente: ${userMessage}`;
         model: modelName,
         contents,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction,
           temperature: 0.7,
           maxOutputTokens: 180,
         },

@@ -1310,15 +1310,24 @@
       }
     }
 
-    async function saveFlow(silent = false) {
+   async function saveFlow(silent = false) {
       localStorage.setItem('zapjob_flow_v1', JSON.stringify({ nodes, edges }));
-      const pwd = localStorage.getItem('panel_pwd');
+      let pwd = localStorage.getItem('panel_pwd');
+      if (!pwd) {
+        pwd = prompt('Digite a senha do painel para salvar o fluxo na nuvem:');
+        if (pwd) localStorage.setItem('panel_pwd', pwd);
+      }
       if (pwd) {
-        await fetch('/api/panel/flow', {
+        const res = await fetch('/api/panel/flow', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-panel-password': pwd },
           body: JSON.stringify({ nodes, edges })
         });
+        if (!res.ok) {
+          localStorage.removeItem('panel_pwd');
+          alert('Senha incorreta! Clique em Salvar novamente e digite a senha certa.');
+          return;
+        }
       }
       if (!silent) showToast('Fluxo e mídias salvos na nuvem!');
     }
