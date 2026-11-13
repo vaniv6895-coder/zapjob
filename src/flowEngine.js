@@ -19,7 +19,6 @@ function detectClientLanguage(text, userId) {
 
   // Palavras típicas em Espanhol
   if (/\b(hola|buenas|quetal|qué tal|como estas|cómo estás|guapa|hermosa|cuanto|cuánto|precio|de donde|de dónde|españa|ecuador|panama|panamá|mexico|méxico|colombia|chile|argentina|peru|perú)\b/i.test(t) || /[¿¡ñáéíóú]/i.test(t)) {
-    // Diferencia palavras exclusivas do português (ç, ã, õ, você, oi, tudo)
     if (!/\b(voc[eê]|tudo bem|oi|ol[aá]|obrigado|pre[cç]o|quanto custa)\b/i.test(t) && !/[çãõ]/i.test(t)) {
       return 'ES';
     }
@@ -80,10 +79,17 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
   const edges = Array.isArray(flow.edges) ? flow.edges : [];
 
-  const history = await getMemory(channel, userId, 30);
+  const history = await getMemory(channel, userId, 60);
   const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
   const isFirstContact = !assistantAlreadyReplied;
   const clientLang = detectClientLanguage(userMessage, userId);
+
+  const sentUrls = new Set();
+  for (const msg of history) {
+    if (msg.media_url) sentUrls.add(msg.media_url.trim());
+    const tagMatch = String(msg.content || '').match(/\[ENVIAR_MIDIA:(https?:\/\/[^\]]+)\]/i);
+    if (tagMatch) sentUrls.add(tagMatch[1].trim());
+  }
 
   console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | IA Pausada: ${aiPaused}`);
 
@@ -132,13 +138,12 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       } else if (current.type === 'message' && current.text?.trim()) {
         if (channel === 'whatsapp' && lastMessageId) {
           await sendWhatsAppTyping(lastMessageId, 'text');
-          await sleep(1000);
+          await sleep(1500);
         }
         await sendChannelText(channel, userId, current.text.trim());
         await saveMessage(channel, userId, 'assistant', current.text.trim(), 'text', null);
         executedFlowSummary.push(`Você enviou a mensagem: "${current.text.trim()}"`);
       } else if (current.type === 'media' && current.text?.trim().startsWith('http')) {
-        // Se o balão conectado tiver um idioma específico diferente do cliente, pula ele
         if (current.mediaLang && current.mediaLang !== 'ALL' && current.mediaLang !== clientLang) {
           const nexts = getNextNodes(current.id);
           queue.push(...nexts);
@@ -151,10 +156,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
           console.log(`[FlowEngine] Enviando ${kind} (${clientLang}) do fluxo para ${userId}: ${url}`);
           if (channel === 'whatsapp' && lastMessageId) {
             await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
-            await sleep(1500);
+            await sleep(kind === 'audio' ? 3500 : 1800);
           }
           await sendChannelMedia(channel, userId, url, kind);
           await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
+          sentUrls.add(url);
           executedFlowSummary.push(`Você enviou um(a) ${kind} (${url}) ao cliente.`);
           sentMediaInThisTurn = true;
         } catch (mediaErr) {
@@ -171,8 +177,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  // GATILHO AUTOMÁTICO DE BOAS-VINDAS POR IDIOMA NO 1º CONTATO:
-  // Se for a 1ª mensagem do cliente e houver um áudio cadastrado com o idioma dele (e descrição "boas-vindas" ou "oi"), dispara agora!
+  // GATILHO AUTOMÁTICO DE BOAS-VINDAS POR IDIOMA NO 1º CONTATO
   if (isFirstContact && !sentMediaInThisTurn) {
     const welcomeAudio = nodes.find((n) => {
       if (n.type !== 'media' || !n.text?.trim().startsWith('http')) return false;
@@ -189,10 +194,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         console.log(`[FlowEngine] Disparando áudio de boas-vindas (${clientLang}) para ${userId}: ${url}`);
         if (channel === 'whatsapp' && lastMessageId) {
           await sendWhatsAppTyping(lastMessageId, 'audio');
-          await sleep(1800);
+          await sleep(3500);
         }
         await sendChannelMedia(channel, userId, url, 'audio');
         await saveMessage(channel, userId, 'assistant', `[Áudio de boas-vindas ${clientLang} enviado]`, 'audio', url);
+        sentUrls.add(url);
         executedFlowSummary.push(`Você acabou de enviar seu áudio de boas-vindas em ${clientLang} (${welcomeAudio.mediaLabel || ''}).`);
         sentMediaInThisTurn = true;
       } catch (err) {
@@ -219,25 +225,30 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       const mediaUrls = [];
       let match;
       while ((match = mediaRegex.exec(rawAiReply)) !== null) {
-        mediaUrls.push(match[1]);
+        const foundUrl = match[1].trim();
+        if (!sentUrls.has(foundUrl)) {
+          mediaUrls.push(foundUrl);
+        }
       }
 
-      // Fallback automático filtrado pelo idioma do cliente
+      // Fallback automático filtrado pelo idioma e sem repetir mídias já enviadas
       if (mediaUrls.length === 0 && !sentMediaInThisTurn) {
-        const allMediaNodes = nodes.filter((n) => n.type === 'media' && n.text?.trim().startsWith('http'));
-        if (allMediaNodes.length > 0) {
+        const unsentMediaNodes = nodes.filter(
+          (n) => n.type === 'media' && n.text?.trim().startsWith('http') && !sentUrls.has(n.text.trim())
+        );
+        if (unsentMediaNodes.length > 0) {
           let requestedKind = null;
-          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo|foto)\b/i.test(msgLower)) requestedKind = 'image';
+          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo)\b/i.test(msgLower)) requestedKind = 'image';
           else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o|video)\b/i.test(msgLower)) requestedKind = 'video';
           else if (/\b([aá]udio|voz|fala comigo|manda voz|voice|audio)\b/i.test(msgLower)) requestedKind = 'audio';
 
           if (requestedKind) {
-            const matching = allMediaNodes.filter((n) => {
+            const matching = unsentMediaNodes.filter((n) => {
               const k = detectMediaKind(n.text.trim(), n.mediaKind);
               const langOk = !n.mediaLang || n.mediaLang === 'ALL' || n.mediaLang === clientLang;
               return k === requestedKind && langOk;
             });
-            const chosen = matching[0] || allMediaNodes.find((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
+            const chosen = matching[0] || unsentMediaNodes.find((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
             if (chosen) {
               mediaUrls.push(chosen.text.trim());
             }
@@ -248,6 +259,10 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       const cleanText = rawAiReply.replace(mediaRegex, '').trim();
 
       if (cleanText) {
+        if (channel === 'whatsapp' && lastMessageId) {
+          await sendWhatsAppTyping(lastMessageId, 'text');
+          await sleep(1400);
+        }
         await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
         await sendChannelText(channel, userId, cleanText);
       }
@@ -258,10 +273,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
           console.log(`[FlowEngine] Enviando ${kind} para ${userId}: ${url}`);
           if (channel === 'whatsapp' && lastMessageId) {
             await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
-            await sleep(1500);
+            await sleep(kind === 'audio' ? 3500 : 1800);
           }
           await sendChannelMedia(channel, userId, url, kind);
           await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, url);
+          sentUrls.add(url);
         } catch (mediaErr) {
           console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
         }
