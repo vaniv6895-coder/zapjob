@@ -1,3 +1,8 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 import {
   listConversations,
   getConversationMessages,
@@ -11,6 +16,38 @@ import { sendWhatsAppText } from './whatsapp.js';
 import { sendTelegramText } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
 import { uploadMedia } from './storage.js';
+
+ffmpeg.setFfmpegPath(ffmpegStatic);
+
+function convertAudioBufferToMp3(inputBuffer) {
+  return new Promise((resolve, reject) => {
+    const tmpIn = path.join(os.tmpdir(), `in_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`);
+    const tmpOut = path.join(os.tmpdir(), `out_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`);
+
+    fs.writeFileSync(tmpIn, inputBuffer);
+
+    ffmpeg(tmpIn)
+      .toFormat('mp3')
+      .audioCodec('libmp3lame')
+      .audioBitrate('64k')
+      .on('end', () => {
+        try {
+          const mp3Buffer = fs.readFileSync(tmpOut);
+          fs.unlinkSync(tmpIn);
+          fs.unlinkSync(tmpOut);
+          resolve(mp3Buffer);
+        } catch (e) {
+          reject(e);
+        }
+      })
+      .on('error', (err) => {
+        try { if (fs.existsSync(tmpIn)) fs.unlinkSync(tmpIn); } catch {}
+        try { if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut); } catch {}
+        reject(err);
+      })
+      .save(tmpOut);
+  });
+}
 
 export function registerPanelRoutes(app) {
   const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
@@ -87,10 +124,18 @@ export function registerPanelRoutes(app) {
     const data = await req.file();
     if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
 
-    const buffer = await data.toBuffer();
-    const mimeType = data.mimetype || 'application/octet-stream';
-    const fileId = `${Date.now()}_${data.filename.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+    let buffer = await data.toBuffer();
+    let mimeType = data.mimetype || 'application/octet-stream';
+    let cleanName = data.filename.replace(/[^a-zA-Z0-9._-]/g, '');
 
+    // Converte áudios gravados pelo navegador (webm/ogg) para MP3 real compatível com WhatsApp
+    if (mimeType.startsWith('audio/') && !mimeType.includes('mpeg') && !cleanName.endsWith('.mp3')) {
+      buffer = await convertAudioBufferToMp3(buffer);
+      mimeType = 'audio/mpeg';
+      cleanName = cleanName.replace(/\.[^.]+$/, '') + '.mp3';
+    }
+
+    const fileId = `${Date.now()}_${cleanName}`;
     const url = await uploadMedia(buffer, 'flow_presets', fileId, mimeType);
     return { ok: true, url, mimeType };
   });
@@ -136,6 +181,10 @@ const PANEL_HTML = `<!DOCTYPE html>
     .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
     .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
     .modal-box input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 14px; }
+    .pwd-wrapper { position: relative; display: flex; align-items: center; }
+    .pwd-wrapper input { padding-right: 42px; }
+    .pwd-eye { position: absolute; right: 10px; background: none; border: none; color: #8696a0; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
+    .pwd-eye:hover { color: #00a884; }
     .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 16px; }
     .btn-secondary { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3942; background: transparent; color: #8696a0; font-size: 14px; cursor: pointer; margin-top: 8px; }
 
@@ -201,7 +250,15 @@ const PANEL_HTML = `<!DOCTYPE html>
     <div class="modal-box" style="text-align:center;">
       <h2>Painel VIP</h2>
       <p>Digite a senha de acesso para acompanhar as conversas</p>
-      <input type="password" id="pwd-input" placeholder="Senha do painel" onkeydown="if(event.key==='Enter') login()" />
+      <div class="pwd-wrapper">
+        <input type="password" id="pwd-input" placeholder="Senha do painel" onkeydown="if(event.key==='Enter') login()" />
+        <button type="button" class="pwd-eye" onclick="togglePasswordVisibility()" title="Mostrar/ocultar senha" aria-label="Mostrar ou ocultar senha">
+          <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
       <button class="btn-primary" onclick="login()">Entrar</button>
     </div>
   </div>
@@ -278,6 +335,16 @@ const PANEL_HTML = `<!DOCTYPE html>
     let currentFilter = 'all';
     let selectedChat = null;
     let currentAiPaused = false;
+
+    function togglePasswordVisibility() {
+      const input = document.getElementById('pwd-input');
+      const icon = document.getElementById('eye-icon');
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      icon.innerHTML = isHidden
+        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    }
 
     if (password) {
       verifyAndStart();

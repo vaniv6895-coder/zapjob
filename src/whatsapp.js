@@ -77,15 +77,15 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   let contentType = fileRes.headers['content-type'] || '';
 
   // Ajusta MIME types exigidos pela Cloud API do WhatsApp
-  if (type === 'audio' && (!contentType || contentType.includes('webm') || contentType.includes('octet-stream'))) {
-    contentType = 'audio/ogg';
+  if (type === 'audio') {
+    contentType = /\.mp3(\?|$)/i.test(mediaUrl) || contentType.includes('mpeg') ? 'audio/mpeg' : 'audio/ogg';
   } else if (type === 'video' && (!contentType || contentType.includes('octet-stream'))) {
     contentType = 'video/mp4';
   } else if (type === 'image' && (!contentType || contentType.includes('octet-stream'))) {
     contentType = 'image/jpeg';
   }
 
-  const ext = type === 'audio' ? 'ogg' : type === 'video' ? 'mp4' : 'jpg';
+  const ext = type === 'audio' ? (contentType === 'audio/mpeg' ? 'mp3' : 'ogg') : type === 'video' ? 'mp4' : 'jpg';
 
   // 2. Faz upload direto para os servidores da Meta para obter o media_id
   const form = new FormData();
