@@ -46,6 +46,14 @@ export async function initDB() {
       device TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS chat_passes (
+      channel VARCHAR(20) NOT NULL,
+      phone VARCHAR(50) NOT NULL,
+      paid_until TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (channel, phone)
+    );
   `);
 }
 
@@ -65,6 +73,7 @@ export async function getBotSettings() {
     price_gbp: map.price_gbp || '£22/month',
     visual_flow: map.visual_flow || null,
     vitrine_config: map.vitrine_config || null,
+    paywall_config: map.paywall_config || null,
   };
 }
 
@@ -78,6 +87,25 @@ export async function saveBotSettings(settings) {
       [key, String(value || '').trim()]
     );
   }
+}
+
+export async function hasActiveChatPass(channel, phone) {
+  const res = await pool.query(
+    `SELECT paid_until FROM chat_passes WHERE channel = $1 AND phone = $2 AND paid_until > NOW()`,
+    [String(channel), String(phone)]
+  );
+  return res.rows.length > 0;
+}
+
+export async function grantChatPass(channel, phone, hours = 24) {
+  const h = Math.max(1, Number(hours) || 24);
+  await pool.query(
+    `INSERT INTO chat_passes (channel, phone, paid_until, updated_at)
+     VALUES ($1, $2, NOW() + ($3 || ' hours')::INTERVAL, NOW())
+     ON CONFLICT (channel, phone)
+     DO UPDATE SET paid_until = GREATEST(chat_passes.paid_until, NOW()) + ($3 || ' hours')::INTERVAL, updated_at = NOW()`,
+    [String(channel), String(phone), String(h)]
+  );
 }
 
 export async function saveMessage(channel, phone, role, content, mediaType = 'text', mediaUrl = null) {
@@ -138,10 +166,13 @@ export async function listConversations() {
       h.content AS last_message,
       h.role AS last_role,
       h.created_at AS last_at,
-      COALESCE(c.ai_paused, FALSE) AS ai_paused
+      COALESCE(c.ai_paused, FALSE) AS ai_paused,
+      (p.paid_until IS NOT NULL AND p.paid_until > NOW()) AS has_pass
     FROM chat_history h
     LEFT JOIN chat_controls c
       ON c.channel = h.channel AND c.phone = h.phone
+    LEFT JOIN chat_passes p
+      ON p.channel = h.channel AND p.phone = h.phone
     ORDER BY h.channel, h.phone, h.created_at DESC
   `);
 
