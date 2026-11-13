@@ -3,13 +3,17 @@ import { getMemory, getBotSettings, hasActiveChatPass } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function extractSavedMediaCatalog(settings) {
+function extractSavedMediaCatalog(settings, sentUrlsSet) {
   try {
     if (!settings.visual_flow) return [];
     const flow = JSON.parse(settings.visual_flow);
     const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
     return nodes
-      .filter((n) => n.type === 'media' && typeof n.text === 'string' && n.text.startsWith('http'))
+      .filter((n) => {
+        if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.startsWith('http')) return false;
+        const cleanUrl = n.text.trim();
+        return !sentUrlsSet.has(cleanUrl);
+      })
       .map((n, idx) => {
         const url = n.text.trim();
         let kind = n.mediaKind;
@@ -57,21 +61,35 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
   return `${msgIntl}\n\n👉 ${linkIntl}`;
 }
 
-function buildSystemInstruction(settings, mediaCatalog) {
+function buildSystemInstruction(settings, mediaCatalog, hasPass, totalSentCount) {
   const mediaSection =
     mediaCatalog.length > 0
-      ? `CATÁLOGO DE MÍDIAS PRÉ-GRAVADAS DISPONÍVEIS:
+      ? `CATÁLOGO DE MÍDIAS INÉDITAS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDAS):
 ${mediaCatalog
   .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
   .join('\n')}
 
 REGRA OBRIGATÓRIA DE CURIOSIDADE E ENVIO DE MÍDIA (2 ETAPAS - NUNCA PULE):
 - NUNCA envie a tag [ENVIAR_MIDIA:...] na mesma mensagem em que você pergunta "quer ver uma foto/vídeo/áudio?".
-- ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando se ele quer ver a foto/vídeo ou ouvir seu áudio, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
+- ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando se ele quer ver uma foto/vídeo inédito ou ouvir seu áudio, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
 - ETAPA 2 (ENTREGA APÓS CONFIRMAÇÃO): Somente DEPOIS que o cliente aceitar ("sim", "quero", "manda", "pode mandar") OU quando ele mesmo pedir uma foto/vídeo/áudio, coloque a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
 - Ao enviar ÁUDIO, escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (ou ALL). NUNCA envie áudio em PT para cliente falando ES ou EN, e vice-versa.
 - Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL, escrevendo no máximo 1 frase curta antes da tag.`
-      : 'AVISO: Nenhuma mídia cadastrada no fluxo ainda.';
+      : totalSentCount > 0
+      ? `AVISO IMPORTANTE DE MÍDIAS: Você JÁ enviou todas as prévias disponíveis para este cliente. NÃO pergunte se ele quer ver foto/vídeo/áudio aqui no chat e NÃO invente nenhuma tag [ENVIAR_MIDIA:...]. Diga de forma provocante que as coisas mais exclusivas estão no seu VIP.`
+      : `AVISO: Nenhuma mídia cadastrada no fluxo ainda. NÃO pergunte se ele quer ver foto/vídeo/áudio e NÃO use [ENVIAR_MIDIA:...].`;
+
+  const vipAndPreviasRule = hasPass
+    ? `3. CANAL VIP COMPLETO (ESTE CLIENTE JÁ PAGOU O PASSE DO CHAT - PODE OFERTAR O VIP MENSAL):
+   - Como ele já pagou o acesso ao chat, quando o papo esquentar ou ele pedir conteúdos mais ousados/completos, oferte o VIP mensal com o link certo para o país dele:
+     * Brasil: ${settings.price_brl} — ${settings.link_fatalfans}
+     * Portugal / Espanha: ${settings.price_eur} — ${settings.link_fanvue}
+     * Equador / Panamá: ${settings.price_usd} — ${settings.link_fanvue}
+     * Reino Unido: ${settings.price_gbp} — ${settings.link_fanvue}
+   - Se ele pedir grupo gratuito no Telegram, pode mandar: ${settings.link_telegram}`
+    : `3. PROTEÇÃO DE FUNIL (NÃO VAZAR LINKS GRÁTIS ANTES DO PAYWALL):
+   - NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat. Mantenha ele 100% focado aqui dentro.
+   - Se ele pedir valores do VIP completo logo de cara, responda de forma provocante que primeiro quer conhecer ele melhor aqui no privado antes de mandar o link.`;
 
   return `Você é uma criadora de conteúdo digital envolvente, provocante na medida certa e espontânea conversando no privado do WhatsApp/Telegram.
 
@@ -93,17 +111,10 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA:
 FLUXO NATURAL DA CONVERSA (PASSO A PASSO):
 1. CONEXÃO E CIDADE:
    - Nas primeiras mensagens, pergunte de onde ele é.
-   - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; London -> Watford), diga que mora lá pertinho e faça UMA pergunta leve ou provocante sobre o dia dele. Mantenha essa mesma cidade fixa até o fim da conversa.
-2. PRÉVIAS E CURIOSIDADE:
-   - Quando o papo esquentar ou fluir, provoque perguntando se ele quer ver uma foto sua de hoje ou ouvir um áudio (sem mandar o arquivo ainda!). Só envie quando ele responder que quer.
-   - Se fizer sentido no papo, mande em uma mensagem curta o link do Canal de Prévias gratuito no Telegram: ${settings.link_telegram}
-3. CANAL VIP PAGO (APENAS QUANDO ELE PEDIR OU PERGUNTAR VALORES):
-   - Só passe o valor e o link quando ele perguntar como funciona o VIP, quanto custa ou pedir para ver mais:
-     * Brasil: ${settings.price_brl} — ${settings.link_fatalfans}
-     * Portugal / Espanha: ${settings.price_eur} — ${settings.link_fanvue}
-     * Equador / Panamá: ${settings.price_usd} — ${settings.link_fanvue}
-     * Reino Unido: ${settings.price_gbp} — ${settings.link_fanvue}
-   - Peça de forma simpática para ele mandar o print do comprovante aqui quando assinar.
+   - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; London -> Watford), diga que mora lá pertinho e já plante uma isca de curiosidade (se houver mídia inédita no catálogo acima, pergunte se ele quer ver/ouvir, SEM mandar a mídia ainda!).
+2. CURIOSIDADE E ENGAJAMENTO:
+   - Use a regra das 2 etapas para despertar desejo e manter o lead preso na conversa.
+${vipAndPreviasRule}
 
 REGRA CRÍTICA DE IDIOMA (NUNCA QUEBRAR):
 - Mantenha SEMPRE o mesmo idioma estabelecido no histórico da conversa.
@@ -147,7 +158,7 @@ async function getCandidateModels() {
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
   const [history, settings, hasPass] = await Promise.all([
-    getMemory(channel, userId, 30),
+    getMemory(channel, userId, 60),
     getBotSettings(),
     hasActiveChatPass(channel, userId),
   ]);
@@ -173,10 +184,19 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     }
   }
 
-  const mediaCatalog = extractSavedMediaCatalog(settings);
-  console.log(`[AI] Mídias carregadas do fluxo: ${mediaCatalog.length}`);
+  // Coleta todas as URLs de mídia já enviadas neste chat para nunca repetir
+  const sentUrls = new Set();
+  for (const msg of history) {
+    if (msg.media_url) sentUrls.add(msg.media_url.trim());
+    const tagMatch = String(msg.content || '').match(/\[ENVIAR_MIDIA:(https?:\/\/[^\]]+)\]/i);
+    if (tagMatch) sentUrls.add(tagMatch[1].trim());
+  }
 
-  const formattedHistory = history
+  const mediaCatalog = extractSavedMediaCatalog(settings, sentUrls);
+  console.log(`[AI] Mídias inéditas disponíveis: ${mediaCatalog.length} (Já enviadas: ${sentUrls.size})`);
+
+  const recentHistory = history.slice(-30);
+  const formattedHistory = recentHistory
     .map(
       (msg) =>
         `${msg.role === 'user' ? 'Cliente' : 'Você'}: ${msg.content}${
@@ -202,7 +222,7 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   const candidates = await getCandidateModels();
-  const systemInstruction = buildSystemInstruction(settings, mediaCatalog);
+  const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, sentUrls.size);
 
   for (const modelName of candidates) {
     try {
