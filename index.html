@@ -20,48 +20,49 @@
       --danger: #ef4444;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
-    body { background: var(--bg-canvas); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; background: var(--bg-canvas); color: var(--text-main); overflow: hidden; display: flex; flex-direction: column; }
 
     /* Topbar */
     header {
-      height: 56px;
+      height: 54px;
       background: var(--panel-bg);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
+      padding: 0 12px;
       z-index: 50;
-      gap: 10px;
+      gap: 8px;
     }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--accent); white-space: nowrap; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--accent); white-space: nowrap; }
     .brand a { color: var(--text-muted); text-decoration: none; font-size: 12px; background: #1e293b; padding: 5px 9px; border-radius: 6px; border: 1px solid var(--border); }
-    .toolbar-blocks { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; }
+    .toolbar-blocks { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; scrollbar-width: none; }
+    .toolbar-blocks::-webkit-scrollbar { display: none; }
     .btn-block {
       background: #1e293b;
       border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 6px 11px;
+      padding: 6px 10px;
       border-radius: 8px;
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       white-space: nowrap;
       transition: 0.15s;
     }
     .btn-block:hover { border-color: var(--accent); background: #243249; }
     .dot-type { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-actions { display: flex; gap: 6px; align-items: center; }
     .btn-action {
       background: var(--accent);
       color: #06281e;
       border: none;
-      padding: 7px 14px;
+      padding: 7px 12px;
       border-radius: 8px;
       font-weight: 700;
       font-size: 12px;
@@ -69,11 +70,13 @@
       white-space: nowrap;
     }
     .btn-action.secondary { background: #1e293b; color: var(--text-main); border: 1px solid var(--border); }
-    .btn-action.danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-action.danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
 
     /* Workspace Canvas */
     #viewport {
       flex: 1;
+      width: 100%;
+      height: 100%;
       position: relative;
       overflow: hidden;
       cursor: grab;
@@ -88,9 +91,10 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 5000px;
-      height: 5000px;
+      width: 6000px;
+      height: 6000px;
       transform-origin: 0 0;
+      will-change: transform;
     }
 
     svg#connections {
@@ -105,13 +109,13 @@
     path.wire {
       fill: none;
       stroke: #475569;
-      stroke-width: 3;
+      stroke-width: 3.5;
       pointer-events: stroke;
       cursor: pointer;
-      transition: stroke 0.15s;
+      transition: stroke 0.15s, stroke-width 0.15s;
     }
-    path.wire:hover { stroke: var(--danger); stroke-width: 4; }
-    path.wire-temp { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 6; pointer-events: none; }
+    path.wire:hover { stroke: var(--danger); stroke-width: 5; }
+    path.wire-temp { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-dasharray: 6 6; pointer-events: none; }
 
     /* Node Cards (Balões) */
     .node {
@@ -123,11 +127,13 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
       display: flex;
       flex-direction: column;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: border-color 0.12s, box-shadow 0.12s;
     }
-    .node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.3), 0 12px 28px rgba(0,0,0,0.6); }
+    .node.selected { border-color: var(--accent); box-shadow: 0 0 0 2.5px rgba(0, 168, 132, 0.35), 0 12px 28px rgba(0,0,0,0.6); }
+    .node.snap-target { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45); }
+
     .node-header {
-      padding: 9px 12px;
+      padding: 9px 10px 9px 12px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
@@ -137,17 +143,24 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .node-title { display: flex; align-items: center; gap: 7px; }
+    .node-title { display: flex; align-items: center; gap: 7px; pointer-events: none; }
     .node-del {
-      background: none;
-      border: none;
-      color: var(--text-muted);
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
       cursor: pointer;
-      font-size: 14px;
-      padding: 2px 5px;
-      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: 0.15s;
+      z-index: 15;
     }
-    .node-del:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+    .node-del:hover, .node-del:active { color: #fff; background: var(--danger); border-color: var(--danger); }
 
     .node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
     .node-body label.field-lbl { font-size: 11px; color: var(--text-muted); }
@@ -165,57 +178,96 @@
     }
     .node-body textarea:focus, .node-body input:focus { border-color: var(--accent); }
 
-    /* Ports (Bolinhas de Ligação) */
+    /* Ports (Bolinhas de Ligação ampliadas para fácil toque) */
     .port {
       position: absolute;
-      width: 18px;
-      height: 18px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       background: #0f172a;
-      border: 3px solid var(--accent);
+      border: 3.5px solid var(--accent);
       top: 50%;
       transform: translateY(-50%);
       cursor: crosshair;
-      z-index: 10;
+      z-index: 20;
       transition: transform 0.12s, background 0.12s;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
     }
     .port:hover, .port.highlight { transform: translateY(-50%) scale(1.35); background: var(--accent); }
-    .port-in { left: -10px; border-color: var(--blue); }
+    .port-in { left: -13px; border-color: var(--blue); }
     .port-in:hover, .port-in.highlight { background: var(--blue); }
-    .port-out { right: -10px; }
+    .port-out { right: -13px; }
 
     /* Virtual Cursor for Digital Mousepad */
     #virtual-cursor {
       position: fixed;
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      border: 2px solid #fff;
-      background: rgba(0, 168, 132, 0.45);
+      border: 2.5px solid #fff;
+      background: rgba(0, 168, 132, 0.55);
       pointer-events: none;
       z-index: 9999;
       transform: translate(-50%, -50%);
       display: none;
-      box-shadow: 0 0 12px var(--accent);
+      box-shadow: 0 0 14px var(--accent);
+      transition: background 0.1s, transform 0.08s;
     }
+    #virtual-cursor.clicking {
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(56, 189, 248, 0.85);
+    }
+
+    /* Context Menu (Botão Direito) */
+    #context-menu {
+      position: fixed;
+      background: #131c2e;
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 175px;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.75);
+      z-index: 10000;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ctx-item {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ctx-item:hover { background: #1e293b; }
+    .ctx-item.danger { color: #fca5a5; }
+    .ctx-item.danger:hover { background: rgba(239, 68, 68, 0.2); }
 
     /* Digital Mousepad / Trackpad Widget */
     #trackpad-widget {
       position: fixed;
-      right: 16px;
-      bottom: 16px;
-      width: 245px;
-      background: rgba(19, 28, 46, 0.95);
+      right: 14px;
+      bottom: 14px;
+      width: 265px;
+      background: rgba(19, 28, 46, 0.96);
       backdrop-filter: blur(10px);
       border: 1.5px solid #2e4060;
       border-radius: 16px;
-      padding: 12px;
-      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.65);
+      padding: 11px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7);
       z-index: 100;
       display: flex;
       flex-direction: column;
-      gap: 9px;
+      gap: 8px;
     }
+    #trackpad-widget.minimized #tp-body { display: none; }
     .tp-header {
       display: flex;
       justify-content: space-between;
@@ -224,8 +276,18 @@
       font-weight: 700;
       color: var(--blue);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
     }
+    .tp-toggle-min {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    #tp-body { display: flex; flex-direction: column; gap: 8px; }
     .tp-modes {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -243,14 +305,14 @@
       text-align: center;
     }
     .tp-mode-btn.active {
-      background: rgba(0, 168, 132, 0.2);
+      background: rgba(0, 168, 132, 0.22);
       border-color: var(--accent);
       color: #fff;
     }
     #touch-surface {
-      height: 115px;
+      height: 110px;
       background: linear-gradient(145deg, #0b121e, #111b2d);
-      border: 1px dashed #364b70;
+      border: 1.5px dashed #364b70;
       border-radius: 12px;
       display: flex;
       flex-direction: column;
@@ -259,28 +321,44 @@
       color: var(--text-muted);
       font-size: 11px;
       text-align: center;
-      padding: 10px;
+      padding: 8px;
       cursor: pointer;
       touch-action: none;
-      position: relative;
     }
     #touch-surface:active { border-color: var(--accent); background: #0f1929; }
-    .tp-buttons {
+
+    /* Botões Esquerdo e Direito do Mousepad */
+    .tp-mouse-btns {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
     }
-    .tp-click {
+    .tp-btn-left {
       background: #1e293b;
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      padding: 7px;
+      border: 1.5px solid var(--accent);
+      color: #fff;
+      padding: 9px 6px;
       border-radius: 8px;
       font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+      text-align: center;
     }
-    .tp-click:active { background: var(--accent); color: #052e22; }
+    .tp-btn-left:active, .tp-btn-left.holding { background: var(--accent); color: #04241b; }
+
+    .tp-btn-right {
+      background: #1e293b;
+      border: 1.5px solid var(--blue);
+      color: #fff;
+      padding: 9px 6px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tp-btn-right:active { background: var(--blue); color: #041d2e; }
+
     .tp-zoom {
       display: flex;
       justify-content: space-between;
@@ -292,16 +370,20 @@
       background: #0d1522;
       border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 5px;
+      padding: 6px;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
       cursor: pointer;
+    }
+    .tp-zoom button.del-sel {
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
     }
 
     #toast {
       position: fixed;
-      top: 68px;
+      top: 64px;
       left: 50%;
       transform: translateX(-50%);
       background: var(--accent);
@@ -323,7 +405,7 @@
   <header>
     <div class="brand">
       <a href="/painel">← Painel</a>
-      <span>⚡ FlowBuilder VIP</span>
+      <span>⚡ FlowBuilder</span>
     </div>
     <div class="toolbar-blocks">
       <button class="btn-block" onclick="addNode('trigger')"><span class="dot-type" style="background:#38bdf8"></span>+ Gatilho</button>
@@ -334,14 +416,23 @@
       <button class="btn-block" onclick="addNode('delay')"><span class="dot-type" style="background:#94a3b8"></span>+ Espera</button>
     </div>
     <div class="header-actions">
-      <button class="btn-action secondary" onclick="exportFlow()">Exportar JSON</button>
+      <button class="btn-action secondary" id="btn-fullscreen" onclick="toggleFullscreen()" title="Tela Cheia">⛶ Tela Cheia</button>
+      <button class="btn-action secondary" onclick="exportFlow()">JSON</button>
       <button class="btn-action danger" onclick="resetFlow()">Limpar</button>
-      <button class="btn-action" onclick="saveFlow()">Salvar Fluxo</button>
+      <button class="btn-action" onclick="saveFlow()">Salvar</button>
     </div>
   </header>
 
   <div id="toast">Fluxo salvo!</div>
   <div id="virtual-cursor"></div>
+
+  <!-- Menu de Contexto (Botão Direito) -->
+  <div id="context-menu">
+    <button class="ctx-item" id="ctx-link" onclick="ctxAction('link')">🔗 Ligar este balão</button>
+    <button class="ctx-item" id="ctx-dup" onclick="ctxAction('duplicate')">📋 Duplicar balão</button>
+    <button class="ctx-item" id="ctx-unlink" onclick="ctxAction('unlink')">✂️ Remover ligações</button>
+    <button class="ctx-item danger" id="ctx-del" onclick="ctxAction('delete')">🗑️ Excluir balão</button>
+  </div>
 
   <div id="viewport">
     <div id="world">
@@ -353,25 +444,35 @@
   <!-- Mousepad / Trackpad Digital -->
   <div id="trackpad-widget">
     <div class="tp-header">
-      <span>🖱️ Mousepad Digital</span>
-      <span id="zoom-label">100%</span>
+      <span>🖱️ Mousepad (<span id="zoom-label">100%</span>)</span>
+      <button class="tp-toggle-min" onclick="togglePadMinimize()" title="Minimizar/Expandir">▾</button>
     </div>
-    <div class="tp-modes">
-      <button class="tp-mode-btn active" id="mode-cursor" onclick="setPadMode('cursor')">Cursor / Ligar</button>
-      <button class="tp-mode-btn" id="mode-pan" onclick="setPadMode('pan')">Mover Tela</button>
-    </div>
-    <div id="touch-surface">
-      <strong style="color:#e2e8f0;margin-bottom:4px;">Área Touch</strong>
-      Arraste o dedo aqui para guiar o cursor ou mover o quadro
-    </div>
-    <div class="tp-buttons">
-      <button class="tp-click" id="btn-pad-hold" onmousedown="padHoldStart()" onmouseup="padHoldEnd()" ontouchstart="padHoldStart()" ontouchend="padHoldEnd()">Segurar / Ligar</button>
-      <button class="tp-click" onclick="padClick()">Clique Rápido</button>
-    </div>
-    <div class="tp-zoom">
-      <button onclick="changeZoom(-0.1)">−</button>
-      <button onclick="resetView()">Centralizar</button>
-      <button onclick="changeZoom(0.1)">+</button>
+    <div id="tp-body">
+      <div class="tp-modes">
+        <button class="tp-mode-btn active" id="mode-cursor" onclick="setPadMode('cursor')">Cursor / Ligar</button>
+        <button class="tp-mode-btn" id="mode-pan" onclick="setPadMode('pan')">Mover Tela</button>
+      </div>
+      <div id="touch-surface">
+        <strong style="color:#e2e8f0;margin-bottom:3px;">Área Touch</strong>
+        Arraste para mover • Toque para clicar/ligar
+      </div>
+      <div class="tp-mouse-btns">
+        <button class="tp-btn-left" id="btn-left-click"
+          onmousedown="leftBtnDown(event)" onmouseup="leftBtnUp(event)"
+          ontouchstart="leftBtnDown(event)" ontouchend="leftBtnUp(event)">
+          ◀ Esq (Ligar/Mover)
+        </button>
+        <button class="tp-btn-right" id="btn-right-click"
+          onclick="rightBtnClick(event)">
+          Dir (Opções) ▶
+        </button>
+      </div>
+      <div class="tp-zoom">
+        <button onclick="changeZoom(-0.1)">−</button>
+        <button onclick="resetView()">Centro</button>
+        <button onclick="changeZoom(0.1)">+</button>
+        <button class="del-sel" onclick="deleteSelectedNode()" title="Excluir balão selecionado">🗑️</button>
+      </div>
     </div>
   </div>
 
@@ -381,6 +482,7 @@
     const nodesLayer = document.getElementById('nodes-layer');
     const svgLayer = document.getElementById('connections');
     const vCursor = document.getElementById('virtual-cursor');
+    const ctxMenu = document.getElementById('context-menu');
 
     let pan = { x: 80, y: 80 };
     let scale = 1;
@@ -388,19 +490,22 @@
     let panStart = { x: 0, y: 0 };
 
     let nodes = [];
-    let edges = []; // { id, from, to }
+    let edges = [];
     let draggingNode = null;
     let dragOffset = { x: 0, y: 0 };
 
     let linkingFrom = null;
     let tempWire = null;
     let selectedNodeId = null;
+    let contextTargetNodeId = null;
 
     // Estado do Mousepad Digital
     let padMode = 'cursor';
     let cursorPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     let padLastTouch = null;
-    let padHolding = false;
+    let padTouchMoved = false;
+    let leftHolding = false;
+    let leftHoldTimer = null;
 
     const NODE_TEMPLATES = {
       trigger: { title: 'Gatilho Inicial', color: '#38bdf8', hasIn: false, hasOut: true, placeholder: 'Ex: Qualquer mensagem recebida', defaultText: 'Cliente iniciou conversa' },
@@ -411,8 +516,31 @@
       delay: { title: 'Aguardar (Segundos)', color: '#94a3b8', hasIn: true, hasOut: true, placeholder: 'Segundos (ex: 3)', defaultText: '3' }
     };
 
+    /* TELA CHEIA (FULLSCREEN) */
+    function toggleFullscreen() {
+      const btn = document.getElementById('btn-fullscreen');
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        btn.textContent = '🗗 Sair Tela Cheia';
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        btn.textContent = '⛶ Tela Cheia';
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('btn-fullscreen');
+      btn.textContent = document.fullscreenElement ? '🗗 Sair Tela Cheia' : '⛶ Tela Cheia';
+    });
+
+    function togglePadMinimize() {
+      document.getElementById('trackpad-widget').classList.toggle('minimized');
+    }
+
     async function initDefaultFlow() {
-      // Tenta carregar do banco PostgreSQL primeiro
       const pwd = localStorage.getItem('panel_pwd');
       if (pwd) {
         try {
@@ -429,7 +557,6 @@
         } catch (e) {}
       }
 
-      // Fallback para localStorage
       const saved = localStorage.getItem('zapjob_flow_v1');
       if (saved) {
         try {
@@ -464,14 +591,45 @@
       const x = Math.round((-pan.x + viewport.clientWidth / 2 - 135) / scale);
       const y = Math.round((-pan.y + viewport.clientHeight / 2 - 70) / scale);
       nodes.push({ id, type, x, y, text: tpl.defaultText });
+      selectNode(id);
       renderAll();
     }
 
+    function selectNode(id) {
+      selectedNodeId = id;
+      document.querySelectorAll('.node').forEach(n => {
+        n.classList.toggle('selected', n.dataset.id === id);
+      });
+    }
+
     function deleteNode(id) {
+      if (!id) return;
       nodes = nodes.filter(n => n.id !== id);
       edges = edges.filter(e => e.from !== id && e.to !== id);
+      if (selectedNodeId === id) selectedNodeId = null;
+      if (linkingFrom === id) cancelLinking();
       renderAll();
+      showToast('Balão excluído');
     }
+
+    function deleteSelectedNode() {
+      if (selectedNodeId) {
+        deleteNode(selectedNodeId);
+      } else {
+        showToast('Selecione ou aponte o cursor para um balão primeiro');
+      }
+    }
+
+    // Atalho teclado Delete / Backspace para excluir balão selecionado
+    window.addEventListener('keydown', e => {
+      if (['TEXTAREA', 'INPUT'].includes(document.activeElement?.tagName)) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        deleteNode(selectedNodeId);
+      } else if (e.key === 'Escape') {
+        cancelLinking();
+        hideContextMenu();
+      }
+    });
 
     function renderAll() {
       renderNodes();
@@ -517,34 +675,82 @@
         }
 
         el.innerHTML = `
-          ${tpl.hasIn ? `<div class="port port-in" data-port="in" data-node="${node.id}" title="Entrada"></div>` : ''}
+          ${tpl.hasIn ? `<div class="port port-in" data-port="in" data-node="${node.id}" title="Entrada (Solte ou clique aqui para ligar)"></div>` : ''}
           <div class="node-header" style="border-top: 3px solid ${tpl.color}">
             <span class="node-title"><span class="dot-type" style="background:${tpl.color}"></span>${tpl.title}</span>
-            <button class="node-del" onclick="deleteNode('${node.id}')" title="Excluir balão">✕</button>
+            <button type="button" class="node-del" data-del="${node.id}" title="Excluir balão">✕</button>
           </div>
           <div class="node-body">
             <label class="field-lbl">${node.type === 'media' ? 'Link Salvo no Cloudflare R2' : 'Conteúdo / Configuração'}</label>
             <textarea rows="2" placeholder="${tpl.placeholder}">${escapeHtml(node.text)}</textarea>
             ${extraMediaControls}
           </div>
-          ${tpl.hasOut ? `<div class="port port-out" data-port="out" data-node="${node.id}" title="Arraste para ligar"></div>` : ''}
+          ${tpl.hasOut ? `<div class="port port-out" data-port="out" data-node="${node.id}" title="Saída (Arraste ou clique para ligar)"></div>` : ''}
         `;
+
+        // Botão X de excluir com suporte direto a mouse e touch
+        const delBtn = el.querySelector('.node-del');
+        delBtn.addEventListener('mousedown', e => e.stopPropagation());
+        delBtn.addEventListener('touchstart', e => e.stopPropagation());
+        delBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteNode(node.id);
+        });
 
         const textarea = el.querySelector('textarea');
         textarea.addEventListener('mousedown', e => e.stopPropagation());
         textarea.addEventListener('touchstart', e => e.stopPropagation());
         textarea.addEventListener('input', e => { node.text = e.target.value; });
 
+        // Menu de botão direito nativo no balão
+        el.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectNode(node.id);
+          openContextMenu(e.clientX, e.clientY, node.id);
+        });
+
+        // Clique/Arraste no balão (também finaliza ligação se estiver em modo conectar)
         el.addEventListener('mousedown', e => {
+          if (e.button === 2) return;
           if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL'].includes(e.target.tagName)) return;
           e.stopPropagation();
-          selectedNodeId = node.id;
+          hideContextMenu();
+
+          if (linkingFrom && linkingFrom !== node.id) {
+            finishLinking(node.id);
+            return;
+          }
+
+          selectNode(node.id);
           draggingNode = node;
           dragOffset.x = (e.clientX - pan.x) / scale - node.x;
           dragOffset.y = (e.clientY - pan.y) / scale - node.y;
-          document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
-          el.classList.add('selected');
         });
+
+        // Soltar linha em qualquer parte do balão conecta automaticamente (Snap fluido)
+        el.addEventListener('mouseup', e => {
+          if (linkingFrom && linkingFrom !== node.id) {
+            e.stopPropagation();
+            finishLinking(node.id);
+          }
+        });
+
+        // Touch direto no balão na tela
+        el.addEventListener('touchstart', e => {
+          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL'].includes(e.target.tagName)) return;
+          e.stopPropagation();
+          hideContextMenu();
+          if (linkingFrom && linkingFrom !== node.id) {
+            finishLinking(node.id);
+            return;
+          }
+          selectNode(node.id);
+          const t = e.touches[0];
+          draggingNode = node;
+          dragOffset.x = (t.clientX - pan.x) / scale - node.x;
+          dragOffset.y = (t.clientY - pan.y) / scale - node.y;
+        }, { passive: true });
 
         const outPort = el.querySelector('.port-out');
         if (outPort) {
@@ -552,6 +758,11 @@
             e.stopPropagation();
             startLinking(node.id, e.clientX, e.clientY);
           });
+          outPort.addEventListener('touchstart', e => {
+            e.stopPropagation();
+            const t = e.touches[0];
+            startLinking(node.id, t.clientX, t.clientY);
+          }, { passive: true });
         }
 
         const inPort = el.querySelector('.port-in');
@@ -654,17 +865,36 @@
         path.setAttribute('d', makeBezier(p1.x, p1.y, p2.x, p2.y));
         path.setAttribute('class', 'wire');
         path.setAttribute('title', 'Clique para remover ligação');
-        path.addEventListener('click', () => {
-          edges = edges.filter(e => e.id !== edge.id);
+        path.addEventListener('click', e => {
+          e.stopPropagation();
+          edges = edges.filter(item => item.id !== edge.id);
           renderEdges();
+          showToast('Ligação removida');
         });
         svgLayer.appendChild(path);
       });
     }
 
+    function findSnapNode(worldX, worldY) {
+      for (const n of nodes) {
+        if (n.id === linkingFrom) continue;
+        const tpl = NODE_TEMPLATES[n.type] || NODE_TEMPLATES.message;
+        if (!tpl.hasIn) continue;
+        const el = nodesLayer.querySelector(`.node[data-id="${n.id}"]`);
+        const w = el ? el.offsetWidth : 270;
+        const h = el ? el.offsetHeight : 110;
+        if (worldX >= n.x - 35 && worldX <= n.x + w + 20 && worldY >= n.y - 25 && worldY <= n.y + h + 25) {
+          return n;
+        }
+      }
+      return null;
+    }
+
     function startLinking(fromNodeId, clientX, clientY) {
       linkingFrom = fromNodeId;
+      selectNode(fromNodeId);
       viewport.classList.add('connect-mode');
+      if (tempWire) tempWire.remove();
       tempWire = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       tempWire.setAttribute('class', 'wire-temp');
       svgLayer.appendChild(tempWire);
@@ -674,16 +904,30 @@
     function updateTempWire(clientX, clientY) {
       if (!linkingFrom || !tempWire) return;
       const p1 = getPortCoords(linkingFrom, 'out');
-      const x2 = (clientX - pan.x) / scale;
-      const y2 = (clientY - pan.y) / scale;
+      let x2 = (clientX - pan.x) / scale;
+      let y2 = (clientY - pan.y) / scale;
+
+      // Ímã visual (Snap) quando aproxima de outro balão
+      document.querySelectorAll('.node').forEach(el => el.classList.remove('snap-target'));
+      const snapNode = findSnapNode(x2, y2);
+      if (snapNode) {
+        const pIn = getPortCoords(snapNode.id, 'in');
+        x2 = pIn.x;
+        y2 = pIn.y;
+        const snapEl = nodesLayer.querySelector(`.node[data-id="${snapNode.id}"]`);
+        if (snapEl) snapEl.classList.add('snap-target');
+      }
+
       tempWire.setAttribute('d', makeBezier(p1.x, p1.y, x2, y2));
     }
 
     function finishLinking(toNodeId) {
+      document.querySelectorAll('.node').forEach(el => el.classList.remove('snap-target'));
       if (linkingFrom && linkingFrom !== toNodeId) {
         const exists = edges.some(e => e.from === linkingFrom && e.to === toNodeId);
         if (!exists) {
           edges.push({ id: 'e_' + Date.now(), from: linkingFrom, to: toNodeId });
+          showToast('Balões conectados!');
         }
       }
       cancelLinking();
@@ -693,16 +937,81 @@
     function cancelLinking() {
       linkingFrom = null;
       viewport.classList.remove('connect-mode');
+      document.querySelectorAll('.node').forEach(el => el.classList.remove('snap-target'));
       if (tempWire) { tempWire.remove(); tempWire = null; }
     }
 
+    /* MENU DE CONTEXTO (BOTÃO DIREITO) */
+    function openContextMenu(x, y, nodeId) {
+      contextTargetNodeId = nodeId;
+      ctxMenu.style.display = 'flex';
+      const menuW = 180;
+      const menuH = 165;
+      ctxMenu.style.left = Math.min(window.innerWidth - menuW - 10, Math.max(10, x)) + 'px';
+      ctxMenu.style.top = Math.min(window.innerHeight - menuH - 10, Math.max(60, y)) + 'px';
+    }
+
+    function hideContextMenu() {
+      ctxMenu.style.display = 'none';
+      contextTargetNodeId = null;
+    }
+
+    function ctxAction(action) {
+      const id = contextTargetNodeId;
+      hideContextMenu();
+      if (!id) return;
+
+      if (action === 'link') {
+        const pOut = getPortCoords(id, 'out');
+        const screenX = pOut.x * scale + pan.x;
+        const screenY = pOut.y * scale + pan.y;
+        startLinking(id, screenX, screenY);
+        showToast('Agora clique ou leve o cursor até o balão de destino');
+      } else if (action === 'duplicate') {
+        const orig = nodes.find(n => n.id === id);
+        if (orig) {
+          const copy = { ...orig, id: 'n_' + Date.now(), x: orig.x + 40, y: orig.y + 40 };
+          nodes.push(copy);
+          selectNode(copy.id);
+          renderAll();
+          showToast('Balão duplicado');
+        }
+      } else if (action === 'unlink') {
+        edges = edges.filter(e => e.from !== id && e.to !== id);
+        renderEdges();
+        showToast('Ligações do balão removidas');
+      } else if (action === 'delete') {
+        deleteNode(id);
+      }
+    }
+
+    /* EVENTOS DE CANVAS (MOUSE E TOUCH DIRETO) */
     viewport.addEventListener('mousedown', e => {
+      hideContextMenu();
       if (e.target === viewport || e.target === world || e.target === svgLayer) {
+        if (linkingFrom) {
+          cancelLinking();
+          return;
+        }
         isPanning = true;
         panStart.x = e.clientX - pan.x;
         panStart.y = e.clientY - pan.y;
       }
     });
+
+    viewport.addEventListener('touchstart', e => {
+      hideContextMenu();
+      if (e.target === viewport || e.target === world || e.target === svgLayer) {
+        if (linkingFrom) {
+          cancelLinking();
+          return;
+        }
+        const t = e.touches[0];
+        isPanning = true;
+        panStart.x = t.clientX - pan.x;
+        panStart.y = t.clientY - pan.y;
+      }
+    }, { passive: true });
 
     window.addEventListener('mousemove', e => {
       if (isPanning) {
@@ -723,10 +1032,49 @@
       }
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      if (!t) return;
+      if (isPanning) {
+        pan.x = t.clientX - panStart.x;
+        pan.y = t.clientY - panStart.y;
+        updateTransform();
+      } else if (draggingNode) {
+        draggingNode.x = (t.clientX - pan.x) / scale - dragOffset.x;
+        draggingNode.y = (t.clientY - pan.y) / scale - dragOffset.y;
+        const el = nodesLayer.querySelector(`.node[data-id="${draggingNode.id}"]`);
+        if (el) {
+          el.style.left = draggingNode.x + 'px';
+          el.style.top = draggingNode.y + 'px';
+        }
+        renderEdges();
+      } else if (linkingFrom) {
+        updateTempWire(t.clientX, t.clientY);
+      }
+    }, { passive: true });
+
+    window.addEventListener('mouseup', e => {
       isPanning = false;
       draggingNode = null;
-      if (linkingFrom) cancelLinking();
+      if (linkingFrom) {
+        const wx = (e.clientX - pan.x) / scale;
+        const wy = (e.clientY - pan.y) / scale;
+        const snapNode = findSnapNode(wx, wy);
+        if (snapNode) finishLinking(snapNode.id);
+        else cancelLinking();
+      }
+    });
+
+    window.addEventListener('touchend', e => {
+      isPanning = false;
+      draggingNode = null;
+      if (linkingFrom && e.changedTouches?.[0]) {
+        const t = e.changedTouches[0];
+        const wx = (t.clientX - pan.x) / scale;
+        const wy = (t.clientY - pan.y) / scale;
+        const snapNode = findSnapNode(wx, wy);
+        if (snapNode) finishLinking(snapNode.id);
+      }
     });
 
     viewport.addEventListener('wheel', e => {
@@ -746,7 +1094,7 @@
       updateTransform();
     }
 
-    /* MOUSEPAD / TRACKPAD DIGITAL INTERATIVO */
+    /* MOUSEPAD / TRACKPAD DIGITAL COM BOTÃO ESQUERDO E DIREITO */
     const touchSurface = document.getElementById('touch-surface');
 
     function setPadMode(mode) {
@@ -759,7 +1107,7 @@
 
     function updateVirtualCursor() {
       cursorPos.x = Math.max(10, Math.min(window.innerWidth - 10, cursorPos.x));
-      cursorPos.y = Math.max(60, Math.min(window.innerHeight - 10, cursorPos.y));
+      cursorPos.y = Math.max(58, Math.min(window.innerHeight - 10, cursorPos.y));
       vCursor.style.left = cursorPos.x + 'px';
       vCursor.style.top = cursorPos.y + 'px';
 
@@ -782,8 +1130,9 @@
         padLastTouch = { x: clientX, y: clientY };
         return;
       }
-      const dx = (clientX - padLastTouch.x) * 1.65;
-      const dy = (clientY - padLastTouch.y) * 1.65;
+      const dx = (clientX - padLastTouch.x) * 1.7;
+      const dy = (clientY - padLastTouch.y) * 1.7;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) padTouchMoved = true;
       padLastTouch = { x: clientX, y: clientY };
 
       if (padMode === 'pan') {
@@ -800,8 +1149,10 @@
 
     touchSurface.addEventListener('touchstart', e => {
       e.preventDefault();
+      hideContextMenu();
       const t = e.touches[0];
       padLastTouch = { x: t.clientX, y: t.clientY };
+      padTouchMoved = false;
     }, { passive: false });
 
     touchSurface.addEventListener('touchmove', e => {
@@ -810,13 +1161,23 @@
       handlePadMove(t.clientX, t.clientY);
     }, { passive: false });
 
-    touchSurface.addEventListener('touchend', () => { padLastTouch = null; });
+    touchSurface.addEventListener('touchend', e => {
+      e.preventDefault();
+      padLastTouch = null;
+      // Toque rápido na superfície touch funciona como clique esquerdo
+      if (!padTouchMoved && padMode === 'cursor') {
+        performVirtualLeftClick();
+      }
+    });
 
     touchSurface.addEventListener('mousedown', e => {
+      hideContextMenu();
       padLastTouch = { x: e.clientX, y: e.clientY };
+      padTouchMoved = false;
       const onMove = ev => handlePadMove(ev.clientX, ev.clientY);
       const onUp = () => {
         padLastTouch = null;
+        if (!padTouchMoved && padMode === 'cursor') performVirtualLeftClick();
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
@@ -831,22 +1192,51 @@
       return el;
     }
 
-    function padHoldStart() {
+    // BOTÃO ESQUERDO DO MOUSEPAD (Segurar para mover/ligar OU clique rápido para conectar/selecionar)
+    function leftBtnDown(e) {
+      if (e) e.preventDefault();
+      hideContextMenu();
       setPadMode('cursor');
-      padHolding = true;
+      vCursor.classList.add('clicking');
+      document.getElementById('btn-left-click').classList.add('holding');
+      leftHolding = true;
+
       const target = getElementUnderVirtualCursor();
       if (!target) return;
 
+      // Se clicou no X de excluir balão
+      const delBtn = target.closest('.node-del');
+      if (delBtn) {
+        deleteNode(delBtn.dataset.del);
+        leftHolding = false;
+        return;
+      }
+
+      // Se já estava ligando um fio e clicou no balão/entrada de destino -> Conecta!
+      if (linkingFrom) {
+        const portIn = target.closest('.port-in');
+        const nodeEl = target.closest('.node');
+        const destId = portIn ? portIn.dataset.node : (nodeEl ? nodeEl.dataset.id : null);
+        if (destId && destId !== linkingFrom) {
+          finishLinking(destId);
+          leftHolding = false;
+          return;
+        }
+      }
+
+      // Se apertou na bolinha de saída -> Inicia linha fluida
       const portOut = target.closest('.port-out');
       if (portOut) {
         startLinking(portOut.dataset.node, cursorPos.x, cursorPos.y);
         return;
       }
 
+      // Se apertou em um balão -> Seleciona e prepara para mover
       const nodeEl = target.closest('.node');
       if (nodeEl) {
         const node = nodes.find(n => n.id === nodeEl.dataset.id);
         if (node) {
+          selectNode(node.id);
           draggingNode = node;
           dragOffset.x = (cursorPos.x - pan.x) / scale - node.x;
           dragOffset.y = (cursorPos.y - pan.y) / scale - node.y;
@@ -854,37 +1244,69 @@
       }
     }
 
-    function padHoldEnd() {
-      if (!padHolding) return;
-      padHolding = false;
-      if (linkingFrom) {
-        const target = getElementUnderVirtualCursor();
-        const portIn = target ? target.closest('.port-in') : null;
-        const nodeEl = target ? target.closest('.node') : null;
-        if (portIn) finishLinking(portIn.dataset.node);
-        else if (nodeEl) finishLinking(nodeEl.dataset.id);
-        else cancelLinking();
+    function leftBtnUp(e) {
+      if (e) e.preventDefault();
+      vCursor.classList.remove('clicking');
+      document.getElementById('btn-left-click').classList.remove('holding');
+      if (!leftHolding) return;
+      leftHolding = false;
+
+      if (draggingNode) {
+        draggingNode = null;
       }
-      draggingNode = null;
+
+      // Se estava arrastando uma linha e soltou em cima de outro balão -> Conecta com snap!
+      if (linkingFrom) {
+        const wx = (cursorPos.x - pan.x) / scale;
+        const wy = (cursorPos.y - pan.y) / scale;
+        const snapNode = findSnapNode(wx, wy);
+        if (snapNode) {
+          finishLinking(snapNode.id);
+        }
+      }
     }
 
-    function padClick() {
+    function performVirtualLeftClick() {
       setPadMode('cursor');
       const target = getElementUnderVirtualCursor();
       if (!target) return;
+
+      const delBtn = target.closest('.node-del');
+      if (delBtn) {
+        deleteNode(delBtn.dataset.del);
+        return;
+      }
+
       const portOut = target.closest('.port-out');
       const portIn = target.closest('.port-in');
       const nodeEl = target.closest('.node');
 
       if (!linkingFrom && portOut) {
         startLinking(portOut.dataset.node, cursorPos.x, cursorPos.y);
-        showToast('Mova o cursor até a entrada de outro balão e clique de novo');
+        showToast('Mova o cursor até o balão destino e clique em Esq ou toque no pad');
       } else if (linkingFrom && (portIn || nodeEl)) {
         const destId = portIn ? portIn.dataset.node : nodeEl.dataset.id;
-        finishLinking(destId);
-        showToast('Blocos conectados!');
+        if (destId !== linkingFrom) finishLinking(destId);
       } else if (linkingFrom) {
         cancelLinking();
+      } else if (nodeEl) {
+        selectNode(nodeEl.dataset.id);
+      }
+    }
+
+    // BOTÃO DIREITO DO MOUSEPAD (Abre menu de opções no cursor)
+    function rightBtnClick(e) {
+      if (e) e.preventDefault();
+      setPadMode('cursor');
+      const target = getElementUnderVirtualCursor();
+      const nodeEl = target ? target.closest('.node') : null;
+      const targetId = nodeEl ? nodeEl.dataset.id : selectedNodeId;
+
+      if (targetId) {
+        selectNode(targetId);
+        openContextMenu(cursorPos.x, cursorPos.y, targetId);
+      } else {
+        showToast('Aponte o cursor para um balão e clique em Dir (Opções)');
       }
     }
 
