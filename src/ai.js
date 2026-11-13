@@ -28,15 +28,16 @@ function extractSavedMediaCatalog(settings) {
 function buildSystemInstruction(settings, mediaCatalog) {
   const mediaSection =
     mediaCatalog.length > 0
-      ? `SUAS MÍDIAS PRÉ-GRAVADAS DISPONÍVEIS PARA ENVIAR NO CHAT:
+      ? `CATÁLOGO DE MÍDIAS PRÉ-GRAVADAS DISPONÍVEIS:
 ${mediaCatalog
-  .map((m) => `- [${m.kind.toUpperCase()} #${m.index}] -> Use a tag exata: [ENVIAR_MIDIA:${m.url}]`)
+  .map((m) => `- MÍDIA #${m.index} (${m.kind.toUpperCase()}): [ENVIAR_MIDIA:${m.url}]`)
   .join('\n')}
 
-REGRAS DE ENVIO DE ÁUDIO, VÍDEO E FOTO:
-- Sempre que fizer sentido na conversa (ex: para dar um oi mais íntimo com áudio, mostrar um vídeo seu, mandar uma prévia ou quando o cliente pedir foto/áudio/vídeo), inclua a tag [ENVIAR_MIDIA:URL_EXATA] na sua resposta.
-- Envie no máximo 1 mídia por vez para parecer natural e nunca repita uma mídia que você já enviou no histórico recente desta conversa.`
-      : '';
+REGRA OBRIGATÓRIA DE ENVIO DE FOTO, VÍDEO E ÁUDIO:
+- Quando o cliente pedir foto, vídeo, áudio, prévia ou elogiar você, VOCÊ DEVE OBRIGATORIAMENTE colocar a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
+- Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL.
+- Escreva no máximo 1 frase curta antes da tag para sobrar espaço para a URL completa.`
+      : 'AVISO: Nenhuma mídia cadastrada no fluxo ainda.';
 
   return `Você é uma criadora de conteúdo digital carismática, doce e atenciosa conversando no privado do WhatsApp/Telegram.
 
@@ -112,6 +113,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   ]);
 
   const mediaCatalog = extractSavedMediaCatalog(settings);
+  console.log(`[AI] Mídias carregadas do fluxo: ${mediaCatalog.length}`);
 
   const formattedHistory = history
     .map(
@@ -149,13 +151,13 @@ Nova mensagem do cliente: ${userMessage}`;
         config: {
           systemInstruction,
           temperature: 0.7,
-          maxOutputTokens: 220,
+          maxOutputTokens: 450,
         },
       });
 
       if (response?.text) {
         workingModelCache = modelName;
-        console.log('[AI] Respondido com sucesso usando:', modelName);
+        console.log('[AI] Resposta bruta:', response.text);
         return response.text;
       }
     } catch (err) {

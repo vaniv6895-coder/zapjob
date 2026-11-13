@@ -1,4 +1,4 @@
-import { getBotSettings, getMemory, saveMessage } from './db.js';
+import { getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
 import { sendWhatsAppText, sendWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
 import { sendTelegramText } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
@@ -32,9 +32,12 @@ async function sendChannelMedia(channel, userId, url, kind) {
 }
 
 export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer, mediaMime, lastMessageId }) {
-  const settings = await getBotSettings();
-  let flow = { nodes: [], edges: [] };
+  const [settings, aiPaused] = await Promise.all([
+    getBotSettings(),
+    isAiPaused(channel, userId),
+  ]);
 
+  let flow = { nodes: [], edges: [] };
   try {
     if (settings.visual_flow) {
       flow = JSON.parse(settings.visual_flow);
@@ -46,8 +49,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
   const edges = Array.isArray(flow.edges) ? flow.edges : [];
 
-  const history = await getMemory(channel, userId, 30);
-  const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
+  console.log(`[FlowEngine] Usuário: ${userId} | Nodes: ${nodes.length} | Edges: ${edges.length} | IA Pausada: ${aiPaused}`);
 
   const getNextNodes = (nodeId) =>
     edges
@@ -66,16 +68,20 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     return keywords.some((kw) => msgLower.includes(kw));
   });
 
+  const history = await getMemory(channel, userId, 30);
+  const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
+
   let startNode = null;
   if (matchedCondition) {
     startNode = matchedCondition;
-  } else if (!assistantAlreadyReplied) {
+  } else if (aiPaused || !assistantAlreadyReplied) {
     startNode = nodes.find((n) => n.type === 'trigger') || null;
   }
 
   const executedFlowSummary = [];
   let reachedAiNode = false;
   let aiExtraInstruction = '';
+  let sentMediaInThisTurn = false;
 
   if (startNode) {
     const visited = new Set([startNode.id]);
@@ -93,7 +99,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       } else if (current.type === 'message' && current.text?.trim()) {
         if (channel === 'whatsapp' && lastMessageId) {
           await sendWhatsAppTyping(lastMessageId);
-          await sleep(1200);
+          await sleep(1000);
         }
         await sendChannelText(channel, userId, current.text.trim());
         await saveMessage(channel, userId, 'assistant', current.text.trim(), 'text', null);
@@ -101,13 +107,19 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       } else if (current.type === 'media' && current.text?.trim().startsWith('http')) {
         const url = current.text.trim();
         const kind = detectMediaKind(url, current.mediaKind);
-        if (channel === 'whatsapp' && lastMessageId) {
-          await sendWhatsAppTyping(lastMessageId);
-          await sleep(1500);
+        try {
+          console.log(`[FlowEngine] Enviando ${kind} do fluxo para ${userId}: ${url}`);
+          if (channel === 'whatsapp' && lastMessageId) {
+            await sendWhatsAppTyping(lastMessageId);
+            await sleep(1000);
+          }
+          await sendChannelMedia(channel, userId, url, kind);
+          await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
+          executedFlowSummary.push(`Você enviou um(a) ${kind} (${url}) ao cliente.`);
+          sentMediaInThisTurn = true;
+        } catch (mediaErr) {
+          console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr.message);
         }
-        await sendChannelMedia(channel, userId, url, kind);
-        await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
-        executedFlowSummary.push(`Você acabou de enviar um(a) ${kind} (${url}) ao cliente.`);
       } else if (current.type === 'ai') {
         reachedAiNode = true;
         aiExtraInstruction = current.text || '';
@@ -119,7 +131,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  const shouldCallAi = !startNode || reachedAiNode;
+  const shouldCallAi = !aiPaused && (!startNode || reachedAiNode);
 
   if (shouldCallAi) {
     if (channel === 'whatsapp' && lastMessageId) {
@@ -133,12 +145,31 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
     const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
     if (rawAiReply) {
-      // Extrai tags [ENVIAR_MIDIA:https://...] escolhidas pela IA
       const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
       const mediaUrls = [];
       let match;
       while ((match = mediaRegex.exec(rawAiReply)) !== null) {
         mediaUrls.push(match[1]);
+      }
+
+      // Fallback automático: se o cliente pediu foto/amostra/vídeo/áudio e a IA não colocou a tag,
+      // pega uma mídia cadastrada no /fluxo e dispara automaticamente!
+      if (mediaUrls.length === 0 && !sentMediaInThisTurn) {
+        const allMediaNodes = nodes.filter((n) => n.type === 'media' && n.text?.trim().startsWith('http'));
+        if (allMediaNodes.length > 0) {
+          let requestedKind = null;
+          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver)\b/i.test(msgLower)) requestedKind = 'image';
+          else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o)\b/i.test(msgLower)) requestedKind = 'video';
+          else if (/\b([aá]udio|voz|fala comigo|manda voz)\b/i.test(msgLower)) requestedKind = 'audio';
+
+          if (requestedKind) {
+            const matching = allMediaNodes.filter((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
+            const chosen = matching[0] || allMediaNodes[0];
+            if (chosen) {
+              mediaUrls.push(chosen.text.trim());
+            }
+          }
+        }
       }
 
       const cleanText = rawAiReply.replace(mediaRegex, '').trim();
@@ -150,12 +181,17 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
       for (const url of mediaUrls) {
         const kind = detectMediaKind(url);
-        if (channel === 'whatsapp' && lastMessageId) {
-          await sendWhatsAppTyping(lastMessageId);
-          await sleep(1200);
+        try {
+          console.log(`[FlowEngine] Enviando ${kind} para ${userId}: ${url}`);
+          if (channel === 'whatsapp' && lastMessageId) {
+            await sendWhatsAppTyping(lastMessageId);
+            await sleep(1000);
+          }
+          await sendChannelMedia(channel, userId, url, kind);
+          await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, url);
+        } catch (mediaErr) {
+          console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
         }
-        await sendChannelMedia(channel, userId, url, kind);
-        await saveMessage(channel, userId, 'assistant', `[${kind} enviado pela IA]`, kind, url);
       }
     }
   }

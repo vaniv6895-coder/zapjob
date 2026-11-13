@@ -1,4 +1,5 @@
 import axios from 'axios';
+import FormData from 'form-data';
 
 const META_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
@@ -61,7 +62,7 @@ export async function sendWhatsAppText(to, text) {
   );
 }
 
-// Envia áudio (nota de voz), vídeo ou imagem a partir do link público do Cloudflare R2
+// Baixa a mídia do R2, faz upload direto para a Meta (POST /media) e envia pelo media_id
 export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   let type = mediaKind;
   if (!type) {
@@ -70,12 +71,49 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
     else type = 'image';
   }
 
+  // 1. Baixa o arquivo do link R2
+  const fileRes = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+  const buffer = Buffer.from(fileRes.data);
+  let contentType = fileRes.headers['content-type'] || '';
+
+  // Ajusta MIME types exigidos pela Cloud API do WhatsApp
+  if (type === 'audio' && (!contentType || contentType.includes('webm') || contentType.includes('octet-stream'))) {
+    contentType = 'audio/ogg';
+  } else if (type === 'video' && (!contentType || contentType.includes('octet-stream'))) {
+    contentType = 'video/mp4';
+  } else if (type === 'image' && (!contentType || contentType.includes('octet-stream'))) {
+    contentType = 'image/jpeg';
+  }
+
+  const ext = type === 'audio' ? 'ogg' : type === 'video' ? 'mp4' : 'jpg';
+
+  // 2. Faz upload direto para os servidores da Meta para obter o media_id
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('file', buffer, {
+    filename: `midia_${Date.now()}.${ext}`,
+    contentType,
+  });
+
+  const uploadRes = await axios.post(`${GRAPH_URL}/${PHONE_NUMBER_ID}/media`, form, {
+    headers: {
+      Authorization: `Bearer ${META_TOKEN}`,
+      ...form.getHeaders(),
+    },
+  });
+
+  const mediaId = uploadRes.data?.id;
+  if (!mediaId) {
+    throw new Error('Falha ao obter media_id da Meta no upload');
+  }
+
+  // 3. Dispara a mensagem no WhatsApp usando o media_id oficial
   const payload = {
     messaging_product: 'whatsapp',
     to,
     type,
     [type]: {
-      link: mediaUrl,
+      id: mediaId,
     },
   };
 
