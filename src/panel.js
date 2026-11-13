@@ -66,6 +66,17 @@ export function registerPanelRoutes(app) {
     return true;
   }
 
+  // Rota pública (CORS liberado) para a vitrine externa carregar foto, @usuario e botões
+  app.get('/api/vitrine/config', async (req, reply) => {
+    reply.header('Access-Control-Allow-Origin', '*');
+    const settings = await getBotSettings();
+    let config = null;
+    try {
+      if (settings.vitrine_config) config = JSON.parse(settings.vitrine_config);
+    } catch {}
+    return { config };
+  });
+
   // Rota pública (CORS liberado) para a vitrine externa registrar visitas e cliques
   app.options('/api/vitrine/track', async (req, reply) => {
     reply
@@ -216,9 +227,9 @@ const PANEL_HTML = `<!DOCTYPE html>
     body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
     /* Login & Modais */
-    #login-screen, #settings-modal, #analytics-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    #settings-modal, #analytics-modal { display: none; overflow-y: auto; }
-    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 460px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
+    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    #settings-modal, #analytics-modal, #vitrine-modal { display: none; overflow-y: auto; }
+    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
     .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
     .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
     .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
@@ -242,13 +253,14 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     /* App Layout */
     #app { display: flex; height: 100vh; width: 100%; }
-    #sidebar { width: 380px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
+    #sidebar { width: 390px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
     .sidebar-header { background: #202c33; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .sidebar-header h3 { font-size: 15px; }
     .header-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
     .nav-pill { background: #005c4b; color: #25d366; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; text-decoration: none; }
     .nav-pill.blue { background: #1c3d5a; color: #38bdf8; }
     .nav-pill.amber { background: #451a03; color: #fbbf24; }
+    .nav-pill.purple { background: #3b2667; color: #c084fc; }
     .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
     .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
@@ -348,11 +360,38 @@ const PANEL_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <div id="vitrine-modal">
+    <div class="modal-box">
+      <h2>🎨 Editar Vitrine (Link-in-Bio)</h2>
+      <p>Suba a foto de perfil e edite os botões. Atualiza no ar na hora!</p>
+
+      <label>@Usuário</label>
+      <input type="text" id="vit-handle" placeholder="@bellalonguinho" />
+
+      <label>Foto de Perfil (Subir imagem ou colar URL)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <input type="text" id="vit-avatar" placeholder="https://..." style="flex:1;" />
+        <label style="background:#1c3d5a;color:#38bdf8;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;white-space:nowrap;margin:0;">
+          📷 Subir Foto
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadVitrineAvatar(event)" />
+        </label>
+      </div>
+
+      <label style="margin-top:14px;">Botões da Vitrine</label>
+      <div id="vit-links-list" style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"></div>
+      <button type="button" class="btn-secondary" onclick="addVitrineLinkRow()" style="border-style:dashed;color:#38bdf8;">+ Adicionar Botão</button>
+
+      <button class="btn-primary" onclick="saveVitrineConfig()">Salvar Vitrine</button>
+      <button class="btn-secondary" onclick="closeVitrineModal()">Fechar</button>
+    </div>
+  </div>
+
   <div id="app">
     <div id="sidebar">
       <div class="sidebar-header">
         <h3>Conversas</h3>
         <div class="header-actions">
+          <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
           <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
           <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
           <button class="nav-pill" onclick="openSettings()">Links VIP</button>
@@ -370,7 +409,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para ver <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
+        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para editar a <strong>Vitrine</strong>, ver <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -398,6 +437,7 @@ const PANEL_HTML = `<!DOCTYPE html>
     let currentFilter = 'all';
     let selectedChat = null;
     let currentAiPaused = false;
+    let vitrineLinksState = [];
 
     function togglePasswordVisibility() {
       const input = document.getElementById('pwd-input');
@@ -436,6 +476,92 @@ const PANEL_HTML = `<!DOCTYPE html>
     function logout() {
       localStorage.removeItem('panel_pwd');
       location.reload();
+    }
+
+    async function openVitrineModal() {
+      document.getElementById('vitrine-modal').style.display = 'flex';
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { settings } = await res.json();
+      let cfg = {
+        handle: '@bellalonguinho',
+        avatarUrl: '',
+        links: [
+          { title: 'FATALFANS 🙈', url: settings.link_fatalfans || '', icon: 'dots' },
+          { title: 'PRIVACY / VIP 🥵', url: settings.link_fanvue || '', icon: 'lock' },
+          { title: 'PRÉVIAS GRÁTIS (TELEGRAM) ✈️', url: settings.link_telegram || '', icon: 'lock' }
+        ]
+      };
+      try {
+        if (settings.vitrine_config) cfg = JSON.parse(settings.vitrine_config);
+      } catch {}
+
+      document.getElementById('vit-handle').value = cfg.handle || '';
+      document.getElementById('vit-avatar').value = cfg.avatarUrl || '';
+      vitrineLinksState = Array.isArray(cfg.links) ? cfg.links : [];
+      renderVitrineRows();
+    }
+
+    function closeVitrineModal() {
+      document.getElementById('vitrine-modal').style.display = 'none';
+    }
+
+    function renderVitrineRows() {
+      const box = document.getElementById('vit-links-list');
+      box.innerHTML = vitrineLinksState.map((item, i) => \`
+        <div style="background:#111b21;padding:8px;border-radius:8px;border:1px solid #2a3942;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:6px;">
+            <input type="text" placeholder="Nome do botão" value="\${escapeHtml(item.title)}" oninput="vitrineLinksState[\${i}].title=this.value" style="flex:1;" />
+            <select onchange="vitrineLinksState[\${i}].icon=this.value" style="background:#202c33;color:#fff;border:1px solid #2a3942;border-radius:8px;padding:0 8px;font-size:12px;">
+              <option value="lock" \${item.icon === 'lock' ? 'selected' : ''}>🔒 Cadeado</option>
+              <option value="dots" \${item.icon === 'dots' ? 'selected' : ''}>⋮ Pontinhos</option>
+            </select>
+            <button type="button" onclick="vitrineLinksState.splice(\${i},1);renderVitrineRows()" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:6px;padding:0 10px;cursor:pointer;">✕</button>
+          </div>
+          <input type="text" placeholder="https://..." value="\${escapeHtml(item.url)}" oninput="vitrineLinksState[\${i}].url=this.value" />
+        </div>
+      \`).join('');
+    }
+
+    function addVitrineLinkRow() {
+      vitrineLinksState.push({ title: 'NOVO LINK 🔥', url: 'https://', icon: 'lock' });
+      renderVitrineRows();
+    }
+
+    async function uploadVitrineAvatar(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/panel/upload-media', {
+        method: 'POST',
+        headers: { 'x-panel-password': password },
+        body: fd
+      });
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('vit-avatar').value = data.url;
+        alert('Foto enviada com sucesso!');
+      } else {
+        alert('Erro ao enviar foto.');
+      }
+    }
+
+    async function saveVitrineConfig() {
+      const payload = {
+        handle: document.getElementById('vit-handle').value.trim(),
+        avatarUrl: document.getElementById('vit-avatar').value.trim(),
+        links: vitrineLinksState.filter(l => l.title && l.url)
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ vitrine_config: JSON.stringify(payload) })
+      });
+      if (res.ok) {
+        alert('Vitrine atualizada! Já está valendo no ar.');
+        closeVitrineModal();
+      }
     }
 
     async function openAnalytics() {

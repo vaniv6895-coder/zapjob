@@ -64,6 +64,7 @@ export async function getBotSettings() {
     price_usd: map.price_usd || '$25 USD/mês',
     price_gbp: map.price_gbp || '£22/month',
     visual_flow: map.visual_flow || null,
+    vitrine_config: map.vitrine_config || null,
   };
 }
 
