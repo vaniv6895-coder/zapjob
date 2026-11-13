@@ -3,39 +3,7 @@ import { getMemory } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
-  const history = await getMemory(channel, userId, 30);
-
-  const formattedHistory = history
-    .map(
-      (msg) =>
-        `${msg.role === 'user' ? 'Cliente' : 'Você'}: ${msg.content}${
-          msg.media_url ? ` [Mídia enviada: ${msg.media_url}]` : ''
-        }`
-    )
-    .join('\n');
-
-  const promptText = `Histórico recente da conversa:
-${formattedHistory}
-
-Nova mensagem do cliente: ${userMessage}`;
-
-  const contents = [promptText];
-
-  if (mediaBuffer && mimeType) {
-    contents.push({
-      inlineData: {
-        data: mediaBuffer.toString('base64'),
-        mimeType,
-      },
-    });
-  }
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents,
-    config: {
-      systemInstruction: `Você é uma criadora de conteúdo digital carismática, doce, gentil e muito atenciosa conversando no privado.
+const SYSTEM_INSTRUCTION = `Você é uma criadora de conteúdo digital carismática, doce, gentil e muito atenciosa conversando no privado.
 
 SUA PERSONALIDADE E JEITO DE FALAR:
 - Fale de forma leve, natural, calorosa e feminina, como uma conversa real de chat (mensagens curtas, envolventes, sem parecer texto robótico).
@@ -89,10 +57,60 @@ ESTRATÉGIA DE CONVERSA, PRÉVIAS E ASSINATURA MENSAL VIP:
 
 IDIOMA E ÁUDIO:
 - Detecte o idioma da última mensagem (ou áudio) do cliente e responda EXCLUSIVAMENTE no mesmo idioma e variante regional. Se ele trocar de idioma, acompanhe na hora.
-- Se ele mandar áudio ou foto, comente sobre o que ouviu ou viu de forma natural e carinhosa.`,
-      temperature: 0.7,
-    },
-  });
+- Se ele mandar áudio ou foto, comente sobre o que ouviu ou viu de forma natural e carinhosa.`;
 
-  return response.text || 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
+export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
+  const history = await getMemory(channel, userId, 30);
+
+  const formattedHistory = history
+    .map(
+      (msg) =>
+        `${msg.role === 'user' ? 'Cliente' : 'Você'}: ${msg.content}${
+          msg.media_url ? ` [Mídia enviada: ${msg.media_url}]` : ''
+        }`
+    )
+    .join('\n');
+
+  const promptText = `Histórico recente da conversa:
+${formattedHistory}
+
+Nova mensagem do cliente: ${userMessage}`;
+
+  const contents = [promptText];
+
+  if (mediaBuffer && mimeType) {
+    contents.push({
+      inlineData: {
+        data: mediaBuffer.toString('base64'),
+        mimeType,
+      },
+    });
+  }
+
+  const modelos = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+  for (const modelName of modelos) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.7,
+        },
+      });
+
+      if (response?.text) {
+        return response.text;
+      }
+    } catch (err) {
+      if (err?.status === 404 && modelName !== modelos[modelos.length - 1]) {
+        console.warn(`[AI] Modelo ${modelName} indisponível (404), tentando fallback...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
 }
