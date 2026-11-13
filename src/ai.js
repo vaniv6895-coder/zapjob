@@ -64,7 +64,14 @@ let workingModelCache = null;
 async function getCandidateModels() {
   if (workingModelCache) return [workingModelCache];
 
-  const fallbacks = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+  const fallbacks = [
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-3.7-flash',
+    'gemini-3.8-flash',
+  ];
 
   try {
     const pager = await ai.models.list();
@@ -75,16 +82,13 @@ async function getCandidateModels() {
         name.includes('gemini') &&
         name.includes('flash') &&
         !name.includes('image') &&
-        !name.includes('lite') &&
         !name.includes('2.0') &&
         !name.includes('2.5')
       ) {
         available.push(name);
       }
     }
-    // Ordena do mais recente (3.8, 3.7...) para o anterior
-    available.sort().reverse();
-    return [...new Set([...available, ...fallbacks])];
+    return [...new Set([...fallbacks, ...available])];
   } catch {
     return fallbacks;
   }
@@ -137,8 +141,8 @@ Nova mensagem do cliente: ${userMessage}`;
         return response.text;
       }
     } catch (err) {
-      if (err?.status === 404) {
-        console.warn(`[AI] ${modelName} retornou 404, testando próximo...`);
+      if (err?.status === 404 || err?.status === 429) {
+        console.warn(`[AI] ${modelName} indisponível (${err.status}), testando próximo...`);
         continue;
       }
       throw err;
