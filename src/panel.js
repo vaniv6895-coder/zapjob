@@ -128,8 +128,13 @@ export function registerPanelRoutes(app) {
     let mimeType = data.mimetype || 'application/octet-stream';
     let cleanName = data.filename.replace(/[^a-zA-Z0-9._-]/g, '');
 
-    // Converte áudios gravados pelo navegador (webm/ogg) para MP3 real compatível com WhatsApp
-    if (mimeType.startsWith('audio/') && !mimeType.includes('mpeg') && !cleanName.endsWith('.mp3')) {
+    // Converte qualquer gravação de áudio/voz do navegador (ogg, webm, wav, m4a) para MP3 real compatível com WhatsApp
+    const isBrowserAudio =
+      mimeType.startsWith('audio/') ||
+      mimeType.includes('webm') ||
+      /\.(ogg|webm|wav|m4a|opus)$/i.test(cleanName);
+
+    if (isBrowserAudio && !cleanName.toLowerCase().endsWith('.mp3')) {
       buffer = await convertAudioBufferToMp3(buffer);
       mimeType = 'audio/mpeg';
       cleanName = cleanName.replace(/\.[^.]+$/, '') + '.mp3';

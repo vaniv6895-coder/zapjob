@@ -53,7 +53,7 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
     if (!pacote) return;
 
     try {
-      if (await isAiPaused(channel, userId)) return;
+      
 
       const mensagemAgrupada = pacote.textos.join('\n');
       await runHybridFlow({
@@ -168,7 +168,7 @@ app.post('/webhook', async (req, reply) => {
 
       await saveMessage('whatsapp', from, 'user', textContent, type, savedMediaUrl);
 
-      if (await isAiPaused('whatsapp', from)) return;
+     
 
       // Ativa imediatamente o indicador "digitando..." no WhatsApp do cliente
       sendWhatsAppTyping(messageId);
