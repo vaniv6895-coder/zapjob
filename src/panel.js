@@ -3,11 +3,14 @@ import {
   getConversationMessages,
   saveMessage,
   setAiPaused,
-  isAiPaused
+  isAiPaused,
+  getBotSettings,
+  saveBotSettings
 } from './db.js';
 import { sendWhatsAppText } from './whatsapp.js';
 import { sendTelegramText } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
+import { uploadMedia } from './storage.js';
 
 export function registerPanelRoutes(app) {
   const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
@@ -65,6 +68,50 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
+  // Buscar e salvar links VIP e preços
+  app.get('/api/panel/settings', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const settings = await getBotSettings();
+    return { settings };
+  });
+
+  app.post('/api/panel/settings', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    await saveBotSettings(req.body || {});
+    return { ok: true };
+  });
+
+  // Upload de mídia pré-gravada (Áudio, Vídeo, Imagem) para o Cloudflare R2
+  app.post('/api/panel/upload-media', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const data = await req.file();
+    if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
+
+    const buffer = await data.toBuffer();
+    const mimeType = data.mimetype || 'application/octet-stream';
+    const fileId = `${Date.now()}_${data.filename.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+
+    const url = await uploadMedia(buffer, 'flow_presets', fileId, mimeType);
+    return { ok: true, url, mimeType };
+  });
+
+  // Salvar e carregar o fluxo visual no PostgreSQL
+  app.get('/api/panel/flow', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const settings = await getBotSettings();
+    let flow = { nodes: [], edges: [] };
+    try {
+      if (settings.visual_flow) flow = JSON.parse(settings.visual_flow);
+    } catch {}
+    return { flow };
+  });
+
+  app.post('/api/panel/flow', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    await saveBotSettings({ visual_flow: JSON.stringify(req.body || {}) });
+    return { ok: true };
+  });
+
   // Interface Web (/painel)
   app.get('/painel', async (req, reply) => {
     reply.type('text/html; charset=utf-8').send(PANEL_HTML);
@@ -81,19 +128,25 @@ const PANEL_HTML = `<!DOCTYPE html>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
-    /* Login */
-    #login-screen { position: fixed; inset: 0; background: #0b141a; display: flex; align-items: center; justify-content: center; z-index: 999; padding: 20px; }
-    .login-box { background: #202c33; padding: 28px; border-radius: 12px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-    .login-box h2 { margin-bottom: 8px; color: #00a884; }
-    .login-box p { font-size: 14px; color: #8696a0; margin-bottom: 20px; }
-    .login-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 16px; margin-bottom: 14px; }
-    .login-box button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 16px; cursor: pointer; }
+    /* Login & Modais */
+    #login-screen, #settings-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    #settings-modal { display: none; overflow-y: auto; }
+    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+    .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
+    .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
+    .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
+    .modal-box input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 14px; }
+    .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 16px; }
+    .btn-secondary { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3942; background: transparent; color: #8696a0; font-size: 14px; cursor: pointer; margin-top: 8px; }
 
     /* App Layout */
     #app { display: flex; height: 100vh; width: 100%; }
     #sidebar { width: 360px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
-    .sidebar-header { background: #202c33; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
     .sidebar-header h3 { font-size: 16px; }
+    .header-actions { display: flex; gap: 6px; align-items: center; }
+    .nav-pill { background: #005c4b; color: #25d366; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; text-decoration: none; }
+    .nav-pill.blue { background: #1c3d5a; color: #38bdf8; }
     .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
     .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
@@ -112,7 +165,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     /* Chat Area */
     #chat-area { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
-    #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; flex-direction: column; gap: 8px; }
+    #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; flex-direction: column; gap: 8px; padding: 20px; text-align: center; }
     #chat-active { display: none; flex-direction: column; height: 100%; }
     .chat-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3942; }
     .chat-header-left { display: flex; align-items: center; gap: 10px; }
@@ -145,11 +198,34 @@ const PANEL_HTML = `<!DOCTYPE html>
 <body>
 
   <div id="login-screen">
-    <div class="login-box">
+    <div class="modal-box" style="text-align:center;">
       <h2>Painel VIP</h2>
       <p>Digite a senha de acesso para acompanhar as conversas</p>
       <input type="password" id="pwd-input" placeholder="Senha do painel" onkeydown="if(event.key==='Enter') login()" />
-      <button onclick="login()">Entrar</button>
+      <button class="btn-primary" onclick="login()">Entrar</button>
+    </div>
+  </div>
+
+  <div id="settings-modal">
+    <div class="modal-box">
+      <h2>Links e Valores VIP</h2>
+      <p>Edite aqui e a IA já passa a mandar os links novos na hora.</p>
+      <label>Link Canal de Prévias (Telegram)</label>
+      <input type="text" id="set-telegram" placeholder="https://t.me/..." />
+      <label>Link Fatal Fans (Brasil - R$)</label>
+      <input type="text" id="set-fatalfans" placeholder="https://fatalfans.com/..." />
+      <label>Valor Brasil (Reais)</label>
+      <input type="text" id="set-brl" placeholder="R$ 49,90/mês" />
+      <label>Link Fanvue (Gringos - EUR / USD / GBP)</label>
+      <input type="text" id="set-fanvue" placeholder="https://fanvue.com/..." />
+      <label>Valor Europa (Euros)</label>
+      <input type="text" id="set-eur" placeholder="25€/mês" />
+      <label>Valor Equador / Panamá (Dólar)</label>
+      <input type="text" id="set-usd" placeholder="$25 USD/mês" />
+      <label>Valor Reino Unido (Libras)</label>
+      <input type="text" id="set-gbp" placeholder="£22/month" />
+      <button class="btn-primary" onclick="saveSettings()">Salvar Alterações</button>
+      <button class="btn-secondary" onclick="closeSettings()">Fechar</button>
     </div>
   </div>
 
@@ -157,7 +233,11 @@ const PANEL_HTML = `<!DOCTYPE html>
     <div id="sidebar">
       <div class="sidebar-header">
         <h3>Conversas</h3>
-        <button onclick="logout()" style="background:none;border:none;color:#8696a0;cursor:pointer;font-size:12px;">Sair</button>
+        <div class="header-actions">
+          <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
+          <button class="nav-pill" onclick="openSettings()">Links VIP</button>
+          <button onclick="logout()" style="background:none;border:none;color:#8696a0;cursor:pointer;font-size:12px;">Sair</button>
+        </div>
       </div>
       <div class="filter-bar">
         <button class="filter-btn active" onclick="setFilter('all', this)">Todos</button>
@@ -170,7 +250,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado para visualizar</p>
+        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para editar <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -226,6 +306,46 @@ const PANEL_HTML = `<!DOCTYPE html>
     function logout() {
       localStorage.removeItem('panel_pwd');
       location.reload();
+    }
+
+    async function openSettings() {
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        const { settings } = await res.json();
+        document.getElementById('set-telegram').value = settings.link_telegram || '';
+        document.getElementById('set-fatalfans').value = settings.link_fatalfans || '';
+        document.getElementById('set-brl').value = settings.price_brl || '';
+        document.getElementById('set-fanvue').value = settings.link_fanvue || '';
+        document.getElementById('set-eur').value = settings.price_eur || '';
+        document.getElementById('set-usd').value = settings.price_usd || '';
+        document.getElementById('set-gbp').value = settings.price_gbp || '';
+        document.getElementById('settings-modal').style.display = 'flex';
+      }
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    async function saveSettings() {
+      const payload = {
+        link_telegram: document.getElementById('set-telegram').value,
+        link_fatalfans: document.getElementById('set-fatalfans').value,
+        price_brl: document.getElementById('set-brl').value,
+        link_fanvue: document.getElementById('set-fanvue').value,
+        price_eur: document.getElementById('set-eur').value,
+        price_usd: document.getElementById('set-usd').value,
+        price_gbp: document.getElementById('set-gbp').value,
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Links e valores salvos com sucesso!');
+        closeSettings();
+      }
     }
 
     function setFilter(filter, btn) {

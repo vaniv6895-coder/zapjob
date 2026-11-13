@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FlowBuilder - Construtor Visual de Automação</title>
+  <style>
+    :root {
+      --bg-canvas: #0b111a;
+      --grid-dot: #1e293b;
+      --panel-bg: #131c2e;
+      --border: #26344d;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #00a884;
+      --accent-hover: #059669;
+      --blue: #38bdf8;
+      --purple: #a855f7;
+      --amber: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
+    body { background: var(--bg-canvas); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* Topbar */
+    header {
+      height: 56px;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--accent); white-space: nowrap; }
+    .brand a { color: var(--text-muted); text-decoration: none; font-size: 12px; background: #1e293b; padding: 5px 9px; border-radius: 6px; border: 1px solid var(--border); }
+    .toolbar-blocks { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; }
+    .btn-block {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: 0.15s;
+    }
+    .btn-block:hover { border-color: var(--accent); background: #243249; }
+    .dot-type { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-action {
+      background: var(--accent);
+      color: #06281e;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-action.secondary { background: #1e293b; color: var(--text-main); border: 1px solid var(--border); }
+    .btn-action.danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    /* Workspace Canvas */
+    #viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background-image: radial-gradient(var(--grid-dot) 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      touch-action: none;
+    }
+    #viewport:active { cursor: grabbing; }
+    #viewport.connect-mode { cursor: crosshair; }
+
+    #world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 5000px;
+      height: 5000px;
+      transform-origin: 0 0;
+    }
+
+    svg#connections {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    path.wire {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 3;
+      pointer-events: stroke;
+      cursor: pointer;
+      transition: stroke 0.15s;
+    }
+    path.wire:hover { stroke: var(--danger); stroke-width: 4; }
+    path.wire-temp { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 6; pointer-events: none; }
+
+    /* Node Cards (Balões) */
+    .node {
+      position: absolute;
+      width: 270px;
+      background: #162033;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.3), 0 12px 28px rgba(0,0,0,0.6); }
+    .node-header {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: move;
+      border-radius: 10px 10px 0 0;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .node-title { display: flex; align-items: center; gap: 7px; }
+    .node-del {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .node-del:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+
+    .node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .node-body label.field-lbl { font-size: 11px; color: var(--text-muted); }
+    .node-body textarea, .node-body input, .node-body select {
+      width: 100%;
+      background: #0d1522;
+      border: 1px solid #293852;
+      color: var(--text-main);
+      border-radius: 7px;
+      padding: 7px 9px;
+      font-size: 12px;
+      outline: none;
+      user-select: text;
+      resize: vertical;
+    }
+    .node-body textarea:focus, .node-body input:focus { border-color: var(--accent); }
+
+    /* Ports (Bolinhas de Ligação) */
+    .port {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 3px solid var(--accent);
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: crosshair;
+      z-index: 10;
+      transition: transform 0.12s, background 0.12s;
+    }
+    .port:hover, .port.highlight { transform: translateY(-50%) scale(1.35); background: var(--accent); }
+    .port-in { left: -10px; border-color: var(--blue); }
+    .port-in:hover, .port-in.highlight { background: var(--blue); }
+    .port-out { right: -10px; }
+
+    /* Virtual Cursor for Digital Mousepad */
+    #virtual-cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: rgba(0, 168, 132, 0.45);
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      display: none;
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    /* Digital Mousepad / Trackpad Widget */
+    #trackpad-widget {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: 245px;
+      background: rgba(19, 28, 46, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1.5px solid #2e4060;
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.65);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .tp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tp-modes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .tp-mode-btn {
+      background: #0d1522;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 4px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tp-mode-btn.active {
+      background: rgba(0, 168, 132, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    #touch-surface {
+      height: 115px;
+      background: linear-gradient(145deg, #0b121e, #111b2d);
+      border: 1px dashed #364b70;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      touch-action: none;
+      position: relative;
+    }
+    #touch-surface:active { border-color: var(--accent); background: #0f1929; }
+    .tp-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .tp-click {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 7px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tp-click:active { background: var(--accent); color: #052e22; }
+    .tp-zoom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 5px;
+    }
+    .tp-zoom button {
+      flex: 1;
+      background: #0d1522;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 5px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #toast {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #04241b;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 200;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <a href="/painel">← Painel</a>
+      <span>⚡ FlowBuilder VIP</span>
+    </div>
+    <div class="toolbar-blocks">
+      <button class="btn-block" onclick="addNode('trigger')"><span class="dot-type" style="background:#38bdf8"></span>+ Gatilho</button>
+      <button class="btn-block" onclick="addNode('message')"><span class="dot-type" style="background:#00a884"></span>+ Mensagem</button>
+      <button class="btn-block" onclick="addNode('media')"><span class="dot-type" style="background:#ec4899"></span>+ Foto / Áudio / Vídeo</button>
+      <button class="btn-block" onclick="addNode('condition')"><span class="dot-type" style="background:#f59e0b"></span>+ Condição</button>
+      <button class="btn-block" onclick="addNode('ai')"><span class="dot-type" style="background:#a855f7"></span>+ IA Gemini</button>
+      <button class="btn-block" onclick="addNode('delay')"><span class="dot-type" style="background:#94a3b8"></span>+ Espera</button>
+    </div>
+    <div class="header-actions">
+      <button class="btn-action secondary" onclick="exportFlow()">Exportar JSON</button>
+      <button class="btn-action danger" onclick="resetFlow()">Limpar</button>
+      <button class="btn-action" onclick="saveFlow()">Salvar Fluxo</button>
+    </div>
+  </header>
+
+  <div id="toast">Fluxo salvo!</div>
+  <div id="virtual-cursor"></div>
+
+  <div id="viewport">
+    <div id="world">
+      <svg id="connections"></svg>
+      <div id="nodes-layer"></div>
+    </div>
+  </div>
+
+  <!-- Mousepad / Trackpad Digital -->
+  <div id="trackpad-widget">
+    <div class="tp-header">
+      <span>🖱️ Mousepad Digital</span>
+      <span id="zoom-label">100%</span>
+    </div>
+    <div class="tp-modes">
+      <button class="tp-mode-btn active" id="mode-cursor" onclick="setPadMode('cursor')">Cursor / Ligar</button>
+      <button class="tp-mode-btn" id="mode-pan" onclick="setPadMode('pan')">Mover Tela</button>
+    </div>
+    <div id="touch-surface">
+      <strong style="color:#e2e8f0;margin-bottom:4px;">Área Touch</strong>
+      Arraste o dedo aqui para guiar o cursor ou mover o quadro
+    </div>
+    <div class="tp-buttons">
+      <button class="tp-click" id="btn-pad-hold" onmousedown="padHoldStart()" onmouseup="padHoldEnd()" ontouchstart="padHoldStart()" ontouchend="padHoldEnd()">Segurar / Ligar</button>
+      <button class="tp-click" onclick="padClick()">Clique Rápido</button>
+    </div>
+    <div class="tp-zoom">
+      <button onclick="changeZoom(-0.1)">−</button>
+      <button onclick="resetView()">Centralizar</button>
+      <button onclick="changeZoom(0.1)">+</button>
+    </div>
+  </div>
+
+  <script>
+    const viewport = document.getElementById('viewport');
+    const world = document.getElementById('world');
+    const nodesLayer = document.getElementById('nodes-layer');
+    const svgLayer = document.getElementById('connections');
+    const vCursor = document.getElementById('virtual-cursor');
+
+    let pan = { x: 80, y: 80 };
+    let scale = 1;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+
+    let nodes = [];
+    let edges = []; // { id, from, to }
+    let draggingNode = null;
+    let dragOffset = { x: 0, y: 0 };
+
+    let linkingFrom = null;
+    let tempWire = null;
+    let selectedNodeId = null;
+
+    // Estado do Mousepad Digital
+    let padMode = 'cursor';
+    let cursorPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let padLastTouch = null;
+    let padHolding = false;
+
+    const NODE_TEMPLATES = {
+      trigger: { title: 'Gatilho Inicial', color: '#38bdf8', hasIn: false, hasOut: true, placeholder: 'Ex: Qualquer mensagem recebida', defaultText: 'Cliente iniciou conversa' },
+      message: { title: 'Enviar Mensagem', color: '#00a884', hasIn: true, hasOut: true, placeholder: 'Digite a mensagem do balão...', defaultText: 'Oi! Tudo bem? De onde você fala? 😊' },
+      media: { title: 'Mídia Pré-Gravada (R2)', color: '#ec4899', hasIn: true, hasOut: true, placeholder: 'Suba um arquivo ou grave áudio abaixo...', defaultText: '' },
+      condition: { title: 'Condição / Palavra', color: '#f59e0b', hasIn: true, hasOut: true, placeholder: 'Se mensagem contiver...', defaultText: 'Contém: valor, preço, link' },
+      ai: { title: 'Agente IA Gemini', color: '#a855f7', hasIn: true, hasOut: true, placeholder: 'Instrução extra para a IA...', defaultText: 'Identificar cidade vizinha, conversar com persona doce e oferecer Canal de Prévias ou VIP' },
+      delay: { title: 'Aguardar (Segundos)', color: '#94a3b8', hasIn: true, hasOut: true, placeholder: 'Segundos (ex: 3)', defaultText: '3' }
+    };
+
+    async function initDefaultFlow() {
+      // Tenta carregar do banco PostgreSQL primeiro
+      const pwd = localStorage.getItem('panel_pwd');
+      if (pwd) {
+        try {
+          const res = await fetch('/api/panel/flow', { headers: { 'x-panel-password': pwd } });
+          if (res.ok) {
+            const { flow } = await res.json();
+            if (flow && Array.isArray(flow.nodes) && flow.nodes.length > 0) {
+              nodes = flow.nodes;
+              edges = flow.edges || [];
+              renderAll();
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Fallback para localStorage
+      const saved = localStorage.getItem('zapjob_flow_v1');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          nodes = parsed.nodes || [];
+          edges = parsed.edges || [];
+          renderAll();
+          return;
+        } catch (e) {}
+      }
+
+      nodes = [
+        { id: 'n1', type: 'trigger', x: 60, y: 120, text: 'Cliente mandou primeira mensagem' },
+        { id: 'n2', type: 'message', x: 390, y: 100, text: 'Oi amor! Tudo bem? 😊 De qual cidade você fala?' },
+        { id: 'n3', type: 'ai', x: 720, y: 120, text: 'Identificar cidade vizinha, conversar e oferecer Canal de Prévias ou VIP' }
+      ];
+      edges = [
+        { id: 'e1', from: 'n1', to: 'n2' },
+        { id: 'e2', from: 'n2', to: 'n3' }
+      ];
+      renderAll();
+    }
+
+    function updateTransform() {
+      world.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
+      document.getElementById('zoom-label').textContent = Math.round(scale * 100) + '%';
+    }
+
+    function addNode(type) {
+      const tpl = NODE_TEMPLATES[type];
+      const id = 'n_' + Date.now();
+      const x = Math.round((-pan.x + viewport.clientWidth / 2 - 135) / scale);
+      const y = Math.round((-pan.y + viewport.clientHeight / 2 - 70) / scale);
+      nodes.push({ id, type, x, y, text: tpl.defaultText });
+      renderAll();
+    }
+
+    function deleteNode(id) {
+      nodes = nodes.filter(n => n.id !== id);
+      edges = edges.filter(e => e.from !== id && e.to !== id);
+      renderAll();
+    }
+
+    function renderAll() {
+      renderNodes();
+      renderEdges();
+      updateTransform();
+    }
+
+    function renderNodes() {
+      nodesLayer.innerHTML = '';
+      nodes.forEach(node => {
+        const tpl = NODE_TEMPLATES[node.type] || NODE_TEMPLATES.message;
+        const el = document.createElement('div');
+        el.className = 'node' + (selectedNodeId === node.id ? ' selected' : '');
+        el.style.left = node.x + 'px';
+        el.style.top = node.y + 'px';
+        el.dataset.id = node.id;
+
+        let extraMediaControls = '';
+        if (node.type === 'media') {
+          const isAudio = /\.(ogg|mp3|wav|m4a|webm)$/i.test(node.text) || node.mediaKind === 'audio';
+          const isVideo = /\.(mp4|mov|avi)$/i.test(node.text) || node.mediaKind === 'video';
+          const isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(node.text) || node.mediaKind === 'image';
+
+          let previewHtml = '';
+          if (node.text && node.text.startsWith('http')) {
+            if (isAudio) previewHtml = `<audio src="${node.text}" controls style="width:100%;height:32px;margin-top:4px;"></audio>`;
+            else if (isVideo) previewHtml = `<video src="${node.text}" controls style="width:100%;max-height:110px;border-radius:6px;margin-top:4px;"></video>`;
+            else if (isImg) previewHtml = `<img src="${node.text}" style="width:100%;max-height:110px;object-fit:cover;border-radius:6px;margin-top:4px;" />`;
+          }
+
+          extraMediaControls = `
+            <div style="display:flex;gap:5px;margin-top:2px;">
+              <label style="flex:1;background:#1e293b;border:1px solid #334155;padding:6px;border-radius:6px;text-align:center;cursor:pointer;color:#38bdf8;font-weight:600;font-size:11px;">
+                📁 Subir Arquivo
+                <input type="file" accept="audio/*,video/*,image/*" style="display:none;" onchange="uploadPresetMedia(event, '${node.id}')" />
+              </label>
+              <button type="button" id="rec-btn-${node.id}" onclick="toggleRecordAudio('${node.id}')" style="flex:1;background:#1e293b;border:1px solid #334155;padding:6px;border-radius:6px;cursor:pointer;color:#f43f5e;font-weight:600;font-size:11px;">
+                🎙️ Gravar Áudio
+              </button>
+            </div>
+            ${previewHtml}
+          `;
+        }
+
+        el.innerHTML = `
+          ${tpl.hasIn ? `<div class="port port-in" data-port="in" data-node="${node.id}" title="Entrada"></div>` : ''}
+          <div class="node-header" style="border-top: 3px solid ${tpl.color}">
+            <span class="node-title"><span class="dot-type" style="background:${tpl.color}"></span>${tpl.title}</span>
+            <button class="node-del" onclick="deleteNode('${node.id}')" title="Excluir balão">✕</button>
+          </div>
+          <div class="node-body">
+            <label class="field-lbl">${node.type === 'media' ? 'Link Salvo no Cloudflare R2' : 'Conteúdo / Configuração'}</label>
+            <textarea rows="2" placeholder="${tpl.placeholder}">${escapeHtml(node.text)}</textarea>
+            ${extraMediaControls}
+          </div>
+          ${tpl.hasOut ? `<div class="port port-out" data-port="out" data-node="${node.id}" title="Arraste para ligar"></div>` : ''}
+        `;
+
+        const textarea = el.querySelector('textarea');
+        textarea.addEventListener('mousedown', e => e.stopPropagation());
+        textarea.addEventListener('touchstart', e => e.stopPropagation());
+        textarea.addEventListener('input', e => { node.text = e.target.value; });
+
+        el.addEventListener('mousedown', e => {
+          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL'].includes(e.target.tagName)) return;
+          e.stopPropagation();
+          selectedNodeId = node.id;
+          draggingNode = node;
+          dragOffset.x = (e.clientX - pan.x) / scale - node.x;
+          dragOffset.y = (e.clientY - pan.y) / scale - node.y;
+          document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+          el.classList.add('selected');
+        });
+
+        const outPort = el.querySelector('.port-out');
+        if (outPort) {
+          outPort.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            startLinking(node.id, e.clientX, e.clientY);
+          });
+        }
+
+        const inPort = el.querySelector('.port-in');
+        if (inPort) {
+          inPort.addEventListener('mouseup', e => {
+            e.stopPropagation();
+            finishLinking(node.id);
+          });
+        }
+
+        nodesLayer.appendChild(el);
+      });
+    }
+
+    async function uploadPresetMedia(event, nodeId) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const pwd = localStorage.getItem('panel_pwd') || prompt('Digite a senha do painel para salvar no R2:');
+      if (!pwd) return;
+      localStorage.setItem('panel_pwd', pwd);
+
+      showToast('Enviando mídia para o Cloudflare R2...');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/panel/upload-media', {
+        method: 'POST',
+        headers: { 'x-panel-password': pwd },
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+          node.text = data.url;
+          node.mediaKind = data.mimeType.startsWith('audio') ? 'audio' : data.mimeType.startsWith('video') ? 'video' : 'image';
+          renderAll();
+          await saveFlow(true);
+          showToast('Mídia salva no R2 e vinculada ao balão!');
+        }
+      } else {
+        alert('Erro ao enviar mídia. Verifique a senha do painel.');
+      }
+    }
+
+    let activeRecorder = null;
+    let recordedChunks = [];
+
+    async function toggleRecordAudio(nodeId) {
+      const btn = document.getElementById('rec-btn-' + nodeId);
+      if (activeRecorder && activeRecorder.state === 'recording') {
+        activeRecorder.stop();
+        btn.textContent = '⏳ Salvando...';
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+        activeRecorder = new MediaRecorder(stream);
+        activeRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        activeRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(recordedChunks, { type: 'audio/ogg; codecs=opus' });
+          const file = new File([blob], `audio_gravado_${Date.now()}.ogg`, { type: 'audio/ogg' });
+          await uploadPresetMedia({ target: { files: [file] } }, nodeId);
+        };
+        activeRecorder.start();
+        btn.textContent = '⏹️ Parar';
+        showToast('Gravando áudio... Clique em Parar quando terminar');
+      } catch (err) {
+        alert('Permita o acesso ao microfone no navegador para gravar áudio.');
+      }
+    }
+
+    function getPortCoords(nodeId, type) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return { x: 0, y: 0 };
+      const el = nodesLayer.querySelector(`.node[data-id="${nodeId}"]`);
+      const h = el ? el.offsetHeight : 110;
+      const w = el ? el.offsetWidth : 270;
+      return {
+        x: type === 'out' ? node.x + w : node.x,
+        y: node.y + h / 2
+      };
+    }
+
+    function makeBezier(x1, y1, x2, y2) {
+      const dx = Math.max(Math.abs(x2 - x1) * 0.5, 60);
+      return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+    }
+
+    function renderEdges() {
+      svgLayer.innerHTML = '';
+      edges.forEach(edge => {
+        const p1 = getPortCoords(edge.from, 'out');
+        const p2 = getPortCoords(edge.to, 'in');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', makeBezier(p1.x, p1.y, p2.x, p2.y));
+        path.setAttribute('class', 'wire');
+        path.setAttribute('title', 'Clique para remover ligação');
+        path.addEventListener('click', () => {
+          edges = edges.filter(e => e.id !== edge.id);
+          renderEdges();
+        });
+        svgLayer.appendChild(path);
+      });
+    }
+
+    function startLinking(fromNodeId, clientX, clientY) {
+      linkingFrom = fromNodeId;
+      viewport.classList.add('connect-mode');
+      tempWire = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      tempWire.setAttribute('class', 'wire-temp');
+      svgLayer.appendChild(tempWire);
+      updateTempWire(clientX, clientY);
+    }
+
+    function updateTempWire(clientX, clientY) {
+      if (!linkingFrom || !tempWire) return;
+      const p1 = getPortCoords(linkingFrom, 'out');
+      const x2 = (clientX - pan.x) / scale;
+      const y2 = (clientY - pan.y) / scale;
+      tempWire.setAttribute('d', makeBezier(p1.x, p1.y, x2, y2));
+    }
+
+    function finishLinking(toNodeId) {
+      if (linkingFrom && linkingFrom !== toNodeId) {
+        const exists = edges.some(e => e.from === linkingFrom && e.to === toNodeId);
+        if (!exists) {
+          edges.push({ id: 'e_' + Date.now(), from: linkingFrom, to: toNodeId });
+        }
+      }
+      cancelLinking();
+      renderEdges();
+    }
+
+    function cancelLinking() {
+      linkingFrom = null;
+      viewport.classList.remove('connect-mode');
+      if (tempWire) { tempWire.remove(); tempWire = null; }
+    }
+
+    viewport.addEventListener('mousedown', e => {
+      if (e.target === viewport || e.target === world || e.target === svgLayer) {
+        isPanning = true;
+        panStart.x = e.clientX - pan.x;
+        panStart.y = e.clientY - pan.y;
+      }
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (isPanning) {
+        pan.x = e.clientX - panStart.x;
+        pan.y = e.clientY - panStart.y;
+        updateTransform();
+      } else if (draggingNode) {
+        draggingNode.x = (e.clientX - pan.x) / scale - dragOffset.x;
+        draggingNode.y = (e.clientY - pan.y) / scale - dragOffset.y;
+        const el = nodesLayer.querySelector(`.node[data-id="${draggingNode.id}"]`);
+        if (el) {
+          el.style.left = draggingNode.x + 'px';
+          el.style.top = draggingNode.y + 'px';
+        }
+        renderEdges();
+      } else if (linkingFrom) {
+        updateTempWire(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+      draggingNode = null;
+      if (linkingFrom) cancelLinking();
+    });
+
+    viewport.addEventListener('wheel', e => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.08 : -0.08;
+      changeZoom(delta);
+    }, { passive: false });
+
+    function changeZoom(delta) {
+      scale = Math.min(1.8, Math.max(0.4, +(scale + delta).toFixed(2)));
+      updateTransform();
+    }
+
+    function resetView() {
+      pan = { x: 60, y: 60 };
+      scale = 1;
+      updateTransform();
+    }
+
+    /* MOUSEPAD / TRACKPAD DIGITAL INTERATIVO */
+    const touchSurface = document.getElementById('touch-surface');
+
+    function setPadMode(mode) {
+      padMode = mode;
+      document.getElementById('mode-cursor').classList.toggle('active', mode === 'cursor');
+      document.getElementById('mode-pan').classList.toggle('active', mode === 'pan');
+      vCursor.style.display = mode === 'cursor' ? 'block' : 'none';
+      if (mode === 'cursor') updateVirtualCursor();
+    }
+
+    function updateVirtualCursor() {
+      cursorPos.x = Math.max(10, Math.min(window.innerWidth - 10, cursorPos.x));
+      cursorPos.y = Math.max(60, Math.min(window.innerHeight - 10, cursorPos.y));
+      vCursor.style.left = cursorPos.x + 'px';
+      vCursor.style.top = cursorPos.y + 'px';
+
+      if (draggingNode) {
+        draggingNode.x = (cursorPos.x - pan.x) / scale - dragOffset.x;
+        draggingNode.y = (cursorPos.y - pan.y) / scale - dragOffset.y;
+        const el = nodesLayer.querySelector(`.node[data-id="${draggingNode.id}"]`);
+        if (el) {
+          el.style.left = draggingNode.x + 'px';
+          el.style.top = draggingNode.y + 'px';
+        }
+        renderEdges();
+      } else if (linkingFrom) {
+        updateTempWire(cursorPos.x, cursorPos.y);
+      }
+    }
+
+    function handlePadMove(clientX, clientY) {
+      if (!padLastTouch) {
+        padLastTouch = { x: clientX, y: clientY };
+        return;
+      }
+      const dx = (clientX - padLastTouch.x) * 1.65;
+      const dy = (clientY - padLastTouch.y) * 1.65;
+      padLastTouch = { x: clientX, y: clientY };
+
+      if (padMode === 'pan') {
+        pan.x += dx;
+        pan.y += dy;
+        updateTransform();
+      } else {
+        vCursor.style.display = 'block';
+        cursorPos.x += dx;
+        cursorPos.y += dy;
+        updateVirtualCursor();
+      }
+    }
+
+    touchSurface.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      padLastTouch = { x: t.clientX, y: t.clientY };
+    }, { passive: false });
+
+    touchSurface.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      handlePadMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    touchSurface.addEventListener('touchend', () => { padLastTouch = null; });
+
+    touchSurface.addEventListener('mousedown', e => {
+      padLastTouch = { x: e.clientX, y: e.clientY };
+      const onMove = ev => handlePadMove(ev.clientX, ev.clientY);
+      const onUp = () => {
+        padLastTouch = null;
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+
+    function getElementUnderVirtualCursor() {
+      vCursor.style.display = 'none';
+      const el = document.elementFromPoint(cursorPos.x, cursorPos.y);
+      vCursor.style.display = 'block';
+      return el;
+    }
+
+    function padHoldStart() {
+      setPadMode('cursor');
+      padHolding = true;
+      const target = getElementUnderVirtualCursor();
+      if (!target) return;
+
+      const portOut = target.closest('.port-out');
+      if (portOut) {
+        startLinking(portOut.dataset.node, cursorPos.x, cursorPos.y);
+        return;
+      }
+
+      const nodeEl = target.closest('.node');
+      if (nodeEl) {
+        const node = nodes.find(n => n.id === nodeEl.dataset.id);
+        if (node) {
+          draggingNode = node;
+          dragOffset.x = (cursorPos.x - pan.x) / scale - node.x;
+          dragOffset.y = (cursorPos.y - pan.y) / scale - node.y;
+        }
+      }
+    }
+
+    function padHoldEnd() {
+      if (!padHolding) return;
+      padHolding = false;
+      if (linkingFrom) {
+        const target = getElementUnderVirtualCursor();
+        const portIn = target ? target.closest('.port-in') : null;
+        const nodeEl = target ? target.closest('.node') : null;
+        if (portIn) finishLinking(portIn.dataset.node);
+        else if (nodeEl) finishLinking(nodeEl.dataset.id);
+        else cancelLinking();
+      }
+      draggingNode = null;
+    }
+
+    function padClick() {
+      setPadMode('cursor');
+      const target = getElementUnderVirtualCursor();
+      if (!target) return;
+      const portOut = target.closest('.port-out');
+      const portIn = target.closest('.port-in');
+      const nodeEl = target.closest('.node');
+
+      if (!linkingFrom && portOut) {
+        startLinking(portOut.dataset.node, cursorPos.x, cursorPos.y);
+        showToast('Mova o cursor até a entrada de outro balão e clique de novo');
+      } else if (linkingFrom && (portIn || nodeEl)) {
+        const destId = portIn ? portIn.dataset.node : nodeEl.dataset.id;
+        finishLinking(destId);
+        showToast('Blocos conectados!');
+      } else if (linkingFrom) {
+        cancelLinking();
+      }
+    }
+
+    async function saveFlow(silent = false) {
+      localStorage.setItem('zapjob_flow_v1', JSON.stringify({ nodes, edges }));
+      const pwd = localStorage.getItem('panel_pwd');
+      if (pwd) {
+        await fetch('/api/panel/flow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-panel-password': pwd },
+          body: JSON.stringify({ nodes, edges })
+        });
+      }
+      if (!silent) showToast('Fluxo e mídias salvos na nuvem!');
+    }
+
+    function resetFlow() {
+      if (confirm('Deseja limpar e restaurar o fluxo inicial?')) {
+        localStorage.removeItem('zapjob_flow_v1');
+        initDefaultFlow();
+      }
+    }
+
+    function exportFlow() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({ nodes, edges }, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute('href', dataStr);
+      a.setAttribute('download', 'fluxo-automacao.json');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    initDefaultFlow();
+  </script>
+</body>
+</html>
