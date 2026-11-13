@@ -13,7 +13,8 @@ import {
   getBotSettings,
   saveBotSettings,
   trackVitrineEvent,
-  getVitrineStats
+  getVitrineStats,
+  grantChatPass
 } from './db.js';
 import { sendWhatsAppText } from './whatsapp.js';
 import { sendTelegramText } from './telegram.js';
@@ -66,6 +67,46 @@ export function registerPanelRoutes(app) {
     }
     return true;
   }
+
+  // Webhook automático do Stripe (checkout.session.completed) para liberar o chat na hora
+  app.post('/webhook/stripe', async (req, reply) => {
+    try {
+      const event = req.body || {};
+      if (event.type === 'checkout.session.completed') {
+        const ref = event.data?.object?.client_reference_id || '';
+        const idx = ref.indexOf('_');
+        if (idx > 0) {
+          const channel = ref.slice(0, idx);
+          const phone = ref.slice(idx + 1);
+          const settings = await getBotSettings();
+          let hours = 24;
+          try {
+            if (settings.paywall_config) hours = Number(JSON.parse(settings.paywall_config).hours) || 24;
+          } catch {}
+          await grantChatPass(channel, phone, hours);
+          await setAiPaused(channel, phone, false);
+          const confirmMsg = `Payment confirmed babe! 💕 Your private chat is unlocked for ${hours}h. What were we talking about? 😊`;
+          if (channel === 'whatsapp') await sendWhatsAppText(phone, confirmMsg);
+          if (channel === 'telegram') await sendTelegramText(phone, confirmMsg);
+          if (channel === 'messenger') await sendMessengerText(phone, confirmMsg);
+          await saveMessage(channel, phone, 'assistant', confirmMsg, 'text', null);
+        }
+      }
+    } catch (e) {
+      console.error('[STRIPE WEBHOOK]', e);
+    }
+    return { received: true };
+  });
+
+  // Liberar acesso manualmente pelo celular (1 toque)
+  app.post('/api/panel/grant-pass', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const { channel, phone, hours } = req.body || {};
+    const h = Number(hours) || 24;
+    await grantChatPass(channel, phone, h);
+    await setAiPaused(channel, phone, false);
+    return { ok: true };
+  });
 
   // Rota pública (CORS liberado) para a vitrine externa carregar foto, capa, @usuario e botões
   app.get('/api/vitrine/config', async (req, reply) => {
@@ -235,13 +276,13 @@ const PANEL_HTML = `<!DOCTYPE html>
     body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
     /* Login & Modais */
-    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    #settings-modal, #analytics-modal, #vitrine-modal { display: none; overflow-y: auto; }
+    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal { display: none; overflow-y: auto; }
     .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
     .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
     .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
     .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
-    .modal-box input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 14px; }
+    .modal-box input, .modal-box textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 14px; }
     .pwd-wrapper { position: relative; display: flex; align-items: center; }
     .pwd-wrapper input { padding-right: 42px; }
     .pwd-eye { position: absolute; right: 10px; background: none; border: none; color: #8696a0; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
@@ -269,6 +310,7 @@ const PANEL_HTML = `<!DOCTYPE html>
     .nav-pill.blue { background: #1c3d5a; color: #38bdf8; }
     .nav-pill.amber { background: #451a03; color: #fbbf24; }
     .nav-pill.purple { background: #3b2667; color: #c084fc; }
+    .nav-pill.pink { background: #500724; color: #f472b6; }
     .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
     .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
@@ -276,12 +318,13 @@ const PANEL_HTML = `<!DOCTYPE html>
     .conv-item { padding: 12px 16px; border-bottom: 1px solid #202c33; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.15s; }
     .conv-item:hover, .conv-item.active { background: #2a3942; }
     .conv-top { display: flex; justify-content: space-between; align-items: center; }
-    .conv-phone { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+    .conv-phone { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; }
     .badge-whatsapp { background: #005c4b; color: #25d366; }
     .badge-telegram { background: #1c3d5a; color: #38bdf8; }
     .badge-messenger { background: #3b2667; color: #c084fc; }
     .badge-paused { background: #7f1d1d; color: #fca5a5; }
+    .badge-paid { background: #14532d; color: #86efac; }
     .conv-time { font-size: 11px; color: #8696a0; }
     .conv-preview { font-size: 13px; color: #8696a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -289,12 +332,13 @@ const PANEL_HTML = `<!DOCTYPE html>
     #chat-area { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
     #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; flex-direction: column; gap: 8px; padding: 20px; text-align: center; }
     #chat-active { display: none; flex-direction: column; height: 100%; }
-    .chat-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3942; }
+    .chat-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3942; gap: 8px; flex-wrap: wrap; }
     .chat-header-left { display: flex; align-items: center; gap: 10px; }
     #back-btn { display: none; background: none; border: none; color: #00a884; font-size: 20px; cursor: pointer; }
-    .ai-btn { padding: 8px 12px; border-radius: 8px; border: none; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .ai-btn { padding: 8px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
     .ai-on { background: #005c4b; color: #25d366; }
     .ai-off { background: #7f1d1d; color: #fca5a5; }
+    .pass-btn { background: #1c3d5a; color: #38bdf8; padding: 8px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
 
     #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 78%; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-wrap: break-word; position: relative; }
@@ -359,6 +403,42 @@ const PANEL_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <div id="paywall-modal">
+    <div class="modal-box">
+      <h2>💳 Cobrar para Conversar (Paywall)</h2>
+      <p>Configure pelo celular quantas mensagens são grátis antes de exigir pagamento para continuar o chat.</p>
+
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#fff;margin-top:8px;">
+        <input type="checkbox" id="pw-enabled" style="width:18px;height:18px;" />
+        Ativar Paywall no Chat
+      </label>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label>Msgs grátis p/ lead</label>
+          <input type="number" id="pw-free" value="3" min="0" />
+        </div>
+        <div>
+          <label>Horas liberadas após pagar</label>
+          <input type="number" id="pw-hours" value="24" min="1" />
+        </div>
+      </div>
+
+      <label>Link Pagamento Gringa (Stripe US$ 1)</label>
+      <input type="text" id="pw-link-intl" placeholder="https://buy.stripe.com/..." />
+      <label>Texto Cobrança Gringa (Inglês/Espanhol)</label>
+      <textarea id="pw-msg-intl" rows="2" placeholder="Babe, unlock 24h of private chat with me for just $1 💕"></textarea>
+
+      <label>Link Pagamento Brasil (PIX / Checkout R$ 4,90)</label>
+      <input type="text" id="pw-link-br" placeholder="https://..." />
+      <label>Texto Cobrança Brasil (Português)</label>
+      <textarea id="pw-msg-br" rows="2" placeholder="Amor, libera seu acesso privado de 24h por R$ 4,90 para continuarmos 💕"></textarea>
+
+      <button class="btn-primary" onclick="savePaywallConfig()">Salvar Paywall</button>
+      <button class="btn-secondary" onclick="closePaywallModal()">Fechar</button>
+    </div>
+  </div>
+
   <div id="analytics-modal">
     <div class="modal-box">
       <h2>📊 Cliques e Origem da Vitrine</h2>
@@ -409,6 +489,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       <div class="sidebar-header">
         <h3>Conversas</h3>
         <div class="header-actions">
+          <button class="nav-pill pink" onclick="openPaywallModal()">💳 Paywall</button>
           <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
           <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
           <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
@@ -427,7 +508,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado para visualizar ou use o menu acima para editar a <strong>Vitrine</strong>, ver <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
+        <p>Selecione uma conversa ao lado ou use o menu acima para configurar o <strong>Paywall</strong>, <strong>Vitrine</strong>, <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -438,7 +519,10 @@ const PANEL_HTML = `<!DOCTYPE html>
               <div id="active-channel" style="font-size:12px;color:#8696a0;"></div>
             </div>
           </div>
-          <button id="toggle-ai-btn" class="ai-btn ai-on" onclick="toggleAI()">IA Ativa</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="pass-btn" onclick="grantManualPass()">🔓 Liberar 24h</button>
+            <button id="toggle-ai-btn" class="ai-btn ai-on" onclick="toggleAI()">IA Ativa</button>
+          </div>
         </div>
         <div id="messages"></div>
         <div class="chat-input-bar">
@@ -494,6 +578,62 @@ const PANEL_HTML = `<!DOCTYPE html>
     function logout() {
       localStorage.removeItem('panel_pwd');
       location.reload();
+    }
+
+    async function openPaywallModal() {
+      document.getElementById('paywall-modal').style.display = 'flex';
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { settings } = await res.json();
+      let pw = { enabled: false, freeMessages: 3, hours: 24, linkIntl: '', msgIntl: '', linkBr: '', msgBr: '' };
+      try {
+        if (settings.paywall_config) pw = { ...pw, ...JSON.parse(settings.paywall_config) };
+      } catch {}
+      document.getElementById('pw-enabled').checked = Boolean(pw.enabled);
+      document.getElementById('pw-free').value = pw.freeMessages ?? 3;
+      document.getElementById('pw-hours').value = pw.hours ?? 24;
+      document.getElementById('pw-link-intl').value = pw.linkIntl || '';
+      document.getElementById('pw-msg-intl').value = pw.msgIntl || '';
+      document.getElementById('pw-link-br').value = pw.linkBr || '';
+      document.getElementById('pw-msg-br').value = pw.msgBr || '';
+    }
+
+    function closePaywallModal() {
+      document.getElementById('paywall-modal').style.display = 'none';
+    }
+
+    async function savePaywallConfig() {
+      const payload = {
+        enabled: document.getElementById('pw-enabled').checked,
+        freeMessages: Number(document.getElementById('pw-free').value) || 0,
+        hours: Number(document.getElementById('pw-hours').value) || 24,
+        linkIntl: document.getElementById('pw-link-intl').value.trim(),
+        msgIntl: document.getElementById('pw-msg-intl').value.trim(),
+        linkBr: document.getElementById('pw-link-br').value.trim(),
+        msgBr: document.getElementById('pw-msg-br').value.trim(),
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ paywall_config: JSON.stringify(payload) })
+      });
+      if (res.ok) {
+        alert('Configuração do Paywall salva!');
+        closePaywallModal();
+      }
+    }
+
+    async function grantManualPass() {
+      if (!selectedChat) return;
+      const res = await fetch('/api/panel/grant-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ channel: selectedChat.channel, phone: selectedChat.phone, hours: 24 })
+      });
+      if (res.ok) {
+        alert('Acesso liberado por 24h e IA reativada para este contato!');
+        await refreshAll();
+      }
     }
 
     async function openVitrineModal() {
@@ -707,6 +847,7 @@ const PANEL_HTML = `<!DOCTYPE html>
               <span class="conv-phone">
                 +\${c.phone}
                 <span class="badge badge-\${c.channel}">\${c.channel}</span>
+                \${c.has_pass ? '<span class="badge badge-paid">VIP Ativo</span>' : ''}
                 \${c.ai_paused ? '<span class="badge badge-paused">IA Pausada</span>' : ''}
               </span>
               <span class="conv-time">\${formatTime(c.last_at)}</span>
@@ -770,10 +911,10 @@ const PANEL_HTML = `<!DOCTYPE html>
       const btn = document.getElementById('toggle-ai-btn');
       if (currentAiPaused) {
         btn.className = 'ai-btn ai-off';
-        btn.textContent = 'IA Pausada (Clique p/ Ativar)';
+        btn.textContent = 'IA Pausada';
       } else {
         btn.className = 'ai-btn ai-on';
-        btn.textContent = 'IA Ativa (Clique p/ Pausar)';
+        btn.textContent = 'IA Ativa';
       }
     }
 
