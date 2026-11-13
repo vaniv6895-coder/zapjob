@@ -56,6 +56,41 @@ function convertAudioBufferToOggOpus(inputBuffer) {
   });
 }
 
+async function uploadWhatsAppProfilePhotoHandle(token, buffer, mimeType) {
+  const debugRes = await fetch(`https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(token)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const debugData = await debugRes.json();
+  const appId = debugData?.data?.app_id || 'app';
+
+  const sessionRes = await fetch(
+    `https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mimeType)}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
+  const sessionData = await sessionRes.json();
+  if (!sessionData?.id) {
+    throw new Error(sessionData?.error?.message || 'Falha ao iniciar sessão de upload na Meta');
+  }
+
+  const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${sessionData.id}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${token}`,
+      file_offset: '0',
+      'Content-Type': mimeType
+    },
+    body: buffer
+  });
+  const uploadData = await uploadRes.json();
+  if (!uploadData?.h) {
+    throw new Error(uploadData?.error?.message || 'Falha ao enviar bytes da foto para a Meta');
+  }
+  return uploadData.h;
+}
+
 export function registerPanelRoutes(app) {
   const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
 
@@ -67,6 +102,84 @@ export function registerPanelRoutes(app) {
     }
     return true;
   }
+
+  // Buscar perfil atual do WhatsApp Cloud API
+  app.get('/api/panel/whatsapp-profile', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const token = process.env.WHATSAPP_TOKEN || process.env.META_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID || process.env.PHONE_NUMBER_ID;
+    if (!token || !phoneId) {
+      return reply.status(400).send({ error: 'WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID não configurados no Railway' });
+    }
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneId}/whatsapp_business_profile?fields=about,description,websites,profile_picture_url`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json();
+    const profile = data?.data?.[0] || {};
+    return { ok: true, profile };
+  });
+
+  // Atualizar foto de perfil, recado ("Sobre") e site do WhatsApp Cloud API direto pelo celular
+  app.post('/api/panel/whatsapp-profile', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const token = process.env.WHATSAPP_TOKEN || process.env.META_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID || process.env.PHONE_NUMBER_ID;
+    if (!token || !phoneId) {
+      return reply.status(400).send({ error: 'WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID não configurados no Railway' });
+    }
+
+    try {
+      let about = '';
+      let website = '';
+      let photoBuffer = null;
+      let photoMime = 'image/jpeg';
+
+      if (req.isMultipart()) {
+        const parts = req.parts();
+        for await (const part of parts) {
+          if (part.type === 'file') {
+            photoBuffer = await part.toBuffer();
+            photoMime = part.mimetype || 'image/jpeg';
+          } else if (part.fieldname === 'about') {
+            about = String(part.value || '').trim();
+          } else if (part.fieldname === 'website') {
+            website = String(part.value || '').trim();
+          }
+        }
+      } else {
+        const body = req.body || {};
+        about = String(body.about || '').trim();
+        website = String(body.website || '').trim();
+      }
+
+      const payload = { messaging_product: 'whatsapp' };
+      if (about) payload.about = about;
+      if (website) payload.websites = [website];
+
+      if (photoBuffer && photoBuffer.length > 0) {
+        const handle = await uploadWhatsAppProfilePhotoHandle(token, photoBuffer, photoMime);
+        payload.profile_picture_handle = handle;
+      }
+
+      const updateRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/whatsapp_business_profile`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const updateData = await updateRes.json();
+      if (!updateRes.ok || updateData?.error) {
+        return reply.status(400).send({ error: updateData?.error?.message || 'Erro ao atualizar perfil na Meta' });
+      }
+      return { ok: true };
+    } catch (err) {
+      console.error('[WA PROFILE]', err);
+      return reply.status(500).send({ error: err.message || 'Erro interno ao atualizar perfil' });
+    }
+  });
 
   // Webhook automático do Stripe (checkout.session.completed) para liberar o chat na hora
   app.post('/webhook/stripe', async (req, reply) => {
@@ -276,8 +389,8 @@ const PANEL_HTML = `<!DOCTYPE html>
     body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
     /* Login & Modais */
-    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal { display: none; overflow-y: auto; }
+    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal { display: none; overflow-y: auto; }
     .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
     .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
     .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
@@ -311,6 +424,7 @@ const PANEL_HTML = `<!DOCTYPE html>
     .nav-pill.amber { background: #451a03; color: #fbbf24; }
     .nav-pill.purple { background: #3b2667; color: #c084fc; }
     .nav-pill.pink { background: #500724; color: #f472b6; }
+    .nav-pill.teal { background: #134e4a; color: #5eead4; }
     .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
     .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
@@ -377,6 +491,30 @@ const PANEL_HTML = `<!DOCTYPE html>
         </button>
       </div>
       <button class="btn-primary" onclick="login()">Entrar</button>
+    </div>
+  </div>
+
+  <div id="waprofile-modal">
+    <div class="modal-box">
+      <h2>📱 Foto e Perfil do WhatsApp</h2>
+      <p>Troque a foto de perfil, o recado ("Sobre") e o link do site do número oficial direto pelo celular.</p>
+
+      <div id="wa-current-preview" style="display:flex;align-items:center;gap:12px;background:#111b21;padding:10px;border-radius:8px;border:1px solid #2a3942;margin-bottom:10px;">
+        <img id="wa-preview-img" src="" alt="" style="width:54px;height:54px;border-radius:50%;object-fit:cover;background:#2a3942;display:none;" />
+        <div style="font-size:12px;color:#8696a0;" id="wa-preview-status">Carregando perfil atual...</div>
+      </div>
+
+      <label>Nova Foto de Perfil (JPG ou PNG quadrada)</label>
+      <input type="file" id="wa-photo-file" accept="image/jpeg,image/png" onchange="previewWaPhoto(event)" />
+
+      <label>Recado / Bio ("Sobre" do WhatsApp)</label>
+      <input type="text" id="wa-about" maxlength="139" placeholder="Conteúdo exclusivo e chat privado 💕" />
+
+      <label>Site / Link na Bio do WhatsApp</label>
+      <input type="text" id="wa-website" placeholder="https://seu-link-vitrine..." />
+
+      <button class="btn-primary" id="wa-save-btn" onclick="saveWaProfile()">Salvar Perfil no WhatsApp</button>
+      <button class="btn-secondary" onclick="closeWaProfileModal()">Fechar</button>
     </div>
   </div>
 
@@ -489,6 +627,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       <div class="sidebar-header">
         <h3>Conversas</h3>
         <div class="header-actions">
+          <button class="nav-pill teal" onclick="openWaProfileModal()">📱 Perfil Zap</button>
           <button class="nav-pill pink" onclick="openPaywallModal()">💳 Paywall</button>
           <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
           <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
@@ -508,7 +647,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado ou use o menu acima para configurar o <strong>Paywall</strong>, <strong>Vitrine</strong>, <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
+        <p>Selecione uma conversa ao lado ou use o menu acima para editar o <strong>Perfil Zap</strong>, <strong>Paywall</strong>, <strong>Vitrine</strong>, <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -578,6 +717,72 @@ const PANEL_HTML = `<!DOCTYPE html>
     function logout() {
       localStorage.removeItem('panel_pwd');
       location.reload();
+    }
+
+    async function openWaProfileModal() {
+      document.getElementById('waprofile-modal').style.display = 'flex';
+      document.getElementById('wa-photo-file').value = '';
+      document.getElementById('wa-preview-status').textContent = 'Carregando perfil atual...';
+      const res = await fetch('/api/panel/whatsapp-profile', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        const { profile } = await res.json();
+        document.getElementById('wa-about').value = profile.about || '';
+        document.getElementById('wa-website').value = Array.isArray(profile.websites) && profile.websites[0] ? profile.websites[0] : '';
+        const img = document.getElementById('wa-preview-img');
+        if (profile.profile_picture_url) {
+          img.src = profile.profile_picture_url;
+          img.style.display = 'block';
+          document.getElementById('wa-preview-status').textContent = 'Foto atual carregada. Escolha uma nova abaixo se quiser trocar.';
+        } else {
+          img.style.display = 'none';
+          document.getElementById('wa-preview-status').textContent = 'Nenhuma foto definida ainda.';
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        document.getElementById('wa-preview-status').textContent = err.error || 'Não foi possível carregar o perfil.';
+      }
+    }
+
+    function previewWaPhoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const img = document.getElementById('wa-preview-img');
+      img.src = URL.createObjectURL(file);
+      img.style.display = 'block';
+      document.getElementById('wa-preview-status').textContent = 'Nova foto selecionada! Clique em Salvar Perfil no WhatsApp.';
+    }
+
+    function closeWaProfileModal() {
+      document.getElementById('waprofile-modal').style.display = 'none';
+    }
+
+    async function saveWaProfile() {
+      const btn = document.getElementById('wa-save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando para o WhatsApp...';
+      try {
+        const fd = new FormData();
+        const file = document.getElementById('wa-photo-file').files[0];
+        if (file) fd.append('file', file);
+        fd.append('about', document.getElementById('wa-about').value.trim());
+        fd.append('website', document.getElementById('wa-website').value.trim());
+
+        const res = await fetch('/api/panel/whatsapp-profile', {
+          method: 'POST',
+          headers: { 'x-panel-password': password },
+          body: fd
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert('Perfil e foto do WhatsApp atualizados com sucesso!');
+          closeWaProfileModal();
+        } else {
+          alert('Erro: ' + (data.error || 'Falha ao atualizar perfil'));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Perfil no WhatsApp';
+      }
     }
 
     async function openPaywallModal() {
