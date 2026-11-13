@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { getMemory, getBotSettings } from './db.js';
+import { getMemory, getBotSettings, hasActiveChatPass } from './db.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -27,6 +27,36 @@ function extractSavedMediaCatalog(settings) {
   }
 }
 
+function isLikelyBrazilian(channel, userId, text) {
+  if (channel === 'whatsapp' && String(userId).startsWith('55')) return true;
+  if (/\b(oi|olá|ola|tudo bem|bom dia|boa tarde|boa noite|vc|você|voce|sim|não|nao|gostosa|linda|brasil|pix|quanto|cuiabá|cuiaba|são paulo|rio de janeiro)\b/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function buildPaywallReply(pw, channel, userId, sampleText) {
+  const isBr = isLikelyBrazilian(channel, userId, sampleText);
+  const clientRef = encodeURIComponent(`${channel}_${userId}`);
+
+  if (isBr && pw.linkBr) {
+    const msg =
+      pw.msgBr ||
+      `Amor, recebo muita mensagem por aqui 💕 Para continuar nosso papo privado por ${pw.hours || 24}h, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
+    return `${msg}\n\n👉 ${pw.linkBr}\n\nAssim que pagar me manda o print aqui que já continuo com você 😘`;
+  }
+
+  let linkIntl = pw.linkIntl || pw.linkBr || '';
+  if (linkIntl.includes('stripe.com')) {
+    linkIntl += (linkIntl.includes('?') ? '&' : '?') + `client_reference_id=${clientRef}`;
+  }
+
+  const msgIntl =
+    pw.msgIntl ||
+    `Babe, I get so many messages here 💕 Unlock ${pw.hours || 24}h of private chat with me for just ${pw.priceIntl || '$1'}:`;
+  return `${msgIntl}\n\n👉 ${linkIntl}`;
+}
+
 function buildSystemInstruction(settings, mediaCatalog) {
   const mediaSection =
     mediaCatalog.length > 0
@@ -36,7 +66,7 @@ ${mediaCatalog
   .join('\n')}
 
 REGRA OBRIGATÓRIA DE IDIOMA E ENVIO DE FOTO, VÍDEO E ÁUDIO:
-- Identifique o idioma da última mensagem do cliente (Português = PT, Espanhol = ES, Inglês = EN).
+- Identifique o idioma da conversa (Português = PT, Espanhol = ES, Inglês = EN).
 - Ao enviar ÁUDIO, escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (ou ALL). NUNCA envie áudio em PT para cliente falando ES ou EN, e vice-versa.
 - Quando o cliente pedir foto, vídeo, áudio, prévia ou quando fizer sentido na conversa, VOCÊ DEVE OBRIGATORIAMENTE colocar a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
 - Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL.
@@ -71,8 +101,9 @@ FLUXO NATURAL DA CONVERSA (PASSO A PASSO):
      * Reino Unido: ${settings.price_gbp} — ${settings.link_fanvue}
    - Peça de forma simpática para ele mandar o print do comprovante aqui quando assinar.
 
-IDIOMA E ÁUDIO:
-- Responda sempre no mesmo idioma e variante regional da última mensagem/áudio do cliente.`;
+REGRA CRÍTICA DE IDIOMA (NUNCA QUEBRAR):
+- Mantenha SEMPRE o mesmo idioma estabelecido no histórico da conversa.
+- Se a conversa começou em Português (ou o número começar com +55), NUNCA mude para Espanhol ou Inglês quando o cliente mandar uma palavra curta ou nome de cidade (ex: "Cuiabá", "São Paulo", "ok", "sim").`;
 }
 
 let workingModelCache = null;
@@ -111,10 +142,32 @@ async function getCandidateModels() {
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
-  const [history, settings] = await Promise.all([
+  const [history, settings, hasPass] = await Promise.all([
     getMemory(channel, userId, 30),
     getBotSettings(),
+    hasActiveChatPass(channel, userId),
   ]);
+
+  let pw = null;
+  try {
+    if (settings.paywall_config) pw = JSON.parse(settings.paywall_config);
+  } catch {}
+
+  if (pw && pw.enabled && !hasPass) {
+    const freeLimit = Math.max(0, Number(pw.freeMessages ?? 3));
+    const userMsgCount = history.filter((m) => m.role === 'user').length;
+    if (userMsgCount > freeLimit) {
+      const allUserText =
+        history
+          .filter((m) => m.role === 'user')
+          .map((m) => m.content)
+          .join(' ') +
+        ' ' +
+        userMessage;
+      console.log(`[PAYWALL] Bloqueado (${userMsgCount}/${freeLimit} msgs grátis) para ${channel}:${userId}`);
+      return buildPaywallReply(pw, channel, userId, allUserText);
+    }
+  }
 
   const mediaCatalog = extractSavedMediaCatalog(settings);
   console.log(`[AI] Mídias carregadas do fluxo: ${mediaCatalog.length}`);
@@ -174,5 +227,4 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
-}  
-
+}
