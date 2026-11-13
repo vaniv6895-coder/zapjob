@@ -4,6 +4,7 @@ import path from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import {
+  pool,
   listConversations,
   getConversationMessages,
   saveMessage,
@@ -66,7 +67,7 @@ export function registerPanelRoutes(app) {
     return true;
   }
 
-  // Rota pública (CORS liberado) para a vitrine externa carregar foto, @usuario e botões
+  // Rota pública (CORS liberado) para a vitrine externa carregar foto, capa, @usuario e botões
   app.get('/api/vitrine/config', async (req, reply) => {
     reply.header('Access-Control-Allow-Origin', '*');
     const settings = await getBotSettings();
@@ -77,7 +78,7 @@ export function registerPanelRoutes(app) {
     return { config };
   });
 
-  // Rota pública (CORS liberado) para a vitrine externa registrar visitas e cliques
+  // Rota pública (CORS liberado) para a vitrine externa registrar visitas e cliques reais
   app.options('/api/vitrine/track', async (req, reply) => {
     reply
       .header('Access-Control-Allow-Origin', '*')
@@ -103,11 +104,18 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
-  // Relatório de cliques da vitrine para o /painel
+  // Relatório de cliques reais da vitrine para o /painel
   app.get('/api/panel/analytics', async (req, reply) => {
     if (!checkAuth(req, reply)) return;
     const stats = await getVitrineStats();
     return { stats };
+  });
+
+  // Limpar registros de teste do analítico
+  app.post('/api/panel/analytics/reset', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    await pool.query('TRUNCATE TABLE vitrine_analytics RESTART IDENTITY');
+    return { ok: true };
   });
 
   // Listar todas as conversas (WhatsApp, Telegram, Messenger)
@@ -354,8 +362,9 @@ const PANEL_HTML = `<!DOCTYPE html>
   <div id="analytics-modal">
     <div class="modal-box">
       <h2>📊 Cliques e Origem da Vitrine</h2>
-      <p>Dados em tempo real de visitas e cliques nos botões da sua bio.</p>
+      <p>Dados reais em tempo real de visitas e cliques nos botões da sua bio.</p>
       <div id="analytics-content">Carregando...</div>
+      <button class="btn-secondary" style="border-color:#7f1d1d;color:#fca5a5;margin-top:14px;" onclick="resetAnalytics()">🗑️ Zerar Contadores (Limpar Testes)</button>
       <button class="btn-secondary" onclick="closeAnalytics()">Fechar</button>
     </div>
   </div>
@@ -363,7 +372,7 @@ const PANEL_HTML = `<!DOCTYPE html>
   <div id="vitrine-modal">
     <div class="modal-box">
       <h2>🎨 Editar Vitrine (Link-in-Bio)</h2>
-      <p>Suba a foto de perfil e edite os botões. Atualiza no ar na hora!</p>
+      <p>Suba a foto de perfil, capa de fundo e edite os botões. Atualiza no ar na hora!</p>
 
       <label>@Usuário</label>
       <input type="text" id="vit-handle" placeholder="@bellalonguinho" />
@@ -374,6 +383,15 @@ const PANEL_HTML = `<!DOCTYPE html>
         <label style="background:#1c3d5a;color:#38bdf8;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;white-space:nowrap;margin:0;">
           📷 Subir Foto
           <input type="file" accept="image/*" style="display:none;" onchange="uploadVitrineAvatar(event)" />
+        </label>
+      </div>
+
+      <label>Foto de Fundo / Capa (Opcional)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <input type="text" id="vit-bg" placeholder="https://... (deixe vazio p/ fundo padrão)" style="flex:1;" />
+        <label style="background:#1c3d5a;color:#38bdf8;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;white-space:nowrap;margin:0;">
+          🖼️ Subir Capa
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadVitrineBg(event)" />
         </label>
       </div>
 
@@ -486,6 +504,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       let cfg = {
         handle: '@bellalonguinho',
         avatarUrl: '',
+        bgUrl: '',
         links: [
           { title: 'FATALFANS 🙈', url: settings.link_fatalfans || '', icon: 'dots' },
           { title: 'PRIVACY / VIP 🥵', url: settings.link_fanvue || '', icon: 'lock' },
@@ -498,6 +517,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
       document.getElementById('vit-handle').value = cfg.handle || '';
       document.getElementById('vit-avatar').value = cfg.avatarUrl || '';
+      document.getElementById('vit-bg').value = cfg.bgUrl || '';
       vitrineLinksState = Array.isArray(cfg.links) ? cfg.links : [];
       renderVitrineRows();
     }
@@ -541,9 +561,28 @@ const PANEL_HTML = `<!DOCTYPE html>
       if (res.ok) {
         const data = await res.json();
         document.getElementById('vit-avatar').value = data.url;
-        alert('Foto enviada com sucesso!');
+        alert('Foto de perfil enviada com sucesso!');
       } else {
         alert('Erro ao enviar foto.');
+      }
+    }
+
+    async function uploadVitrineBg(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/panel/upload-media', {
+        method: 'POST',
+        headers: { 'x-panel-password': password },
+        body: fd
+      });
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('vit-bg').value = data.url;
+        alert('Foto de capa enviada com sucesso!');
+      } else {
+        alert('Erro ao enviar capa.');
       }
     }
 
@@ -551,6 +590,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       const payload = {
         handle: document.getElementById('vit-handle').value.trim(),
         avatarUrl: document.getElementById('vit-avatar').value.trim(),
+        bgUrl: document.getElementById('vit-bg').value.trim(),
         links: vitrineLinksState.filter(l => l.title && l.url)
       };
       const res = await fetch('/api/panel/settings', {
@@ -586,6 +626,17 @@ const PANEL_HTML = `<!DOCTYPE html>
         <div class="stat-section"><h4>De onde vieram (Origem)</h4>\${renderRows(stats.sources)}</div>
         <div class="stat-section"><h4>Países / Idiomas</h4>\${renderRows(stats.countries)}</div>
       \`;
+    }
+
+    async function resetAnalytics() {
+      if (!confirm('Tem certeza que deseja zerar todos os contadores de visitas e cliques?')) return;
+      const res = await fetch('/api/panel/analytics/reset', {
+        method: 'POST',
+        headers: { 'x-panel-password': password }
+      });
+      if (res.ok) {
+        await openAnalytics();
+      }
     }
 
     function closeAnalytics() {
