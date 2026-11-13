@@ -541,7 +541,12 @@
     }
 
     async function initDefaultFlow() {
-      const pwd = localStorage.getItem('panel_pwd');
+      let pwd = localStorage.getItem('panel_pwd');
+      if (!pwd) {
+        pwd = prompt('Digite a senha do painel para carregar seus fluxos e mídias:');
+        if (pwd) localStorage.setItem('panel_pwd', pwd);
+      }
+
       if (pwd) {
         try {
           const res = await fetch('/api/panel/flow', { headers: { 'x-panel-password': pwd } });
@@ -553,6 +558,8 @@
               renderAll();
               return;
             }
+          } else if (res.status === 401) {
+            localStorage.removeItem('panel_pwd');
           }
         } catch (e) {}
       }
