@@ -53,8 +53,6 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
     if (!pacote) return;
 
     try {
-      
-
       const mensagemAgrupada = pacote.textos.join('\n');
       await runHybridFlow({
         channel,
@@ -98,8 +96,51 @@ app.get('/', async (req, reply) => {
 </html>`);
 });
 
-// Rota do Construtor Visual de Fluxos (/fluxo)
+// Rota do Construtor Visual de Fluxos (/fluxo) — Protegida por senha real no servidor
 app.get('/fluxo', async (req, reply) => {
+  const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+  const pwd = req.query.pwd || req.headers['x-panel-password'];
+
+  if (pwd !== PANEL_PASSWORD) {
+    return reply.status(401).type('text/html; charset=utf-8').send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acesso Restrito - FlowBuilder</title>
+  <style>
+    body { background:#0b141a; color:#e9edef; font-family:-apple-system,sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; padding:16px; }
+    .box { background:#202c33; padding:24px; border-radius:12px; width:100%; max-width:380px; border:1px solid #2a3942; text-align:center; box-shadow:0 12px 32px rgba(0,0,0,0.55); }
+    h2 { color:#00a884; margin-bottom:8px; font-size:18px; }
+    p { color:#8696a0; font-size:13px; margin-bottom:14px; }
+    input { width:100%; padding:11px; border-radius:8px; border:1px solid #2a3942; background:#111b21; color:#fff; font-size:14px; box-sizing:border-box; }
+    input:focus { border-color:#00a884; outline:none; }
+    button { width:100%; padding:12px; border-radius:8px; border:none; background:#00a884; color:#111b21; font-weight:bold; font-size:14px; cursor:pointer; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔒 Acesso Restrito - Fluxos</h2>
+    <p>${pwd ? '❌ Senha incorreta! Tente novamente.' : 'Digite a senha do painel para abrir o FlowBuilder.'}</p>
+    <input type="password" id="p" placeholder="Senha do painel" onkeydown="if(event.key==='Enter') go()" />
+    <button onclick="go()">Entrar</button>
+  </div>
+  <script>
+    const saved = localStorage.getItem('panel_pwd');
+    if (saved && !location.search.includes('pwd=')) {
+      location.href = '/fluxo?pwd=' + encodeURIComponent(saved);
+    }
+    function go() {
+      const v = document.getElementById('p').value.trim();
+      if (!v) return;
+      localStorage.setItem('panel_pwd', v);
+      location.href = '/fluxo?pwd=' + encodeURIComponent(v);
+    }
+  </script>
+</body>
+</html>`);
+  }
+
   const htmlPath = path.join(process.cwd(), 'index.html');
   if (fs.existsSync(htmlPath)) {
     const html = fs.readFileSync(htmlPath, 'utf-8');
@@ -167,8 +208,6 @@ app.post('/webhook', async (req, reply) => {
       }
 
       await saveMessage('whatsapp', from, 'user', textContent, type, savedMediaUrl);
-
-     
 
       // Ativa imediatamente o indicador "digitando..." no WhatsApp do cliente
       sendWhatsAppTyping(messageId);
