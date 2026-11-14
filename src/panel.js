@@ -382,30 +382,75 @@ const PANEL_HTML = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel CRM - Atendimento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Painel CRM - Atendimento VIP</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    html, body {
+      background: #0b141a;
+      color: #e9edef;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    /* Scrollbars elegantes */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a3942; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3b4a54; }
     
     /* Login & Modais */
-    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal { position: fixed; inset: 0; background: rgba(11,20,26,0.95); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal { display: none; overflow-y: auto; }
-    .modal-box { background: #202c33; padding: 24px; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 90vh; overflow-y: auto; }
-    .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; }
-    .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; }
-    .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; }
-    .modal-box input, .modal-box textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3942; background: #111b21; color: #fff; font-size: 14px; }
+    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal, #agenda-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(11,20,26,0.92);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal, #agenda-modal { display: none; }
+    .modal-box {
+      background: #202c33;
+      padding: 22px;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+      border: 1px solid #2a3942;
+      max-height: 88dvh;
+      overflow-y: auto;
+    }
+    .modal-box h2 { margin-bottom: 6px; color: #00a884; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .modal-box p { font-size: 13px; color: #8696a0; margin-bottom: 14px; line-height: 1.4; }
+    .modal-box label { display: block; font-size: 12px; color: #aebac1; margin-bottom: 4px; margin-top: 10px; font-weight: 500; }
+    .modal-box input, .modal-box textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a3942;
+      background: #111b21;
+      color: #fff;
+      font-size: 14px;
+    }
+    .modal-box input:focus, .modal-box textarea:focus { border-color: #00a884; outline: none; }
     .pwd-wrapper { position: relative; display: flex; align-items: center; }
     .pwd-wrapper input { padding-right: 42px; }
     .pwd-eye { position: absolute; right: 10px; background: none; border: none; color: #8696a0; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
     .pwd-eye:hover { color: #00a884; }
-    .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 16px; }
-    .btn-secondary { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3942; background: transparent; color: #8696a0; font-size: 14px; cursor: pointer; margin-top: 8px; }
+    .btn-primary { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: #111b21; font-weight: bold; font-size: 14px; cursor: pointer; margin-top: 16px; transition: opacity 0.15s; }
+    .btn-primary:hover { opacity: 0.92; }
+    .btn-secondary { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3942; background: transparent; color: #8696a0; font-size: 13px; cursor: pointer; margin-top: 8px; }
+    .btn-secondary:hover { background: #111b21; color: #e9edef; }
 
     /* Analytics Grid */
     .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .kpi-card { background: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #2a3942; }
+    .kpi-card { background: #111b21; padding: 12px; border-radius: 10px; border: 1px solid #2a3942; }
     .kpi-val { font-size: 22px; font-weight: bold; color: #00a884; }
     .kpi-lbl { font-size: 11px; color: #8696a0; margin-top: 2px; }
     .stat-section { margin-top: 14px; }
@@ -413,26 +458,106 @@ const PANEL_HTML = `<!DOCTYPE html>
     .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid rgba(42,57,66,0.4); }
     .stat-count { font-weight: bold; color: #25d366; }
 
+    /* Agenda & Legendas */
+    .agenda-tabs { display: flex; gap: 6px; margin-bottom: 14px; background: #111b21; padding: 4px; border-radius: 10px; border: 1px solid #2a3942; }
+    .agenda-tab-btn { flex: 1; padding: 8px; border: none; border-radius: 7px; background: transparent; color: #8696a0; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .agenda-tab-btn.active { background: #00a884; color: #111b21; }
+    .agenda-card { background: #111b21; border: 1px solid #2a3942; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+    .agenda-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(42,57,66,0.5); }
+    .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .agenda-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: #00a884; cursor: pointer; flex-shrink: 0; }
+    .agenda-item.done .agenda-title { text-decoration: line-through; color: #8696a0; }
+    .agenda-time { display: inline-block; background: #1c3d5a; color: #38bdf8; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 6px; }
+    .agenda-title { font-size: 13px; font-weight: 600; color: #e9edef; }
+    .agenda-desc { font-size: 12px; color: #8696a0; margin-top: 3px; line-height: 1.35; }
+    .copy-box { background: #111b21; border: 1px solid #2a3942; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+    .copy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .copy-tag { font-size: 11px; font-weight: bold; color: #38bdf8; text-transform: uppercase; }
+    .copy-btn { background: #005c4b; color: #25d366; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+    .copy-btn:hover { background: #00a884; color: #111b21; }
+    .copy-text { font-size: 12.5px; color: #d1d7db; white-space: pre-line; line-height: 1.4; }
+
     /* App Layout */
-    #app { display: flex; height: 100vh; width: 100%; }
-    #sidebar { width: 390px; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; }
-    .sidebar-header { background: #202c33; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-    .sidebar-header h3 { font-size: 15px; }
-    .header-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-    .nav-pill { background: #005c4b; color: #25d366; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; text-decoration: none; }
+    #app { display: flex; height: 100%; width: 100%; overflow: hidden; }
+    #sidebar { width: 390px; min-width: 340px; height: 100%; background: #111b21; border-right: 1px solid #2a3942; display: flex; flex-direction: column; overflow: hidden; }
+    
+    .sidebar-header {
+      background: #202c33;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid #2a3942;
+      flex-shrink: 0;
+    }
+    .sidebar-top-row { display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-top-row h3 { font-size: 15px; font-weight: 700; color: #e9edef; display: flex; align-items: center; gap: 6px; }
+    .top-util-btns { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      background: #2a3942;
+      color: #e9edef;
+      border: none;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-btn:hover { background: #374852; }
+    .logout-btn { background: none; border: none; color: #8696a0; cursor: pointer; font-size: 11px; padding: 4px; }
+    .logout-btn:hover { color: #fca5a5; }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .header-actions::-webkit-scrollbar { display: none; }
+    .nav-pill {
+      background: #005c4b;
+      color: #25d366;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: transform 0.1s, opacity 0.15s;
+    }
+    .nav-pill:hover { opacity: 0.9; }
     .nav-pill.blue { background: #1c3d5a; color: #38bdf8; }
     .nav-pill.amber { background: #451a03; color: #fbbf24; }
     .nav-pill.purple { background: #3b2667; color: #c084fc; }
     .nav-pill.pink { background: #500724; color: #f472b6; }
     .nav-pill.teal { background: #134e4a; color: #5eead4; }
-    .filter-bar { display: flex; gap: 6px; padding: 8px 12px; background: #111b21; border-bottom: 1px solid #202c33; overflow-x: auto; }
-    .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .nav-pill.orange { background: #431407; color: #fb923c; }
+
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #111b21;
+      border-bottom: 1px solid #202c33;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .filter-btn { background: #202c33; color: #8696a0; border: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #00a884; color: #111b21; font-weight: bold; }
+    
     #conv-list { flex: 1; overflow-y: auto; }
-    .conv-item { padding: 12px 16px; border-bottom: 1px solid #202c33; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.15s; }
+    .conv-item { padding: 12px 14px; border-bottom: 1px solid #202c33; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: background 0.15s; }
     .conv-item:hover, .conv-item.active { background: #2a3942; }
     .conv-top { display: flex; justify-content: space-between; align-items: center; }
-    .conv-phone { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .conv-phone { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; }
     .badge-whatsapp { background: #005c4b; color: #25d366; }
     .badge-telegram { background: #1c3d5a; color: #38bdf8; }
@@ -440,38 +565,90 @@ const PANEL_HTML = `<!DOCTYPE html>
     .badge-paused { background: #7f1d1d; color: #fca5a5; }
     .badge-paid { background: #14532d; color: #86efac; }
     .conv-time { font-size: 11px; color: #8696a0; }
-    .conv-preview { font-size: 13px; color: #8696a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .conv-preview { font-size: 12.5px; color: #8696a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* Chat Area */
-    #chat-area { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
-    #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; flex-direction: column; gap: 8px; padding: 20px; text-align: center; }
-    #chat-active { display: none; flex-direction: column; height: 100%; }
-    .chat-header { background: #202c33; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3942; gap: 8px; flex-wrap: wrap; }
-    .chat-header-left { display: flex; align-items: center; gap: 10px; }
-    #back-btn { display: none; background: none; border: none; color: #00a884; font-size: 20px; cursor: pointer; }
-    .ai-btn { padding: 8px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
+    #chat-area { flex: 1; height: 100%; display: flex; flex-direction: column; background: #0b141a; overflow: hidden; position: relative; }
+    #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; flex-direction: column; gap: 10px; padding: 24px; text-align: center; }
+    #chat-active { display: none; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
+    
+    .chat-header {
+      background: #202c33;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2a3942;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .chat-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    #back-btn { display: none; background: #2a3942; border: none; color: #00a884; font-size: 18px; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ai-btn { padding: 7px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
     .ai-on { background: #005c4b; color: #25d366; }
     .ai-off { background: #7f1d1d; color: #fca5a5; }
-    .pass-btn { background: #1c3d5a; color: #38bdf8; padding: 8px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .pass-btn { background: #1c3d5a; color: #38bdf8; padding: 7px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
 
-    #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-    .msg { max-width: 78%; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-wrap: break-word; position: relative; }
-    .msg-user { align-self: flex-start; background: #202c33; color: #e9edef; border-top-left-radius: 0; }
-    .msg-assistant { align-self: flex-end; background: #005c4b; color: #e9edef; border-top-right-radius: 0; }
-    .msg-meta { font-size: 10px; color: #8696a0; text-align: right; margin-top: 4px; }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg { max-width: 80%; padding: 9px 12px; border-radius: 10px; font-size: 14px; line-height: 1.42; word-wrap: break-word; position: relative; }
+    .msg-user { align-self: flex-start; background: #202c33; color: #e9edef; border-top-left-radius: 2px; }
+    .msg-assistant { align-self: flex-end; background: #005c4b; color: #e9edef; border-top-right-radius: 2px; }
+    .msg-meta { font-size: 10px; color: #aebac1; opacity: 0.8; text-align: right; margin-top: 4px; }
     .msg img, .msg video { max-width: 100%; border-radius: 6px; margin-bottom: 6px; display: block; }
     .msg audio { max-width: 100%; margin-bottom: 6px; }
 
-    .chat-input-bar { background: #202c33; padding: 10px 14px; display: flex; gap: 10px; align-items: center; }
-    .chat-input-bar input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #2a3942; color: #fff; font-size: 15px; outline: none; }
-    .chat-input-bar button { background: #00a884; color: #111b21; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    /* Barra de digitação visível tanto no notebook quanto no celular */
+    .chat-input-bar {
+      background: #202c33;
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      border-top: 1px solid #2a3942;
+      flex-shrink: 0;
+      width: 100%;
+      z-index: 10;
+    }
+    .chat-input-bar input {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid #2a3942;
+      background: #2a3942;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+    .chat-input-bar input:focus { border-color: #00a884; }
+    .chat-input-bar button {
+      background: #00a884;
+      color: #111b21;
+      border: none;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
 
     @media (max-width: 768px) {
-      #sidebar { width: 100%; }
+      #sidebar { width: 100%; min-width: 100%; }
       #chat-area { display: none; width: 100%; }
       body.chat-open #sidebar { display: none; }
       body.chat-open #chat-area { display: flex; }
-      #back-btn { display: inline-block; }
+      #back-btn { display: inline-flex; }
+      .msg { max-width: 86%; }
     }
   </style>
 </head>
@@ -491,6 +668,36 @@ const PANEL_HTML = `<!DOCTYPE html>
         </button>
       </div>
       <button class="btn-primary" onclick="login()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- Modal Agenda de Conteúdo & Legendas Prontas -->
+  <div id="agenda-modal">
+    <div class="modal-box" style="max-width:560px;">
+      <h2>📅 Agenda de Conteúdo & Legendas</h2>
+      <p>Organize as postagens do Canal de Prévias (Telegram) e do VIP (Fanvue) e copie legendas prontas com 1 clique.</p>
+
+      <div class="agenda-tabs">
+        <button type="button" class="agenda-tab-btn active" onclick="switchAgendaTab('telegram', this)">✈️ Prévias (Diário)</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('fanvue', this)">🔥 VIP Fanvue (Semana)</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('legendas', this)">📋 Legendas Prontas</button>
+      </div>
+
+      <div id="agenda-tab-telegram">
+        <div class="agenda-card" id="checklist-telegram"></div>
+        <button type="button" class="btn-secondary" onclick="resetAgendaChecks('telegram')">🔄 Resetar Checklist de Hoje</button>
+      </div>
+
+      <div id="agenda-tab-fanvue" style="display:none;">
+        <div class="agenda-card" id="checklist-fanvue"></div>
+        <button type="button" class="btn-secondary" onclick="resetAgendaChecks('fanvue')">🔄 Resetar Checklist da Semana</button>
+      </div>
+
+      <div id="agenda-tab-legendas" style="display:none;">
+        <div id="legendas-list"></div>
+      </div>
+
+      <button class="btn-secondary" style="margin-top:12px;" onclick="closeAgendaModal()">Fechar</button>
     </div>
   </div>
 
@@ -520,7 +727,7 @@ const PANEL_HTML = `<!DOCTYPE html>
 
   <div id="settings-modal">
     <div class="modal-box">
-      <h2>Links e Valores VIP</h2>
+      <h2>🔗 Links e Valores VIP</h2>
       <p>Edite aqui e a IA já passa a mandar os links novos na hora.</p>
       <label>Link Canal de Prévias (Telegram)</label>
       <input type="text" id="set-telegram" placeholder="https://t.me/..." />
@@ -544,7 +751,7 @@ const PANEL_HTML = `<!DOCTYPE html>
   <div id="paywall-modal">
     <div class="modal-box">
       <h2>💳 Cobrar para Conversar (Paywall)</h2>
-      <p>Configure pelo celular quantas mensagens são grátis antes de exigir pagamento para continuar o chat.</p>
+      <p>Configure quantas mensagens são grátis antes de exigir pagamento para continuar o chat.</p>
 
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#fff;margin-top:8px;">
         <input type="checkbox" id="pw-enabled" style="width:18px;height:18px;" />
@@ -625,15 +832,21 @@ const PANEL_HTML = `<!DOCTYPE html>
   <div id="app">
     <div id="sidebar">
       <div class="sidebar-header">
-        <h3>Conversas</h3>
+        <div class="sidebar-top-row">
+          <h3>💬 Painel VIP</h3>
+          <div class="top-util-btns">
+            <button type="button" class="icon-btn" id="fs-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶ Tela Cheia</button>
+            <button type="button" class="logout-btn" onclick="logout()">Sair</button>
+          </div>
+        </div>
         <div class="header-actions">
+          <button class="nav-pill orange" onclick="openAgendaModal()">📅 Agenda</button>
           <button class="nav-pill teal" onclick="openWaProfileModal()">📱 Perfil Zap</button>
           <button class="nav-pill pink" onclick="openPaywallModal()">💳 Paywall</button>
           <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
           <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
           <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
-          <button class="nav-pill" onclick="openSettings()">Links VIP</button>
-          <button onclick="logout()" style="background:none;border:none;color:#8696a0;cursor:pointer;font-size:11px;">Sair</button>
+          <button class="nav-pill" onclick="openSettings()">🔗 Links VIP</button>
         </div>
       </div>
       <div class="filter-bar">
@@ -647,7 +860,8 @@ const PANEL_HTML = `<!DOCTYPE html>
 
     <div id="chat-area">
       <div id="chat-empty">
-        <p>Selecione uma conversa ao lado ou use o menu acima para editar o <strong>Perfil Zap</strong>, <strong>Paywall</strong>, <strong>Vitrine</strong>, <strong>Cliques</strong>, <strong>Links VIP</strong> e <strong>Fluxos</strong>.</p>
+        <div style="font-size:32px;">💬</div>
+        <p style="max-width:340px;">Selecione uma conversa à esquerda ou use a barra superior para gerenciar <strong>Agenda</strong>, <strong>Perfil Zap</strong>, <strong>Paywall</strong>, <strong>Vitrine</strong> e <strong>Fluxos</strong>.</p>
       </div>
       <div id="chat-active">
         <div class="chat-header">
@@ -655,7 +869,7 @@ const PANEL_HTML = `<!DOCTYPE html>
             <button id="back-btn" onclick="closeChatMobile()">←</button>
             <div>
               <div id="active-phone" style="font-weight:bold;font-size:15px;"></div>
-              <div id="active-channel" style="font-size:12px;color:#8696a0;"></div>
+              <div id="active-channel" style="font-size:11px;color:#8696a0;"></div>
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
@@ -665,7 +879,7 @@ const PANEL_HTML = `<!DOCTYPE html>
         </div>
         <div id="messages"></div>
         <div class="chat-input-bar">
-          <input type="text" id="msg-input" placeholder="Digite uma resposta manual (pausa a IA)..." onkeydown="if(event.key==='Enter') sendManual()" />
+          <input type="text" id="msg-input" placeholder="Digite uma resposta manual..." onkeydown="if(event.key==='Enter') sendManual()" />
           <button onclick="sendManual()">Enviar</button>
         </div>
       </div>
@@ -679,6 +893,24 @@ const PANEL_HTML = `<!DOCTYPE html>
     let selectedChat = null;
     let currentAiPaused = false;
     let vitrineLinksState = [];
+
+    function toggleFullscreen() {
+      const btn = document.getElementById('fs-btn');
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          btn.textContent = '🗗 Sair Tela Cheia';
+        }).catch(() => {});
+      } else {
+        document.exitFullscreen().then(() => {
+          btn.textContent = '⛶ Tela Cheia';
+        }).catch(() => {});
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('fs-btn');
+      if (btn) btn.textContent = document.fullscreenElement ? '🗗 Sair Tela Cheia' : '⛶ Tela Cheia';
+    });
 
     function togglePasswordVisibility() {
       const input = document.getElementById('pwd-input');
@@ -719,6 +951,136 @@ const PANEL_HTML = `<!DOCTYPE html>
       location.reload();
     }
 
+    /* ================= AGENDA & LEGENDAS ================= */
+    const AGENDA_DATA = {
+      telegram: [
+        { id: 'tg_1200', time: '12:00', title: 'Foto "Bom dia / Espelho" (Corte Seco)', desc: 'Lingerie ou roupa curta sem nudez explícita + link do WhatsApp.' },
+        { id: 'tg_1730', time: '17:30', title: 'Áudio Curto (5–10s) Sussurrando', desc: 'Falar que acabou de gravar algo ousado + chamada para o Zap.' },
+        { id: 'tg_2130', time: '21:30', title: 'Vídeo Curto (3–5s) + Oferta VIP', desc: 'Teaser rápido em câmera lenta puxando clique para o Fanvue/FatalFans.' },
+        { id: 'tg_2330', time: '23:30', title: 'Gatilho de Urgência (Madrugada)', desc: 'Foto de cama avisando que só vai responder mais 5 no WhatsApp.' }
+      ],
+      fanvue: [
+        { id: 'fv_seg', time: 'SEG', title: 'Ensaio de Fotos (5 a 8 fotos)', desc: 'Tema quarto/lingerie para assinantes + Mensagem em Massa de boas-vindas.' },
+        { id: 'fv_ter', time: 'TER', title: 'Vídeo Curto (1 a 2 min)', desc: 'Provocação/troca de roupa + 1 foto grátis para Seguidores como isca.' },
+        { id: 'fv_qua', time: 'QUA', title: 'Foto Única + Enquete + PPV', desc: 'Perguntar o que querem ver na sexta + criar 1 Link de Mídia Paga.' },
+        { id: 'fv_qui', time: 'QUI', title: 'Bastidores / Banho + Promoção', desc: 'Fotos molhada/toalha + soltar desconto no 1º mês para seguidores.' },
+        { id: 'fv_sex', time: 'SEX', title: 'Vídeo Principal da Semana (3 a 5 min)', desc: 'Conteúdo completo sem censura + avisar no Canal do Telegram.' },
+        { id: 'fv_sab', time: 'SÁB', title: 'Ensaio Noturno / Look Ousado', desc: 'Responder mensagens privadas no Fanvue oferecendo personalizados.' },
+        { id: 'fv_dom', time: 'DOM', title: 'Domingo de Preguiça + Fila', desc: 'Foto natural na cama + deixar a Fila da semana seguinte agendada.' }
+      ]
+    };
+
+    function getSavedChecks() {
+      try { return JSON.parse(localStorage.getItem('vip_agenda_checks') || '{}'); } catch { return {}; }
+    }
+
+    function toggleAgendaCheck(id) {
+      const checks = getSavedChecks();
+      checks[id] = !checks[id];
+      localStorage.setItem('vip_agenda_checks', JSON.stringify(checks));
+      renderAgendaChecklists();
+    }
+
+    function resetAgendaChecks(group) {
+      const checks = getSavedChecks();
+      AGENDA_DATA[group].forEach(item => delete checks[item.id]);
+      localStorage.setItem('vip_agenda_checks', JSON.stringify(checks));
+      renderAgendaChecklists();
+    }
+
+    function renderAgendaChecklists() {
+      const checks = getSavedChecks();
+      ['telegram', 'fanvue'].forEach(group => {
+        const container = document.getElementById('checklist-' + group);
+        if (!container) return;
+        container.innerHTML = AGENDA_DATA[group].map(item => {
+          const done = Boolean(checks[item.id]);
+          return \`
+            <div class="agenda-item \${done ? 'done' : ''}">
+              <input type="checkbox" \${done ? 'checked' : ''} onchange="toggleAgendaCheck('\${item.id}')" />
+              <div>
+                <div class="agenda-title"><span class="agenda-time">\${item.time}</span>\${item.title}</div>
+                <div class="agenda-desc">\${item.desc}</div>
+              </div>
+            </div>
+          \`;
+        }).join('');
+      });
+    }
+
+    function switchAgendaTab(tab, btn) {
+      document.querySelectorAll('.agenda-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('agenda-tab-telegram').style.display = tab === 'telegram' ? 'block' : 'none';
+      document.getElementById('agenda-tab-fanvue').style.display = tab === 'fanvue' ? 'block' : 'none';
+      document.getElementById('agenda-tab-legendas').style.display = tab === 'legendas' ? 'block' : 'none';
+    }
+
+    async function openAgendaModal() {
+      document.getElementById('agenda-modal').style.display = 'flex';
+      renderAgendaChecklists();
+
+      let s = { link_telegram: '[Link Telegram]', link_fatalfans: '[Link FatalFans]', link_fanvue: '[Link Fanvue]' };
+      try {
+        const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.settings) {
+            if (data.settings.link_telegram) s.link_telegram = data.settings.link_telegram;
+            if (data.settings.link_fatalfans) s.link_fatalfans = data.settings.link_fatalfans;
+            if (data.settings.link_fanvue) s.link_fanvue = data.settings.link_fanvue;
+          }
+        }
+      } catch {}
+
+      const legendas = [
+        {
+          tag: '📌 Mensagem Fixada (Topo do Telegram)',
+          text: \`Seja bem-vindo ao meu cantinho privado 🔥\\nAqui eu posto prévias do meu dia a dia que não posso postar nas outras redes.\\n\\n🔞 Quer acesso imediato aos meus vídeos completos e sem censura?\\n👉 VIP Brasil: \${s.link_fatalfans}\\n👉 VIP Internacional: \${s.link_fanvue}\`
+        },
+        {
+          tag: '☀️ Telegram 12:00 — Foto Espelho',
+          text: \`Almoçando e pensando besteira... 😈 Tirei essa agora pouco, mas a continuação sem corte tá lá no meu VIP 👇\\n👉 \${s.link_fatalfans}\`
+        },
+        {
+          tag: '🎙️ Telegram 17:30 — Legenda p/ Áudio',
+          text: \`Acabei de gravar um negócio muito ousado no quarto... 🥵 Quem quer ver me chama no privado antes que eu apague 😘\`
+        },
+        {
+          tag: '🌙 Telegram 23:30 — Urgência Madrugada',
+          text: \`Não tô conseguindo dormir hoje... 👀 Vou ficar online pelos próximos 20 minutinhos respondendo vocês no privado, corre 💕\`
+        },
+        {
+          tag: '🔥 Fanvue / VIP — Mensagem em Massa',
+          text: \`Hey babe 💕 Acabei de subir um vídeo novo super exclusivo no meu perfil só para assinantes... vai lá ver e me conta o que achou 😈🔥\`
+        }
+      ];
+
+      document.getElementById('legendas-list').innerHTML = legendas.map((l, idx) => \`
+        <div class="copy-box">
+          <div class="copy-header">
+            <span class="copy-tag">\${l.tag}</span>
+            <button type="button" class="copy-btn" onclick="copyLegenda(\${idx}, this)">📋 Copiar</button>
+          </div>
+          <div class="copy-text" id="legenda-txt-\${idx}">\${escapeHtml(l.text)}</div>
+        </div>
+      \`).join('');
+    }
+
+    function copyLegenda(idx, btn) {
+      const txt = document.getElementById('legenda-txt-' + idx).innerText;
+      navigator.clipboard.writeText(txt).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copiado!';
+        setTimeout(() => { btn.textContent = orig; }, 1800);
+      });
+    }
+
+    function closeAgendaModal() {
+      document.getElementById('agenda-modal').style.display = 'none';
+    }
+
+    /* ================= PERFIL WHATSAPP ================= */
     async function openWaProfileModal() {
       document.getElementById('waprofile-modal').style.display = 'flex';
       document.getElementById('wa-photo-file').value = '';
@@ -785,6 +1147,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
+    /* ================= PAYWALL ================= */
     async function openPaywallModal() {
       document.getElementById('paywall-modal').style.display = 'flex';
       const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
@@ -841,6 +1204,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
+    /* ================= VITRINE ================= */
     async function openVitrineModal() {
       document.getElementById('vitrine-modal').style.display = 'flex';
       const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
@@ -949,6 +1313,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
+    /* ================= ANALYTICS ================= */
     async function openAnalytics() {
       document.getElementById('analytics-modal').style.display = 'flex';
       document.getElementById('analytics-content').innerHTML = 'Carregando estatísticas...';
@@ -988,6 +1353,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       document.getElementById('analytics-modal').style.display = 'none';
     }
 
+    /* ================= SETTINGS ================= */
     async function openSettings() {
       const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
       if (res.ok) {
@@ -1028,6 +1394,7 @@ const PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
+    /* ================= CHAT & CONVERSAS ================= */
     function setFilter(filter, btn) {
       currentFilter = filter;
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
