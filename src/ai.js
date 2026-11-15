@@ -18,9 +18,10 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (item.slot === '02_O_QUE_FAZ' && alreadyAskedWhatDoing) continue;
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
       if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
-      if ((item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo/i.test(item.url)) && !isFlirtingOrRequesting) continue;
+      if ((item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo|sem_vergonha/i.test(item.url)) && !isFlirtingOrRequesting) continue;
 
-      if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
+      const isCensoredPreview = /censura|preview|previa/i.test(`${item.url} ${item.label || ''}`);
+      if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video') && !isCensoredPreview) continue;
 
       seenUrls.add(item.url);
       combined.push({
@@ -49,8 +50,18 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
           else kind = 'image';
         }
 
-        if (kind === 'audio' && sentAudioLastTurn) continue;
-        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) continue;
+        const metaText = `${cleanUrl} ${n.mediaLabel || ''}`;
+
+        if (kind === 'audio') {
+          if (sentAudioLastTurn) continue;
+          if (/01|boas|vindas|welcome|fazendo/i.test(metaText) && alreadyAskedWhatDoing) continue;
+          if (/02|provo|sem_vergonha/i.test(metaText) && !isFlirtingOrRequesting) continue;
+          if (/04|robo|robô|bot|real/i.test(metaText) && !isAskingIfBot) continue;
+          if (/05|sumido|volta|lembrei/i.test(metaText) && !isReturningLead) continue;
+        }
+
+        const isCensoredPreview = /censura|preview|previa/i.test(metaText);
+        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video') && !isCensoredPreview) continue;
 
         seenUrls.add(cleanUrl);
         combined.push({
@@ -104,7 +115,7 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
 function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled) {
   const lockedMediaHint =
     paywallEnabled && !hasPass
-      ? '\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo enquanto ele não pagar).'
+      ? '\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos sem censura estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo sem censura agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo que não esteja listada acima).'
       : '';
 
   let mediaSection = '';
@@ -113,7 +124,7 @@ function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled)
       .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
       .join('\n');
 
-    mediaSection = `ÁUDIO DISPONÍVEL PARA ESTE MOMENTO DA CONVERSA:
+    mediaSection = `MÍDIAS DISPONÍVEIS PARA ESTE MOMENTO DA CONVERSA:
 ${catalogLines}
 
 REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
@@ -122,9 +133,10 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 - Se houver **ÁUDIO DE PROVOCAÇÃO** acima: use apenas quando ele realmente elogiar você ou entrar na brincadeira picante, colocando [ENVIAR_MIDIA:URL] no final.
 - Se houver **ÁUDIO PROVA REAL ("não sou robô")** acima: use agora para responder à desconfiança dele.
 - Se houver **ÁUDIO REENGAJAMENTO ("oi sumido")** acima: use para dar boas-vindas ao retorno dele.
-- Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
+- Se houver **PRÉVIA COM CENSURA** acima: mande quando o clima já estiver quente para provocar antes do pagamento.
+- Escolha EXCLUSIVAMENTE a mídia com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) ou ALL e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
-    mediaSection = `NENHUM ÁUDIO LIBERADO NESTE TURNO:
+    mediaSection = `NENHUMA MÍDIA LIBERADA NESTE TURNO:
 - Converse APENAS em texto curto, envolvente e provocante, criando desejo sem entregar tudo de graça. NÃO invente nenhuma tag [ENVIAR_MIDIA:...].${lockedMediaHint}`;
   }
 
@@ -162,7 +174,7 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 
 ROTEIRO NATURAL DA CONVERSA:
 1. O primeiro áudio já agradeceu por ele ter chamado no privado e perguntou de onde ele é. Quando ele disser a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe). Se o ÁUDIO DE CONTINUIDADE estiver disponível nesse exato momento (2ª mensagem), mande-o logo após comentar a cidade; se já passou desse momento, converse apenas em texto curto.
-2. Quando ele responder o que está fazendo, entre no modo provocação (insinuando que está à vontade na cama e desafiando ele) para ele elogiar/flertar e destravar o ÁUDIO DE PROVOCAÇÃO ("ai para, você é muito sem vergonha...") — NUNCA mande esse áudio se ele responder apenas "sim" ou algo neutro.
+2. Quando ele responder o que está fazendo, entre no modo provocação (insinuando que está à vontade na cama e desafiando ele) para ele elogiar/flertar e destravar o ÁUDIO DE PROVOCAÇÃO ("ai para, você é muito sem vergonha...") — NUNCA mande esse áudio se ele responder apenas "sim", "né" ou algo neutro.
 ${vipAndPreviasRule}
 
 REGRA CRÍTICA DE IDIOMA:
@@ -255,7 +267,6 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
-  // Se já passaram de 2 turnos da assistente, bloqueia o áudio "Oi amor, tudo bem? o que você tá fazendo?" para não dar "Oi" no meio da conversa
   const alreadyAskedWhatDoing =
     assistantMessages.length >= 2 ||
     assistantMessages.some((m) =>
@@ -265,7 +276,6 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   const rawTextOnly = String(userMessage || '').split('\n\n[IDIOMA')[0].toLowerCase();
   const isAskingIfBot = /\b(rob[oô]|bot|fake|ia|intelig[eê]ncia|autom[aá]tico|gravado|real|verdade|prova|voc[eê] mesmo|vc mesmo)\b/i.test(rawTextOnly);
 
-  // Só libera o áudio "ai para, você é muito sem vergonha..." se o cliente realmente flertar/elogiar (NUNCA com um simples "sim"!)
   const isFlirtingOrRequesting =
     assistantMessages.length >= 2 &&
     /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|safadinha|quente|ousada|gata|sexy|hot|pelada|nua|quero vc|quero você|te pegar|te ver|guapa|hermosa|rica|caliente|schön|geil)\b/i.test(rawTextOnly);
@@ -278,7 +288,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     alreadyAskedWhatDoing,
   });
 
-  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Áudio no turno anterior: ${sentAudioLastTurn}`);
+  console.log(`[AI] Mídias liberadas: ${mediaCatalog.length} | Flerte real: ${isFlirtingOrRequesting} | Áudio anterior: ${sentAudioLastTurn}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
