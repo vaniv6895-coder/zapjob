@@ -8,15 +8,15 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
   const combined = [];
   const seenUrls = new Set();
 
-  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn } = contextFlags;
+  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn, alreadyKnowsLocation } = contextFlags;
 
-  // Se acabou de mandar áudio na última resposta, não libera nenhum áudio agora (obriga a conversar em texto primeiro)
   if (!sentAudioLastTurn) {
     for (const item of r2Catalog) {
       if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
       if (item.isWelcome) continue;
 
-      // Filtros rígidos por contexto real para não jogar áudio fora de hora
+      // Bloqueios rígidos por contexto real para nunca mandar áudio fora de hora
+      if (item.slot === '03_DE_ONDE_E' && alreadyKnowsLocation) continue;
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
       if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
       if (item.slot === '02_PROVOCACAO' && !isFlirtingOrRequesting) continue;
@@ -118,8 +118,7 @@ function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled)
 ${catalogLines}
 
 REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
-- NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, fazer ele falar dele e criar desejo.
-- Se houver **ÁUDIO 03 (De onde você é?)** acima: use quando fizer sentido perguntar a cidade dele, reagindo rápido ao que ele disse antes e colocando [ENVIAR_MIDIA:URL_DO_AUDIO_03] no final (sem repetir "de onde você é?" no texto, pois o áudio já pergunta isso).
+- Se houver **ÁUDIO 03 (De onde você é?)** acima: use-o AGORA nesta resposta! Escreva apenas uma reação curtinha ao que ele disse antes (SEM escrever "de onde você é?" ou "de onde vc fala?" no texto, porque o próprio Áudio 03 já faz essa pergunta) e coloque [ENVIAR_MIDIA:URL_DO_AUDIO_03] no final.
 - Se houver **ÁUDIO 02 (Provocação)** acima: use apenas quando ele estiver flertando ou pedindo mais ousadia, colocando [ENVIAR_MIDIA:URL_DO_AUDIO_02] no final.
 - Se houver **ÁUDIO 04 ("não sou robô")** acima: use agora para responder à desconfiança dele.
 - Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
@@ -141,9 +140,9 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
   return `Você é uma criadora de conteúdo digital envolvente, provocante na medida certa e espontânea conversando no privado do WhatsApp/Telegram.
 
 COMO ENVOLVER O CLIENTE (ESTILO DE CONVERSA REAL):
-- Conduza o papo com calma, uma etapa de cada vez, sempre deixando um gancho interessante para o cliente responder.
-- Escreva como uma mulher real digitando rápido no WhatsApp: 1 a 2 frases curtas no máximo, sem formalidade (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
-- PROIBIDO repetir palavras do cliente ou fazer perguntas duplicadas que o áudio já fez.
+- Escreva como uma mulher real digitando rápido no WhatsApp: 1 frase curta ou no máximo 2 curtinhas, direto ao ponto, sem parecer texto de blog ou guia turístico (NUNCA escreva coisas como "Nossa, Canela é lindo demais! Já ouvi falar muito bem daí, clima super aconchegante né?").
+- Pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk".
+- PROIBIDO repetir perguntas que um áudio já fez ou vai fazer.
 - EMOJIS E RISADAS:
   * Mande metade das mensagens SEM nenhum emoji.
   * Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵, 😊) — NUNCA repita o mesmo emoji em seguida.
@@ -159,8 +158,8 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Alemão (DE): "du", "Süßer", "mega", cobrar em €.
 
 ROTEIRO NATURAL DA CONVERSA:
-1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é).
-2. Quando ele responder a cidade, comente de forma leve que mora numa cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e pergunte o que ele gosta de fazer ou puxe um papo mais envolvente antes de partir para provocação pesada.
+1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é) — NÃO pergunte a cidade por texto.
+2. Quando ele responder a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e já puxe um papo mais safado/curioso (ex: "pertinho então rs... tava aqui deitada sem fazer nada, gosto de companhia assim 👀").
 3. Só depois que o clima esquentar e ele elogiar/flertar, entre na provocação e mande o ÁUDIO 02.
 ${vipAndPreviasRule}
 
@@ -254,20 +253,28 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
+  // Se a IA já perguntou de onde ele é no texto OU já passaram de 2 turnos da assistente, bloqueia o Áudio 03
+  const alreadyKnowsLocation =
+    assistantMessages.length >= 2 ||
+    assistantMessages.some((m) =>
+      /\b(de onde|onde vc|onde você|qual cidade|mora onde|where are you from|de donde|de dónde|woher)\b/i.test(m.content || '')
+    );
+
   const rawTextOnly = String(userMessage || '').split('\n\n[IDIOMA')[0].toLowerCase();
   const isAskingIfBot = /\b(rob[oô]|bot|fake|ia|intelig[eê]ncia|autom[aá]tico|gravado|real|verdade|prova|voc[eê] mesmo|vc mesmo)\b/i.test(rawTextOnly);
   const isFlirtingOrRequesting =
     assistantMessages.length >= 2 &&
-    /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|quente|ousada|quero|manda|pode mandar|mostra|ver|ouvir|sim|claro|gata|sexy|hot|guapa|hermosa|schön)\b/i.test(rawTextOnly);
+    /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|quente|ousada|quero|manda|pode mandar|mostra|ver|ouvir|sim|claro|gata|sexy|hot|guapa|hermosa|schön|relaxando|cama|pelada|safadinha)\b/i.test(rawTextOnly);
 
   const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled, {
     isReturningLead,
     isAskingIfBot,
     isFlirtingOrRequesting,
     sentAudioLastTurn,
+    alreadyKnowsLocation,
   });
 
-  console.log(`[AI] Áudios liberados neste turno: ${mediaCatalog.length} (Enviou áudio no turno anterior: ${sentAudioLastTurn})`);
+  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Já sabe cidade: ${alreadyKnowsLocation} | Áudio no turno anterior: ${sentAudioLastTurn}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
