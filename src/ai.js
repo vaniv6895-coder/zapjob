@@ -1,18 +1,36 @@
 import { GoogleGenAI } from '@google/genai';
 import { getMemory, getBotSettings, hasActiveChatPass } from './db.js';
+import { listR2MediaCatalog } from './storage.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function extractSavedMediaCatalog(settings, sentUrlsSet, hasPass, paywallEnabled) {
+function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled) {
+  const combined = [];
+  const seenUrls = new Set();
+
+  // 1. Carrega automaticamente todos os arquivos das pastas do R2
+  for (const item of r2Catalog) {
+    if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
+    if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
+
+    seenUrls.add(item.url);
+    combined.push({
+      kind: item.kind,
+      lang: item.lang,
+      label: item.label ? ` - Contexto: ${item.label}` : '',
+      url: item.url,
+    });
+  }
+
+  // 2. Mantém compatibilidade com mídias extras salvas manualmente no /fluxo
   try {
-    if (!settings.visual_flow) return [];
-    const flow = JSON.parse(settings.visual_flow);
-    const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
-    return nodes
-      .filter((n) => {
-        if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.startsWith('http')) return false;
+    if (settings.visual_flow) {
+      const flow = JSON.parse(settings.visual_flow);
+      const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
+      for (const n of nodes) {
+        if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.startsWith('http')) continue;
         const cleanUrl = n.text.trim();
-        if (sentUrlsSet.has(cleanUrl)) return false;
+        if (sentUrlsSet.has(cleanUrl) || seenUrls.has(cleanUrl)) continue;
 
         let kind = n.mediaKind;
         if (!kind) {
@@ -21,28 +39,20 @@ function extractSavedMediaCatalog(settings, sentUrlsSet, hasPass, paywallEnabled
           else kind = 'image';
         }
 
-        // Trava estilo Timo Club: antes do paywall, só libera áudios (fotos/vídeos bloqueados)
-        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) {
-          return false;
-        }
+        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) continue;
 
-        return true;
-      })
-      .map((n, idx) => {
-        const url = n.text.trim();
-        let kind = n.mediaKind;
-        if (!kind) {
-          if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(url)) kind = 'audio';
-          else if (/\.(mp4|mov|avi)(\?|$)/i.test(url)) kind = 'video';
-          else kind = 'image';
-        }
-        const lang = n.mediaLang || 'ALL';
-        const label = n.mediaLabel ? ` - Contexto: ${n.mediaLabel}` : '';
-        return { index: idx + 1, kind, lang, label, url };
-      });
-  } catch {
-    return [];
-  }
+        seenUrls.add(cleanUrl);
+        combined.push({
+          kind,
+          lang: n.mediaLang || 'ALL',
+          label: n.mediaLabel ? ` - Contexto: ${n.mediaLabel}` : '',
+          url: cleanUrl,
+        });
+      }
+    }
+  } catch {}
+
+  return combined.map((item, idx) => ({ index: idx + 1, ...item }));
 }
 
 function isLikelyBrazilian(channel, userId, text) {
@@ -96,13 +106,13 @@ REGRA OBRIGATÓRIA DE CURIOSIDADE E ENVIO DE MÍDIA (2 ETAPAS - NUNCA PULE):
 - NUNCA envie a tag [ENVIAR_MIDIA:...] na mesma mensagem em que você pergunta "quer ver uma foto/vídeo/áudio?".
 - ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando se ele quer ouvir/ver a mídia listada acima, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
 - ETAPA 2 (ENTREGA APÓS CONFIRMAÇÃO): Somente DEPOIS que o cliente aceitar ("sim", "quero", "manda", "yes", "sí", "ja", "claro") OU quando ele mesmo pedir uma mídia disponível acima (ou perguntar se você é robô/bot), coloque a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
-- REGRA DE IDIOMA DOS ÁUDIOS (CRÍTICO): Escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (PT_BR para Brasil, PT_EU para Portugal, ES para Espanhol, EN para Inglês, DE para Alemão, ou ALL). Se o nó estiver como PT, serve para PT_BR/PT_EU. NUNCA envie áudio em PT para cliente falando ES, EN ou DE.
+- REGRA DE IDIOMA DOS ÁUDIOS (CRÍTICO): Escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (PT_BR para Brasil, PT_EU para Portugal, ES para Espanhol, EN para Inglês, DE para Alemão, ou ALL). NUNCA envie áudio em PT para cliente falando ES, EN ou DE.
 - Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL, escrevendo no máximo 1 frase curta antes da tag.${lockedMediaHint}`
       : paywallEnabled && !hasPass
       ? `AVISO DE MÍDIAS BLOQUEADAS: Fotos e vídeos só são liberados após o cliente pagar o passe privado do chat. NÃO use nenhuma tag [ENVIAR_MIDIA:...]. Se ele pedir foto/vídeo, provoque dizendo que está guardando para mandar assim que ele desbloquear o privado.`
       : totalSentCount > 0
       ? `AVISO IMPORTANTE DE MÍDIAS: Você JÁ enviou todas as prévias disponíveis para este cliente. NÃO pergunte se ele quer ver foto/vídeo/áudio aqui no chat e NÃO invente nenhuma tag [ENVIAR_MIDIA:...]. Diga de forma provocante que as coisas mais exclusivas estão no seu VIP.`
-      : `AVISO: Nenhuma mídia cadastrada no fluxo ainda. NÃO pergunte se ele quer ver foto/vídeo/áudio e NÃO use [ENVIAR_MIDIA:...].`;
+      : `AVISO: Nenhuma mídia encontrada no R2 ainda. NÃO pergunte se ele quer ver foto/vídeo/áudio e NÃO use [ENVIAR_MIDIA:...].`;
 
   const vipAndPreviasRule = hasPass
     ? `3. CANAL VIP COMPLETO (ESTE CLIENTE JÁ PAGOU O PASSE DO CHAT - PODE OFERTAR O VIP MENSAL):
@@ -185,10 +195,11 @@ async function getCandidateModels() {
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
-  const [history, settings, hasPass] = await Promise.all([
+  const [history, settings, hasPass, r2Catalog] = await Promise.all([
     getMemory(channel, userId, 60),
     getBotSettings(),
     hasActiveChatPass(channel, userId),
+    listR2MediaCatalog('audiozabe/'),
   ]);
 
   let pw = null;
@@ -221,8 +232,8 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     if (tagMatch) sentUrls.add(tagMatch[1].trim());
   }
 
-  const mediaCatalog = extractSavedMediaCatalog(settings, sentUrls, hasPass, paywallEnabled);
-  console.log(`[AI] Mídias liberadas p/ este cliente: ${mediaCatalog.length} (Já enviadas: ${sentUrls.size} | VIP ativo: ${hasPass})`);
+  const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled);
+  console.log(`[AI] Mídias liberadas p/ este cliente: ${mediaCatalog.length} (R2 total: ${r2Catalog.length} | Já enviadas: ${sentUrls.size})`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory

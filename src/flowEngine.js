@@ -3,6 +3,7 @@ import { sendWhatsAppText, sendWhatsAppMedia, sendWhatsAppTyping } from './whats
 import { sendTelegramText, sendTelegramMedia, sendTelegramAction } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
 import { generateAgentReply } from './ai.js';
+import { listR2MediaCatalog } from './storage.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -13,19 +14,16 @@ function detectMediaKind(url, declaredKind) {
   return 'image';
 }
 
-// Detecta o idioma/região do cliente (PT_BR, PT_EU, ES, EN, DE) pelo texto, DDI e histórico
 function detectClientLanguage(text, userId, history = []) {
   const t = (text || '').toLowerCase();
   const phone = String(userId || '').replace(/\D/g, '');
 
-  // Prioridade máxima para DDI do WhatsApp (evita trocar idioma no meio da conversa)
   if (phone.startsWith('55')) return 'PT_BR';
   if (phone.startsWith('351')) return 'PT_EU';
   if (/^(49|43|41)/.test(phone)) return 'DE';
   if (/^(34|593|507|52|54|57|56|51|58|591|595|598|506|503|502|504|505)/.test(phone)) return 'ES';
   if (/^(1|44|61|64|353)/.test(phone)) return 'EN';
 
-  // 1. Alemão (DE)
   if (
     /\b(hallo|guten tag|guten abend|servus|moin|wie gehts|wie geht's|schön|hübsch|preis|wie viel|woher|deutschland|österreich|schweiz|bild|fotos|sprachnachricht|stimme)\b/i.test(t) ||
     /[äöüß]/i.test(t)
@@ -33,18 +31,14 @@ function detectClientLanguage(text, userId, history = []) {
     return 'DE';
   }
 
-  // 2. Português (checado ANTES do Espanhol para palavras com acento como "áudio", "vídeo", "você", "está")
   if (
     /\b(oi+|ol[aá]|tudo bem|td bem|bom dia|boa tarde|boa noite|linda|gata|gira|fixe|quanto|valor|pre[cç]o|voc[eê]|vc|tu|de onde|telem[oó]vel|[aá]udio|v[ií]deo|cad[eê]|manda|quero|sim|n[aã]o)\b/i.test(t) ||
     /[çãõêôâ]/i.test(t)
   ) {
-    if (/\b(fixe|gira|telem[oó]vel|portugal|lisboa|porto)\b/i.test(t)) {
-      return 'PT_EU';
-    }
+    if (/\b(fixe|gira|telem[oó]vel|portugal|lisboa|porto)\b/i.test(t)) return 'PT_EU';
     return 'PT_BR';
   }
 
-  // 3. Espanhol (ES)
   if (
     /\b(hola|buenas|quetal|qué tal|como estas|cómo estás|guapa|hermosa|cuanto|cuánto|precio|de donde|de dónde|españa|ecuador|panama|panamá|mexico|méxico|colombia|chile|argentina|peru|perú)\b/i.test(t) ||
     /[¿¡ñ]/i.test(t)
@@ -52,14 +46,12 @@ function detectClientLanguage(text, userId, history = []) {
     return 'ES';
   }
 
-  // 4. Inglês (EN)
   if (
     /\b(hi+|hello|hey|how are you|what's up|whats up|beautiful|gorgeous|cute|how much|price|where are you from|link|pic|pics|photo|video|voice)\b/i.test(t)
   ) {
     return 'EN';
   }
 
-  // 5. Se mandou só "ok" ou emoji, mantém o idioma já usado no histórico
   const pastText = history.map((m) => m.content || '').join(' ');
   if (/\b(voc[eê]|oi|ol[aá]|tudo bem|kkkk)\b/i.test(pastText)) return 'PT_BR';
   if (/\b(hola|jajaja|guapa)\b/i.test(pastText)) return 'ES';
@@ -69,7 +61,6 @@ function detectClientLanguage(text, userId, history = []) {
   return 'PT_BR';
 }
 
-// Compatibilidade caso algum nó antigo ainda esteja salvo como 'PT' genérico
 function isLanguageMatch(nodeLang, clientLang) {
   if (!nodeLang || nodeLang === 'ALL') return true;
   if (nodeLang === clientLang) return true;
@@ -105,9 +96,10 @@ async function sendChannelMedia(channel, userId, url, kind, caption = '') {
 }
 
 export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer, mediaMime, lastMessageId }) {
-  const [settings, aiPaused] = await Promise.all([
+  const [settings, aiPaused, r2Catalog] = await Promise.all([
     getBotSettings(),
     isAiPaused(channel, userId),
+    listR2MediaCatalog('audiozabe/'),
   ]);
 
   let flow = { nodes: [], edges: [] };
@@ -134,7 +126,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     if (tagMatch) sentUrls.add(tagMatch[1].trim());
   }
 
-  console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | IA Pausada: ${aiPaused}`);
+  console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | R2 Itens: ${r2Catalog.length}`);
 
   const getNextNodes = (nodeId) =>
     edges
@@ -186,15 +178,13 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         executedFlowSummary.push(`Você enviou a mensagem: "${current.text.trim()}"`);
       } else if (current.type === 'media' && current.text?.trim().startsWith('http')) {
         if (!isLanguageMatch(current.mediaLang, clientLang)) {
-          const nexts = getNextNodes(current.id);
-          queue.push(...nexts);
+          queue.push(...getNextNodes(current.id));
           continue;
         }
 
         const url = current.text.trim();
         const kind = detectMediaKind(url, current.mediaKind);
         try {
-          console.log(`[FlowEngine] Enviando ${kind} (${clientLang}) do fluxo para ${userId}: ${url}`);
           await sendTypingIndicator(channel, userId, lastMessageId, kind);
           await sleep(kind === 'audio' ? 3500 : 1800);
           await sendChannelMedia(channel, userId, url, kind);
@@ -211,35 +201,28 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         break;
       }
 
-      const nexts = getNextNodes(current.id);
-      queue.push(...nexts);
+      queue.push(...getNextNodes(current.id));
     }
   }
 
-  // GATILHO AUTOMÁTICO DE BOAS-VINDAS POR IDIOMA NO 1º CONTATO
+  // DISPARO AUTOMÁTICO DO ÁUDIO DE BOAS-VINDAS DIRETO DA PASTA DO R2 NO 1º CONTATO
   if (isFirstContact && !sentMediaInThisTurn) {
-    const welcomeAudio = nodes.find((n) => {
-      if (n.type !== 'media' || !n.text?.trim().startsWith('http')) return false;
-      const kind = detectMediaKind(n.text.trim(), n.mediaKind);
-      if (kind !== 'audio') return false;
-      const matchesLang = isLanguageMatch(n.mediaLang, clientLang);
-      const isWelcomeLabel = /boas|vindas|oi|hola|hi|hey|hallo|willkommen|inicio|inicial|sauda/i.test(n.mediaLabel || '');
-      return matchesLang && isWelcomeLabel;
-    });
+    const r2Welcome =
+      r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
+      r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
 
-    if (welcomeAudio) {
-      const url = welcomeAudio.text.trim();
+    if (r2Welcome) {
       try {
-        console.log(`[FlowEngine] Disparando áudio de boas-vindas (${clientLang}) para ${userId}: ${url}`);
+        console.log(`[FlowEngine] Disparando boas-vindas direto do R2 (${clientLang}): ${r2Welcome.url}`);
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
         await sleep(3500);
-        await sendChannelMedia(channel, userId, url, 'audio');
-        await saveMessage(channel, userId, 'assistant', `[Áudio de boas-vindas ${clientLang} enviado]`, 'audio', url);
-        sentUrls.add(url);
-        executedFlowSummary.push(`Você acabou de enviar seu áudio de boas-vindas em ${clientLang} (${welcomeAudio.mediaLabel || ''}).`);
+        await sendChannelMedia(channel, userId, r2Welcome.url, 'audio');
+        await saveMessage(channel, userId, 'assistant', `[Áudio de boas-vindas ${clientLang} enviado]`, 'audio', r2Welcome.url);
+        sentUrls.add(r2Welcome.url);
+        executedFlowSummary.push(`Você acabou de enviar seu áudio de boas-vindas em ${clientLang} (${r2Welcome.label}).`);
         sentMediaInThisTurn = true;
       } catch (err) {
-        console.error('[FlowEngine] Erro ao enviar áudio de boas-vindas:', err?.response?.data || err.message);
+        console.error('[FlowEngine] Erro ao enviar boas-vindas do R2:', err?.response?.data || err.message);
       }
     }
   }
@@ -275,26 +258,27 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         }
       }
 
-      // Fallback automático filtrado pelo idioma e sem repetir mídias já enviadas
+      // Fallback automático puxando direto do R2 (ou nós manuais) sem repetir enviados
       if (mediaUrls.length === 0 && !sentMediaInThisTurn) {
-        const unsentMediaNodes = nodes.filter(
-          (n) => n.type === 'media' && n.text?.trim().startsWith('http') && !sentUrls.has(n.text.trim())
-        );
-        if (unsentMediaNodes.length > 0) {
-          let requestedKind = null;
-          if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo|bild|bilder)\b/i.test(msgLower)) requestedKind = 'image';
-          else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o|video)\b/i.test(msgLower)) requestedKind = 'video';
-          else if (/\b([aá]udio|voz|fala comigo|manda voz|voice|audio|sprachnachricht|stimme)\b/i.test(msgLower)) requestedKind = 'audio';
+        let requestedKind = null;
+        if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo|bild|bilder)\b/i.test(msgLower)) requestedKind = 'image';
+        else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o|video)\b/i.test(msgLower)) requestedKind = 'video';
+        else if (/\b([aá]udio|voz|fala comigo|manda voz|voice|audio|sprachnachricht|stimme)\b/i.test(msgLower)) requestedKind = 'audio';
 
-          if (requestedKind) {
-            const matching = unsentMediaNodes.filter((n) => {
-              const k = detectMediaKind(n.text.trim(), n.mediaKind);
-              return k === requestedKind && isLanguageMatch(n.mediaLang, clientLang);
-            });
-            const chosen = matching[0] || unsentMediaNodes.find((n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind);
-            if (chosen) {
-              mediaUrls.push(chosen.text.trim());
-            }
+        if (requestedKind) {
+          const r2Match = r2Catalog.find(
+            (item) => !sentUrls.has(item.url) && item.kind === requestedKind && isLanguageMatch(item.lang, clientLang)
+          );
+          if (r2Match) {
+            mediaUrls.push(r2Match.url);
+          } else {
+            const unsentNodes = nodes.filter(
+              (n) => n.type === 'media' && n.text?.trim().startsWith('http') && !sentUrls.has(n.text.trim())
+            );
+            const nodeMatch = unsentNodes.find(
+              (n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind && isLanguageMatch(n.mediaLang, clientLang)
+            );
+            if (nodeMatch) mediaUrls.push(nodeMatch.text.trim());
           }
         }
       }
