@@ -4,23 +4,34 @@ import { listR2MediaCatalog } from './storage.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled, isReturningLead) {
+function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled, contextFlags) {
   const combined = [];
   const seenUrls = new Set();
 
-  for (const item of r2Catalog) {
-    if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
-    if (item.isWelcome) continue;
-    if (item.isReturnOnly && !isReturningLead) continue;
-    if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
+  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn } = contextFlags;
 
-    seenUrls.add(item.url);
-    combined.push({
-      kind: item.kind,
-      lang: item.lang,
-      label: item.label ? ` - ${item.label}` : '',
-      url: item.url,
-    });
+  // Se acabou de mandar áudio na última resposta, não libera nenhum áudio agora (obriga a conversar em texto primeiro)
+  if (!sentAudioLastTurn) {
+    for (const item of r2Catalog) {
+      if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
+      if (item.isWelcome) continue;
+
+      // Filtros rígidos por contexto real para não jogar áudio fora de hora
+      if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
+      if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
+      if (item.slot === '02_PROVOCACAO' && !isFlirtingOrRequesting) continue;
+
+      if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
+
+      seenUrls.add(item.url);
+      combined.push({
+        kind: item.kind,
+        lang: item.lang,
+        slot: item.slot || 'EXTRA',
+        label: item.label ? ` - ${item.label}` : '',
+        url: item.url,
+      });
+    }
   }
 
   try {
@@ -39,12 +50,14 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
           else kind = 'image';
         }
 
+        if (kind === 'audio' && sentAudioLastTurn) continue;
         if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) continue;
 
         seenUrls.add(cleanUrl);
         combined.push({
           kind,
           lang: n.mediaLang || 'ALL',
+          slot: 'MANUAL',
           label: n.mediaLabel ? ` - Contexto: ${n.mediaLabel}` : '',
           url: cleanUrl,
         });
@@ -89,7 +102,7 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
   return `${msgIntl}\n\n👉 ${linkIntl}`;
 }
 
-function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled, totalSentCount) {
+function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled) {
   const lockedMediaHint =
     paywallEnabled && !hasPass
       ? '\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo enquanto ele não pagar).'
@@ -101,23 +114,18 @@ function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled,
       .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
       .join('\n');
 
-    mediaSection = `CATÁLOGO DE ÁUDIOS CONTEXTUAIS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDOS):
+    mediaSection = `ÁUDIO DISPONÍVEL PARA ESTE MOMENTO DA CONVERSA:
 ${catalogLines}
 
-COMO ENCAIXAR CADA ÁUDIO COM NATURALIDADE (CRÍTICO - LEIA O ROTEIRO DE CADA ÁUDIO ACIMA):
-- NUNCA mande um áudio aleatório sem encaixar no assunto! Leia o que você fala dentro de cada áudio acima:
-  1. ÁUDIO 03 (De onde você é?): Logo na sua PRIMEIRA resposta em texto (depois que o cliente responder o que está fazendo no Áudio 01), reaja rápido ao que ele disse e mande o ÁUDIO 03 com a tag [ENVIAR_MIDIA:URL_DO_AUDIO_03] (sem repetir a pergunta "de onde você é" no texto, pois o Áudio 03 já faz essa pergunta!).
-  2. ÁUDIO 02 (Provocação - "ai para, você é muito sem vergonha..."): Só mande este áudio DEPOIS que o cliente elogiar você, flertar ou provocar! Se ele ainda não flertou, puxe um assunto mais ousado/provocante primeiro para ele te elogiar ou provocar, e aí sim responda com o ÁUDIO 02 ([ENVIAR_MIDIA:URL_DO_AUDIO_02]).
-  3. ÁUDIO 04 ("não sou robô"): Use APENAS se ele desconfiar que você é bot/robô ou pedir para provar que é real.
-  4. ÁUDIO 05 ("oi sumido"): Use APENAS se o cliente voltou a falar depois de horas sumido.
-- REGRA DE IDIOMA: Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE).
-- Quando colocar [ENVIAR_MIDIA:URL_COMPLETA], escreva no máximo 1 frase curtinha antes (ou até só a tag se o áudio já disser tudo) e copie a URL inteira sem alterar nada.${lockedMediaHint}`;
-  } else if (paywallEnabled && !hasPass) {
-    mediaSection = 'AVISO DE MÍDIAS BLOQUEADAS: Fotos e vídeos só são liberados após o cliente pagar o passe privado do chat. NÃO use nenhuma tag [ENVIAR_MIDIA:...].';
-  } else if (totalSentCount > 0) {
-    mediaSection = 'AVISO: Você já enviou todos os áudios disponíveis para este cliente. NÃO invente nenhuma tag [ENVIAR_MIDIA:...].';
+REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
+- NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, fazer ele falar dele e criar desejo.
+- Se houver **ÁUDIO 03 (De onde você é?)** acima: use quando fizer sentido perguntar a cidade dele, reagindo rápido ao que ele disse antes e colocando [ENVIAR_MIDIA:URL_DO_AUDIO_03] no final (sem repetir "de onde você é?" no texto, pois o áudio já pergunta isso).
+- Se houver **ÁUDIO 02 (Provocação)** acima: use apenas quando ele estiver flertando ou pedindo mais ousadia, colocando [ENVIAR_MIDIA:URL_DO_AUDIO_02] no final.
+- Se houver **ÁUDIO 04 ("não sou robô")** acima: use agora para responder à desconfiança dele.
+- Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
-    mediaSection = 'AVISO: Nenhuma mídia disponível. NÃO use [ENVIAR_MIDIA:...].';
+    mediaSection = `NENHUM ÁUDIO LIBERADO NESTE TURNO:
+- Converse APENAS em texto curto, envolvente e provocante, fazendo o cliente participar e responder. NÃO invente nenhuma tag [ENVIAR_MIDIA:...].${lockedMediaHint}`;
   }
 
   const vipAndPreviasRule = hasPass
@@ -132,10 +140,10 @@ COMO ENCAIXAR CADA ÁUDIO COM NATURALIDADE (CRÍTICO - LEIA O ROTEIRO DE CADA Á
 
   return `Você é uma criadora de conteúdo digital envolvente, provocante na medida certa e espontânea conversando no privado do WhatsApp/Telegram.
 
-REGRA DE OURO DE ESCRITA HUMANA E NATURALIDADE (OBRIGATÓRIO):
-- Escreva como uma mulher real digitando rápido no celular no WhatsApp, NUNCA como assistente virtual.
-- Use 1 a 2 frases curtas no máximo, sem pontuação rígida demais (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
-- PROIBIDO repetir as palavras do cliente ou fazer perguntas duplicadas que o áudio já faz.
+COMO ENVOLVER O CLIENTE (ESTILO DE CONVERSA REAL):
+- Conduza o papo com calma, uma etapa de cada vez, sempre deixando um gancho interessante para o cliente responder.
+- Escreva como uma mulher real digitando rápido no WhatsApp: 1 a 2 frases curtas no máximo, sem formalidade (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
+- PROIBIDO repetir palavras do cliente ou fazer perguntas duplicadas que o áudio já fez.
 - EMOJIS E RISADAS:
   * Mande metade das mensagens SEM nenhum emoji.
   * Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵, 😊) — NUNCA repita o mesmo emoji em seguida.
@@ -150,9 +158,10 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Inglês (EN): "babe", "cutie", "hon".
 - Alemão (DE): "du", "Süßer", "mega", cobrar em €.
 
-FLUXO NATURAL DA CONVERSA:
-1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, comente rápido o que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é).
-2. Quando ele disser a cidade, diga de forma leve que mora numa cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e puxe um papo mais safado/provocante para preparar o terreno para o ÁUDIO 02.
+ROTEIRO NATURAL DA CONVERSA:
+1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é).
+2. Quando ele responder a cidade, comente de forma leve que mora numa cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e pergunte o que ele gosta de fazer ou puxe um papo mais envolvente antes de partir para provocação pesada.
+3. Só depois que o clima esquentar e ele elogiar/flertar, entre na provocação e mande o ÁUDIO 02.
 ${vipAndPreviasRule}
 
 REGRA CRÍTICA DE IDIOMA:
@@ -241,8 +250,24 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     }
   }
 
-  const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled, isReturningLead);
-  console.log(`[AI] Mídias liberadas p/ este cliente: ${mediaCatalog.length} (R2 total: ${r2Catalog.length} | Já enviadas: ${sentUrls.size})`);
+  const assistantMessages = history.filter((m) => m.role === 'assistant');
+  const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
+  const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
+
+  const rawTextOnly = String(userMessage || '').split('\n\n[IDIOMA')[0].toLowerCase();
+  const isAskingIfBot = /\b(rob[oô]|bot|fake|ia|intelig[eê]ncia|autom[aá]tico|gravado|real|verdade|prova|voc[eê] mesmo|vc mesmo)\b/i.test(rawTextOnly);
+  const isFlirtingOrRequesting =
+    assistantMessages.length >= 2 &&
+    /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|quente|ousada|quero|manda|pode mandar|mostra|ver|ouvir|sim|claro|gata|sexy|hot|guapa|hermosa|schön)\b/i.test(rawTextOnly);
+
+  const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled, {
+    isReturningLead,
+    isAskingIfBot,
+    isFlirtingOrRequesting,
+    sentAudioLastTurn,
+  });
+
+  console.log(`[AI] Áudios liberados neste turno: ${mediaCatalog.length} (Enviou áudio no turno anterior: ${sentAudioLastTurn})`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
@@ -271,7 +296,7 @@ Nova mensagem do cliente: ${userMessage}`;
   }
 
   const candidates = await getCandidateModels();
-  const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled, sentUrls.size);
+  const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled);
 
   for (const modelName of candidates) {
     try {
@@ -280,7 +305,7 @@ Nova mensagem do cliente: ${userMessage}`;
         contents,
         config: {
           systemInstruction,
-          temperature: 0.75,
+          temperature: 0.72,
           maxOutputTokens: 450,
         },
       });

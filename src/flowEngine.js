@@ -128,193 +128,94 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | R2 Itens: ${r2Catalog.length}`);
 
-  const getNextNodes = (nodeId) =>
-    edges
-      .filter((e) => e.from === nodeId)
-      .map((e) => nodes.find((n) => n.id === e.to))
-      .filter(Boolean);
-
-  const msgLower = (userMessage || '').toLowerCase();
-  const matchedCondition = nodes.find((n) => {
-    if (n.type !== 'condition' || !n.text) return false;
-    const rawKeywords = n.text.replace(/^cont[eé]m:\s*/i, '');
-    const keywords = rawKeywords
-      .split(/[,;|]/)
-      .map((k) => k.trim().toLowerCase())
-      .filter(Boolean);
-    return keywords.some((kw) => msgLower.includes(kw));
-  });
-
-  let startNode = null;
-  if (matchedCondition) {
-    startNode = matchedCondition;
-  } else if (aiPaused || isFirstContact) {
-    startNode = nodes.find((n) => n.type === 'trigger') || null;
-  }
-
-  const executedFlowSummary = [];
-  let reachedAiNode = false;
-  let aiExtraInstruction = '';
-  let sentMediaInThisTurn = false;
-
-  if (startNode) {
-    const visited = new Set([startNode.id]);
-    let queue = getNextNodes(startNode.id);
-
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current || visited.has(current.id)) continue;
-      visited.add(current.id);
-
-      if (current.type === 'delay') {
-        const secs = Math.min(15, Math.max(1, Number(current.text) || 3));
-        await sendTypingIndicator(channel, userId, lastMessageId, 'text');
-        await sleep(secs * 1000);
-      } else if (current.type === 'message' && current.text?.trim()) {
-        await sendTypingIndicator(channel, userId, lastMessageId, 'text');
-        await sleep(1500);
-        await sendChannelText(channel, userId, current.text.trim());
-        await saveMessage(channel, userId, 'assistant', current.text.trim(), 'text', null);
-        executedFlowSummary.push(`Você enviou a mensagem: "${current.text.trim()}"`);
-      } else if (current.type === 'media' && current.text?.trim().startsWith('http')) {
-        if (!isLanguageMatch(current.mediaLang, clientLang)) {
-          queue.push(...getNextNodes(current.id));
-          continue;
-        }
-
-        const url = current.text.trim();
-        const kind = detectMediaKind(url, current.mediaKind);
-        try {
-          await sendTypingIndicator(channel, userId, lastMessageId, kind);
-          await sleep(kind === 'audio' ? 3500 : 1800);
-          await sendChannelMedia(channel, userId, url, kind);
-          await saveMessage(channel, userId, 'assistant', `[${kind} enviado pelo fluxo]`, kind, url);
-          sentUrls.add(url);
-          executedFlowSummary.push(`Você enviou um(a) ${kind} (${url}) ao cliente.`);
-          sentMediaInThisTurn = true;
-        } catch (mediaErr) {
-          console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr.message);
-        }
-      } else if (current.type === 'ai') {
-        reachedAiNode = true;
-        aiExtraInstruction = current.text || '';
-        break;
-      }
-
-      queue.push(...getNextNodes(current.id));
-    }
-  }
-
   const welcomeTranscripts = {
-    PT_BR: 'Oi amor tudo bem? Olha estou te mandando um áudio rapidinho porque aqui é bem melhor de conversar, me conta o que você está fazendo de bom agora?',
-    PT_EU: 'Olá amor, tudo bem? Olha estou a mandar-te um áudio rapidinho porque aqui é bem melhor de conversar, conta-me o que estás a fazer de bom agora?',
-    ES: 'Hola amor, ¿todo bien? Mira te mando un audio rapidito porque por aquí es mucho mejor conversar, cuéntame ¿qué estás haciendo de bueno ahora?',
-    EN: 'Hey babe, how are you? Look I am sending you a quick voice note because it is way better to talk here, tell me what are you up to right now?',
-    DE: 'Hey Süßer, alles gut? Schau ich schicke dir eine kurze Sprachnachricht weil man hier viel besser schreiben kann, erzähl mal was machst du gerade Schönes?',
+    PT_BR: 'Oi amor, tudo bem? Olha, tô te mandando um áudio rapidinho porque aqui é bem melhor de conversar. Me conta, o que você tá fazendo de bom agora?',
+    PT_EU: 'Olá amor, tudo bem? Olha estou a mandar-te um áudio rapidinho porque aqui é bem melhor de conversar. Conta-me o que estás a fazer de bom agora?',
+    ES: 'Hola amor, ¿todo bien? Mira te mando un audio rapidito porque por aquí es mucho mejor conversar. Cuéntame, ¿qué estás haciendo de bueno ahora?',
+    EN: 'Hey babe, how are you? Look I am sending you a quick voice note because it is way better to talk here. Tell me, what are you up to right now?',
+    DE: 'Hey Süßer, alles gut? Schau ich schicke dir eine kurze Sprachnachricht weil man hier viel besser schreiben kann. Erzähl mal, was machst du gerade Schönes?',
   };
 
-  let sentWelcomeOnly = false;
-
-  // DISPARO AUTOMÁTICO DO ÁUDIO DE BOAS-VINDAS DIRETO DA PASTA DO R2 NO 1º CONTATO (SEM TEXTO EXTRA)
-  if (isFirstContact && !sentMediaInThisTurn) {
+  // REGRA 1: No 1º contato, dispara APENAS o Áudio 01 de boas-vindas do R2 e PARA (espera o cliente responder!)
+  if (isFirstContact) {
     const r2Welcome =
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
 
     if (r2Welcome) {
       try {
-        console.log(`[FlowEngine] Disparando boas-vindas direto do R2 (${clientLang}): ${r2Welcome.url}`);
+        console.log(`[FlowEngine] 1º contato -> Enviando SOMENTE Áudio 01 (${clientLang}): ${r2Welcome.url}`);
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
-        await sleep(3500);
+        await sleep(3200);
         await sendChannelMedia(channel, userId, r2Welcome.url, 'audio');
         const spokenText = welcomeTranscripts[clientLang] || welcomeTranscripts.PT_BR;
         await saveMessage(channel, userId, 'assistant', spokenText, 'audio', r2Welcome.url);
-        sentUrls.add(r2Welcome.url);
-        sentMediaInThisTurn = true;
-        sentWelcomeOnly = true;
+        return; // Encerra o turno aqui para esperar a resposta do cliente!
       } catch (err) {
         console.error('[FlowEngine] Erro ao enviar boas-vindas do R2:', err?.response?.data || err.message);
       }
     }
   }
 
-  const shouldCallAi = !aiPaused && !sentWelcomeOnly && (!startNode || reachedAiNode);
+  if (aiPaused) return;
 
-  if (shouldCallAi) {
-    await sendTypingIndicator(channel, userId, lastMessageId, 'text');
+  // Verifica se o bot acabou de enviar um áudio na última mensagem (evita metralhar áudios seguidos)
+  const assistantMessages = history.filter((m) => m.role === 'assistant');
+  const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
+  const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
-    const langLabels = {
-      PT_BR: 'Português do Brasil (PT-BR)',
-      PT_EU: 'Português de Portugal (PT-PT)',
-      ES: 'Espanhol (ES)',
-      EN: 'Inglês (EN)',
-      DE: 'Alemão (DE)',
-    };
-    const humanLang = langLabels[clientLang] || clientLang;
+  await sendTypingIndicator(channel, userId, lastMessageId, 'text');
 
-    let contextualMessage = `${userMessage}\n\n[IDIOMA DETECTADO DO CLIENTE: ${humanLang}]`;
-    if (executedFlowSummary.length > 0) {
-      contextualMessage += `\n[SISTEMA - Ações já enviadas agora: ${executedFlowSummary.join(' | ')}. Continue a conversa naturalmente em ${humanLang} sem repetir o que já foi enviado.${aiExtraInstruction ? ` Foco: ${aiExtraInstruction}` : ''}]`;
+  const langLabels = {
+    PT_BR: 'Português do Brasil (PT-BR)',
+    PT_EU: 'Português de Portugal (PT-PT)',
+    ES: 'Espanhol (ES)',
+    EN: 'Inglês (EN)',
+    DE: 'Alemão (DE)',
+  };
+  const humanLang = langLabels[clientLang] || clientLang;
+
+  const contextualMessage = `${userMessage}\n\n[IDIOMA DETECTADO DO CLIENTE: ${humanLang}]`;
+  const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
+
+  if (rawAiReply) {
+    const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
+    const mediaUrls = [];
+    let match;
+    while ((match = mediaRegex.exec(rawAiReply)) !== null) {
+      const foundUrl = match[1].trim();
+      if (!sentUrls.has(foundUrl)) {
+        mediaUrls.push(foundUrl);
+      }
     }
 
-    const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
-    if (rawAiReply) {
-      const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
-      const mediaUrls = [];
-      let match;
-      while ((match = mediaRegex.exec(rawAiReply)) !== null) {
-        const foundUrl = match[1].trim();
-        if (!sentUrls.has(foundUrl)) {
-          mediaUrls.push(foundUrl);
-        }
+    const cleanText = rawAiReply.replace(mediaRegex, '').trim();
+
+    if (cleanText) {
+      await sendTypingIndicator(channel, userId, lastMessageId, 'text');
+      await sleep(1600);
+      await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
+      await sendChannelText(channel, userId, cleanText);
+    }
+
+    // Envia no máximo 1 mídia por turno, e bloqueia áudio se acabou de mandar áudio no turno anterior
+    const urlToSend = mediaUrls[0];
+    if (urlToSend) {
+      const kind = detectMediaKind(urlToSend);
+      if (kind === 'audio' && sentAudioLastTurn) {
+        console.log('[FlowEngine] Áudio segurado neste turno para não atropelar a conversa.');
+        return;
       }
 
-      // Fallback automático puxando direto do R2 (ou nós manuais) sem repetir enviados
-      if (mediaUrls.length === 0 && !sentMediaInThisTurn) {
-        let requestedKind = null;
-        if (/\b(foto|fotinho|imagem|amostra|pr[eé]via|ver voc[eê]|te ver|pic|pics|photo|bild|bilder)\b/i.test(msgLower)) requestedKind = 'image';
-        else if (/\b(v[ií]deo|videozinho|gravacao|grava[cç][aã]o|video)\b/i.test(msgLower)) requestedKind = 'video';
-        else if (/\b([aá]udio|voz|fala comigo|manda voz|voice|audio|sprachnachricht|stimme)\b/i.test(msgLower)) requestedKind = 'audio';
-
-        if (requestedKind) {
-          const r2Match = r2Catalog.find(
-            (item) => !sentUrls.has(item.url) && item.kind === requestedKind && isLanguageMatch(item.lang, clientLang)
-          );
-          if (r2Match) {
-            mediaUrls.push(r2Match.url);
-          } else {
-            const unsentNodes = nodes.filter(
-              (n) => n.type === 'media' && n.text?.trim().startsWith('http') && !sentUrls.has(n.text.trim())
-            );
-            const nodeMatch = unsentNodes.find(
-              (n) => detectMediaKind(n.text.trim(), n.mediaKind) === requestedKind && isLanguageMatch(n.mediaLang, clientLang)
-            );
-            if (nodeMatch) mediaUrls.push(nodeMatch.text.trim());
-          }
-        }
-      }
-
-      const cleanText = rawAiReply.replace(mediaRegex, '').trim();
-
-      if (cleanText) {
-        await sendTypingIndicator(channel, userId, lastMessageId, 'text');
-        await sleep(1400);
-        await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
-        await sendChannelText(channel, userId, cleanText);
-      }
-
-      for (const url of mediaUrls) {
-        const kind = detectMediaKind(url);
-        try {
-          console.log(`[FlowEngine] Enviando ${kind} para ${userId}: ${url}`);
-          await sendTypingIndicator(channel, userId, lastMessageId, kind);
-          await sleep(kind === 'audio' ? 3500 : 1800);
-          await sendChannelMedia(channel, userId, url, kind);
-          await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, url);
-          sentUrls.add(url);
-        } catch (mediaErr) {
-          console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
-        }
+      try {
+        console.log(`[FlowEngine] Enviando ${kind} contextual para ${userId}: ${urlToSend}`);
+        await sendTypingIndicator(channel, userId, lastMessageId, kind);
+        await sleep(kind === 'audio' ? 3500 : 1800);
+        await sendChannelMedia(channel, userId, urlToSend, kind);
+        await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, urlToSend);
+        sentUrls.add(urlToSend);
+      } catch (mediaErr) {
+        console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
       }
     }
   }
