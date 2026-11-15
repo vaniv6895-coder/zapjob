@@ -3,13 +3,14 @@ import multipart from '@fastify/multipart';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { initDB, saveMessage, isAiPaused, setAiPaused } from './db.js';
-import { downloadWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
-import { downloadTelegramMedia } from './telegram.js';
+import { initDB, saveMessage, isAiPaused, setAiPaused, grantChatPass } from './db.js';
+import { downloadWhatsAppMedia, sendWhatsAppTyping, sendWhatsAppText } from './whatsapp.js';
+import { downloadTelegramMedia, sendTelegramText } from './telegram.js';
 import { downloadMessengerMedia } from './messenger.js';
 import { uploadMedia } from './storage.js';
 import { runHybridFlow } from './flowEngine.js';
 import { registerPanelRoutes } from './panel.js';
+import { getMercadoPagoPayment } from './mercadopago.js';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ const app = Fastify({ logger: true });
 // =========================================================================
 const clientBuffers = new Map();
 const clientTimers = new Map();
+const processedMpPayments = new Set();
 
 function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMime, lastMessageId }) {
   const key = `${channel}:${userId}`;
@@ -40,7 +42,6 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
   }
   clientBuffers.set(key, atual);
 
-  // Reinicia a contagem de 3 segundos sempre que o cliente mandar outra mensagem seguida
   if (clientTimers.has(key)) {
     clearTimeout(clientTimers.get(key));
   }
@@ -167,11 +168,9 @@ app.post('/webhook', async (req, reply) => {
   const body = req.body;
 
   try {
-    // --- FLUXO WHATSAPP ---
     if (body.object === 'whatsapp_business_account') {
       const value = body?.entry?.[0]?.changes?.[0]?.value;
 
-      // Detecta resposta manual enviada pelo app WhatsApp Business no celular (Coexistência)
       const echoMsg = value?.message_echoes?.[0];
       if (echoMsg) {
         const customerPhone = echoMsg.to;
@@ -208,11 +207,8 @@ app.post('/webhook', async (req, reply) => {
       }
 
       await saveMessage('whatsapp', from, 'user', textContent, type, savedMediaUrl);
-
-      // Ativa imediatamente o indicador "digitando..." no WhatsApp do cliente
       sendWhatsAppTyping(messageId);
 
-      // Enfileira no buffer de 3 segundos antes de rodar o fluxo híbrido (Mídias + IA)
       agendarRespostaIA({
         channel: 'whatsapp',
         userId: from,
@@ -223,7 +219,6 @@ app.post('/webhook', async (req, reply) => {
       });
     }
 
-    // --- FLUXO FACEBOOK MESSENGER ---
     if (body.object === 'page') {
       const messaging = body?.entry?.[0]?.messaging?.[0];
       if (!messaging?.message || messaging.message.is_echo) return;
@@ -323,6 +318,51 @@ app.post('/webhook/telegram', async (req, reply) => {
     });
   } catch (err) {
     app.log.error(err, 'Erro no webhook Telegram');
+  }
+});
+
+// 3. Webhook Mercado Pago (Liberação automática de Pix)
+app.post('/webhook/mercadopago', async (req, reply) => {
+  reply.status(200).send('OK');
+
+  try {
+    const body = req.body || {};
+    const query = req.query || {};
+    const topic = body.type || body.topic || query.topic || query.type;
+    const paymentId = body?.data?.id || query['data.id'] || query.id;
+
+    if (topic !== 'payment' || !paymentId) return;
+
+    const paymentIdStr = String(paymentId);
+    if (processedMpPayments.has(paymentIdStr)) return;
+
+    const payment = await getMercadoPagoPayment(paymentIdStr);
+    if (!payment || payment.status !== 'approved') return;
+
+    processedMpPayments.add(paymentIdStr);
+
+    const extRef = String(payment.external_reference || '');
+    const [channel, userId, hoursRaw] = extRef.split(':');
+    const hours = Number(hoursRaw) || 24;
+
+    if (!channel || !userId) {
+      app.log.warn(`[MercadoPago] Pagamento ${paymentIdStr} aprovado sem external_reference válido: ${extRef}`);
+      return;
+    }
+
+    await grantChatPass(channel, userId, hours);
+    app.log.info(`[MercadoPago] ✅ Passe de ${hours}h liberado automaticamente para ${channel}:${userId} (Pagamento ${paymentIdStr})`);
+
+    const unlockMsg = `Amei amor, já caiu aqui pra mim 💕 Nosso chat privado tá 100% liberado por ${hours}h! Agora somos só nós dois... o que você quer ver primeiro? 😈`;
+    await saveMessage(channel, userId, 'assistant', unlockMsg, 'text', null);
+
+    if (channel === 'whatsapp') {
+      await sendWhatsAppText(userId, unlockMsg);
+    } else if (channel === 'telegram') {
+      await sendTelegramText(userId, unlockMsg);
+    }
+  } catch (err) {
+    app.log.error(err, '[MercadoPago] Erro ao processar webhook');
   }
 });
 

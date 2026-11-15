@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { getMemory, getBotSettings, hasActiveChatPass } from './db.js';
 import { listR2MediaCatalog } from './storage.js';
+import { createMercadoPagoPix } from './mercadopago.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -19,13 +20,11 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
         const isProvo = item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo|sem_vergonha/i.test(item.url);
         const isNotBot = item.slot === '04_NAO_SOU_ROBO' || /04|robo|robô|bot|real/i.test(item.url);
 
-        // Só libera estes 2 áudios durante a conversa (e apenas nos gatilhos exatos!)
         if (isProvo) {
           if (!isFlirtingOrRequesting) continue;
         } else if (isNotBot) {
           if (!isAskingIfBot) continue;
         } else {
-          // Bloqueia "Oi amor, tudo bem?" (01) e "Oi sumido" (05) no meio do papo
           continue;
         }
       }
@@ -100,15 +99,32 @@ function isLikelyBrazilian(channel, userId, text) {
   return false;
 }
 
-function buildPaywallReply(pw, channel, userId, sampleText) {
+async function buildPaywallReply(pw, channel, userId, sampleText) {
   const isBr = isLikelyBrazilian(channel, userId, sampleText);
+  const hours = Number(pw.hours || 24);
   const clientRef = encodeURIComponent(`${channel}_${userId}`);
 
-  if (isBr && pw.linkBr) {
-    const msg =
+  if (isBr) {
+    const baseMsg =
       pw.msgBr ||
-      `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${pw.hours || 24}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
-    return `${msg}\n\n👉 ${pw.linkBr}\n\nAssim que pagar me manda o print aqui que já continuo com você 😘`;
+      `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${hours}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
+
+    // Tenta gerar Pix dinâmico 100% automático via Mercado Pago
+    const pixData = await createMercadoPagoPix({
+      channel,
+      userId,
+      priceBr: pw.priceBr || 'R$ 4,90',
+      hours,
+    });
+
+    if (pixData?.qrCode) {
+      return `${baseMsg}\n\n💠 *Pix Copia e Cola (liberação automática na hora):*\n\n${pixData.qrCode}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
+    }
+
+    // Fallback caso MERCADOPAGO_ACCESS_TOKEN ainda não esteja configurado
+    if (pw.linkBr) {
+      return `${baseMsg}\n\n👉 ${pw.linkBr}\n\nAssim que pagar me manda o print aqui que já continuo com você 😘`;
+    }
   }
 
   let linkIntl = pw.linkIntl || pw.linkBr || '';
@@ -118,7 +134,7 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
 
   const msgIntl =
     pw.msgIntl ||
-    `Babe, I get so many messages here 💕 Unlock ${pw.hours || 24}h of private chat + my exclusive photos & videos for just ${pw.priceIntl || '$1'}:`;
+    `Babe, I get so many messages here 💕 Unlock ${hours}h of private chat + my exclusive photos & videos for just ${pw.priceIntl || '$1'}:`;
   return `${msgIntl}\n\n👉 ${linkIntl}`;
 }
 
@@ -150,7 +166,7 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 
   const vipAndPreviasRule = hasPass
     ? `3. CANAL VIP COMPLETO (CLIENTE JÁ PAGOU O PASSE DO CHAT):
-   - Oferte o VIP mensal com o link certo para o país dele (tudo liberado / NO PPV):
+   - Agora você pode mandar fotos e vídeos exclusivos liberados e também ofertar o VIP mensal com o link certo para o país dele (tudo liberado / NO PPV):
      * Brasil (PT_BR): ${settings.price_brl} — ${settings.link_fatalfans}
      * Portugal / Espanha / Alemanha (PT_EU / ES / DE): ${settings.price_eur} — ${settings.link_fanvue}
      * Equador / Panamá / EUA (ES / EN): ${settings.price_usd} — ${settings.link_fanvue}
@@ -254,7 +270,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
         ' ' +
         userMessage;
       console.log(`[PAYWALL] Bloqueado (${userMsgCount}/${freeLimit} msgs grátis) para ${channel}:${userId}`);
-      return buildPaywallReply(pw, channel, userId, allUserText);
+      return await buildPaywallReply(pw, channel, userId, allUserText);
     }
   }
 
