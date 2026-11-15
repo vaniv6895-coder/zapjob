@@ -120,7 +120,7 @@
     /* Node Cards (Balões) */
     .node {
       position: absolute;
-      width: 270px;
+      width: 280px;
       background: #162033;
       border: 1.5px solid var(--border);
       border-radius: 12px;
@@ -162,7 +162,7 @@
     }
     .node-del:hover, .node-del:active { color: #fff; background: var(--danger); border-color: var(--danger); }
 
-    .node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
     .node-body label.field-lbl { font-size: 11px; color: var(--text-muted); }
     .node-body textarea, .node-body input, .node-body select {
       width: 100%;
@@ -176,7 +176,13 @@
       user-select: text;
       resize: vertical;
     }
-    .node-body textarea:focus, .node-body input:focus { border-color: var(--accent); }
+    .node-body textarea:focus, .node-body input:focus, .node-body select:focus { border-color: var(--accent); }
+
+    .media-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 6px;
+    }
 
     /* Ports (Bolinhas de Ligação ampliadas para fácil toque) */
     .port {
@@ -505,16 +511,24 @@
     let padLastTouch = null;
     let padTouchMoved = false;
     let leftHolding = false;
-    let leftHoldTimer = null;
 
     const NODE_TEMPLATES = {
       trigger: { title: 'Gatilho Inicial', color: '#38bdf8', hasIn: false, hasOut: true, placeholder: 'Ex: Qualquer mensagem recebida', defaultText: 'Cliente iniciou conversa' },
       message: { title: 'Enviar Mensagem', color: '#00a884', hasIn: true, hasOut: true, placeholder: 'Digite a mensagem do balão...', defaultText: 'Oi! Tudo bem? De onde você fala? 😊' },
-      media: { title: 'Mídia Pré-Gravada (R2)', color: '#ec4899', hasIn: true, hasOut: true, placeholder: 'Suba um arquivo ou grave áudio abaixo...', defaultText: '' },
+      media: { title: 'Mídia Pré-Gravada (R2)', color: '#ec4899', hasIn: true, hasOut: true, placeholder: 'Cole o link do R2 ou suba abaixo...', defaultText: '' },
       condition: { title: 'Condição / Palavra', color: '#f59e0b', hasIn: true, hasOut: true, placeholder: 'Se mensagem contiver...', defaultText: 'Contém: valor, preço, link' },
       ai: { title: 'Agente IA Gemini', color: '#a855f7', hasIn: true, hasOut: true, placeholder: 'Instrução extra para a IA...', defaultText: 'Identificar cidade vizinha, conversar com persona doce e oferecer Canal de Prévias ou VIP' },
       delay: { title: 'Aguardar (Segundos)', color: '#94a3b8', hasIn: true, hasOut: true, placeholder: 'Segundos (ex: 3)', defaultText: '3' }
     };
+
+    const LANG_OPTIONS = [
+      { value: 'PT_BR', label: '🇧🇷 Brasil (PT_BR)' },
+      { value: 'PT_EU', label: '🇵🇹 Portugal (PT_EU)' },
+      { value: 'ES', label: '🇪🇸/🇪🇨 Espanhol (ES)' },
+      { value: 'EN', label: '🇺🇸/🇬🇧 Inglês (EN)' },
+      { value: 'DE', label: '🇩🇪 Alemão (DE)' },
+      { value: 'ALL', label: '🌐 Todos (ALL)' }
+    ];
 
     /* TELA CHEIA (FULLSCREEN) */
     function toggleFullscreen() {
@@ -595,9 +609,14 @@
     function addNode(type) {
       const tpl = NODE_TEMPLATES[type];
       const id = 'n_' + Date.now();
-      const x = Math.round((-pan.x + viewport.clientWidth / 2 - 135) / scale);
+      const x = Math.round((-pan.x + viewport.clientWidth / 2 - 140) / scale);
       const y = Math.round((-pan.y + viewport.clientHeight / 2 - 70) / scale);
-      nodes.push({ id, type, x, y, text: tpl.defaultText });
+      const newNode = { id, type, x, y, text: tpl.defaultText };
+      if (type === 'media') {
+        newNode.mediaLang = 'PT_BR';
+        newNode.mediaLabel = 'boas-vindas';
+      }
+      nodes.push(newNode);
       selectNode(id);
       renderAll();
     }
@@ -629,7 +648,7 @@
 
     // Atalho teclado Delete / Backspace para excluir balão selecionado
     window.addEventListener('keydown', e => {
-      if (['TEXTAREA', 'INPUT'].includes(document.activeElement?.tagName)) return;
+      if (['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
         deleteNode(selectedNodeId);
       } else if (e.key === 'Escape') {
@@ -659,6 +678,8 @@
           const isAudio = /\.(ogg|mp3|wav|m4a|webm)$/i.test(node.text) || node.mediaKind === 'audio';
           const isVideo = /\.(mp4|mov|avi)$/i.test(node.text) || node.mediaKind === 'video';
           const isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(node.text) || node.mediaKind === 'image';
+          const currentLang = node.mediaLang || 'PT_BR';
+          const currentLabel = node.mediaLabel || '';
 
           let previewHtml = '';
           if (node.text && node.text.startsWith('http')) {
@@ -667,7 +688,21 @@
             else if (isImg) previewHtml = `<img src="${node.text}" style="width:100%;max-height:110px;object-fit:cover;border-radius:6px;margin-top:4px;" />`;
           }
 
+          const optionsHtml = LANG_OPTIONS.map(
+            opt => `<option value="${opt.value}" ${currentLang === opt.value ? 'selected' : ''}>${opt.label}</option>`
+          ).join('');
+
           extraMediaControls = `
+            <div class="media-meta-row">
+              <div>
+                <label class="field-lbl">Idioma</label>
+                <select class="media-lang-select">${optionsHtml}</select>
+              </div>
+              <div>
+                <label class="field-lbl">Contexto / Etapa</label>
+                <input type="text" class="media-label-input" value="${escapeHtml(currentLabel)}" placeholder="Ex: boas-vindas, provocacao" />
+              </div>
+            </div>
             <div style="display:flex;gap:5px;margin-top:2px;">
               <label style="flex:1;background:#1e293b;border:1px solid #334155;padding:6px;border-radius:6px;text-align:center;cursor:pointer;color:#38bdf8;font-weight:600;font-size:11px;">
                 📁 Subir Arquivo
@@ -709,6 +744,18 @@
         textarea.addEventListener('touchstart', e => e.stopPropagation());
         textarea.addEventListener('input', e => { node.text = e.target.value; });
 
+        if (node.type === 'media') {
+          const langSelect = el.querySelector('.media-lang-select');
+          langSelect.addEventListener('mousedown', e => e.stopPropagation());
+          langSelect.addEventListener('touchstart', e => e.stopPropagation());
+          langSelect.addEventListener('change', e => { node.mediaLang = e.target.value; });
+
+          const labelInput = el.querySelector('.media-label-input');
+          labelInput.addEventListener('mousedown', e => e.stopPropagation());
+          labelInput.addEventListener('touchstart', e => e.stopPropagation());
+          labelInput.addEventListener('input', e => { node.mediaLabel = e.target.value; });
+        }
+
         // Menu de botão direito nativo no balão
         el.addEventListener('contextmenu', e => {
           e.preventDefault();
@@ -720,7 +767,7 @@
         // Clique/Arraste no balão (também finaliza ligação se estiver em modo conectar)
         el.addEventListener('mousedown', e => {
           if (e.button === 2) return;
-          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL'].includes(e.target.tagName)) return;
+          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL', 'SELECT'].includes(e.target.tagName)) return;
           e.stopPropagation();
           hideContextMenu();
 
@@ -745,7 +792,7 @@
 
         // Touch direto no balão na tela
         el.addEventListener('touchstart', e => {
-          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL'].includes(e.target.tagName)) return;
+          if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL', 'SELECT'].includes(e.target.tagName)) return;
           e.stopPropagation();
           hideContextMenu();
           if (linkingFrom && linkingFrom !== node.id) {
@@ -851,7 +898,7 @@
       if (!node) return { x: 0, y: 0 };
       const el = nodesLayer.querySelector(`.node[data-id="${nodeId}"]`);
       const h = el ? el.offsetHeight : 110;
-      const w = el ? el.offsetWidth : 270;
+      const w = el ? el.offsetWidth : 280;
       return {
         x: type === 'out' ? node.x + w : node.x,
         y: node.y + h / 2
@@ -888,7 +935,7 @@
         const tpl = NODE_TEMPLATES[n.type] || NODE_TEMPLATES.message;
         if (!tpl.hasIn) continue;
         const el = nodesLayer.querySelector(`.node[data-id="${n.id}"]`);
-        const w = el ? el.offsetWidth : 270;
+        const w = el ? el.offsetWidth : 280;
         const h = el ? el.offsetHeight : 110;
         if (worldX >= n.x - 35 && worldX <= n.x + w + 20 && worldY >= n.y - 25 && worldY <= n.y + h + 25) {
           return n;
@@ -914,7 +961,6 @@
       let x2 = (clientX - pan.x) / scale;
       let y2 = (clientY - pan.y) / scale;
 
-      // Ímã visual (Snap) quando aproxima de outro balão
       document.querySelectorAll('.node').forEach(el => el.classList.remove('snap-target'));
       const snapNode = findSnapNode(x2, y2);
       if (snapNode) {
@@ -1171,7 +1217,6 @@
     touchSurface.addEventListener('touchend', e => {
       e.preventDefault();
       padLastTouch = null;
-      // Toque rápido na superfície touch funciona como clique esquerdo
       if (!padTouchMoved && padMode === 'cursor') {
         performVirtualLeftClick();
       }
@@ -1199,7 +1244,6 @@
       return el;
     }
 
-    // BOTÃO ESQUERDO DO MOUSEPAD (Segurar para mover/ligar OU clique rápido para conectar/selecionar)
     function leftBtnDown(e) {
       if (e) e.preventDefault();
       hideContextMenu();
@@ -1211,7 +1255,6 @@
       const target = getElementUnderVirtualCursor();
       if (!target) return;
 
-      // Se clicou no X de excluir balão
       const delBtn = target.closest('.node-del');
       if (delBtn) {
         deleteNode(delBtn.dataset.del);
@@ -1219,7 +1262,6 @@
         return;
       }
 
-      // Se já estava ligando um fio e clicou no balão/entrada de destino -> Conecta!
       if (linkingFrom) {
         const portIn = target.closest('.port-in');
         const nodeEl = target.closest('.node');
@@ -1231,14 +1273,12 @@
         }
       }
 
-      // Se apertou na bolinha de saída -> Inicia linha fluida
       const portOut = target.closest('.port-out');
       if (portOut) {
         startLinking(portOut.dataset.node, cursorPos.x, cursorPos.y);
         return;
       }
 
-      // Se apertou em um balão -> Seleciona e prepara para mover
       const nodeEl = target.closest('.node');
       if (nodeEl) {
         const node = nodes.find(n => n.id === nodeEl.dataset.id);
@@ -1262,7 +1302,6 @@
         draggingNode = null;
       }
 
-      // Se estava arrastando uma linha e soltou em cima de outro balão -> Conecta com snap!
       if (linkingFrom) {
         const wx = (cursorPos.x - pan.x) / scale;
         const wy = (cursorPos.y - pan.y) / scale;
@@ -1301,7 +1340,6 @@
       }
     }
 
-    // BOTÃO DIREITO DO MOUSEPAD (Abre menu de opções no cursor)
     function rightBtnClick(e) {
       if (e) e.preventDefault();
       setPadMode('cursor');
@@ -1317,7 +1355,7 @@
       }
     }
 
-   async function saveFlow(silent = false) {
+    async function saveFlow(silent = false) {
       localStorage.setItem('zapjob_flow_v1', JSON.stringify({ nodes, edges }));
       let pwd = localStorage.getItem('panel_pwd');
       if (!pwd) {
