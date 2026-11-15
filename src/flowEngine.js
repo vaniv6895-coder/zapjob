@@ -13,10 +13,17 @@ function detectMediaKind(url, declaredKind) {
   return 'image';
 }
 
-// Detecta o idioma/região do cliente (PT_BR, PT_EU, ES, EN, DE) pelo texto e DDI
-function detectClientLanguage(text, userId) {
+// Detecta o idioma/região do cliente (PT_BR, PT_EU, ES, EN, DE) pelo texto, DDI e histórico
+function detectClientLanguage(text, userId, history = []) {
   const t = (text || '').toLowerCase();
   const phone = String(userId || '').replace(/\D/g, '');
+
+  // Prioridade máxima para DDI do WhatsApp (evita trocar idioma no meio da conversa)
+  if (phone.startsWith('55')) return 'PT_BR';
+  if (phone.startsWith('351')) return 'PT_EU';
+  if (/^(49|43|41)/.test(phone)) return 'DE';
+  if (/^(34|593|507|52|54|57|56|51|58|591|595|598|506|503|502|504|505)/.test(phone)) return 'ES';
+  if (/^(1|44|61|64|353)/.test(phone)) return 'EN';
 
   // 1. Alemão (DE)
   if (
@@ -26,40 +33,38 @@ function detectClientLanguage(text, userId) {
     return 'DE';
   }
 
-  // 2. Espanhol (ES)
+  // 2. Português (checado ANTES do Espanhol para palavras com acento como "áudio", "vídeo", "você", "está")
   if (
-    /\b(hola|buenas|quetal|qué tal|como estas|cómo estás|guapa|hermosa|cuanto|cuánto|precio|de donde|de dónde|españa|ecuador|panama|panamá|mexico|méxico|colombia|chile|argentina|peru|perú)\b/i.test(t) ||
-    /[¿¡ñáéíóú]/i.test(t)
+    /\b(oi+|ol[aá]|tudo bem|td bem|bom dia|boa tarde|boa noite|linda|gata|gira|fixe|quanto|valor|pre[cç]o|voc[eê]|vc|tu|de onde|telem[oó]vel|[aá]udio|v[ií]deo|cad[eê]|manda|quero|sim|n[aã]o)\b/i.test(t) ||
+    /[çãõêôâ]/i.test(t)
   ) {
-    if (!/\b(voc[eê]|tudo bem|oi|ol[aá]|obrigado|pre[cç]o|quanto custa|fixe|giro|gira)\b/i.test(t) && !/[çãõ]/i.test(t)) {
-      return 'ES';
-    }
-  }
-
-  // 3. Inglês (EN)
-  if (
-    /\b(hi|hello|hey|how are you|what's up|whats up|beautiful|gorgeous|cute|how much|price|where are you from|link|pic|pics|photo|video|voice)\b/i.test(t)
-  ) {
-    return 'EN';
-  }
-
-  // 4. Português (separa PT_EU de PT_BR pelo DDI ou vocabulário típico)
-  if (
-    /\b(oi|ol[aá]|tudo bem|td bem|bom dia|boa tarde|boa noite|linda|gata|gira|fixe|quanto|valor|pre[cç]o|voc[eê]|vc|tu|de onde|telem[oó]vel)\b/i.test(t) ||
-    /[çãõ]/i.test(t)
-  ) {
-    if (phone.startsWith('351') || /\b(fixe|gira|telem[oó]vel|portugal|lisboa|porto)\b/i.test(t)) {
+    if (/\b(fixe|gira|telem[oó]vel|portugal|lisboa|porto)\b/i.test(t)) {
       return 'PT_EU';
     }
     return 'PT_BR';
   }
 
-  // 5. Fallback pelo DDI do WhatsApp caso o cliente mande só emoji ou "?"
-  if (phone.startsWith('351')) return 'PT_EU';
-  if (phone.startsWith('55')) return 'PT_BR';
-  if (/^(49|43|41)/.test(phone)) return 'DE';
-  if (/^(34|593|507|52|54|57|56|51|58|591|595|598|506|503|502|504|505)/.test(phone)) return 'ES';
-  if (/^(1|44|61|64|353)/.test(phone)) return 'EN';
+  // 3. Espanhol (ES)
+  if (
+    /\b(hola|buenas|quetal|qué tal|como estas|cómo estás|guapa|hermosa|cuanto|cuánto|precio|de donde|de dónde|españa|ecuador|panama|panamá|mexico|méxico|colombia|chile|argentina|peru|perú)\b/i.test(t) ||
+    /[¿¡ñ]/i.test(t)
+  ) {
+    return 'ES';
+  }
+
+  // 4. Inglês (EN)
+  if (
+    /\b(hi+|hello|hey|how are you|what's up|whats up|beautiful|gorgeous|cute|how much|price|where are you from|link|pic|pics|photo|video|voice)\b/i.test(t)
+  ) {
+    return 'EN';
+  }
+
+  // 5. Se mandou só "ok" ou emoji, mantém o idioma já usado no histórico
+  const pastText = history.map((m) => m.content || '').join(' ');
+  if (/\b(voc[eê]|oi|ol[aá]|tudo bem|kkkk)\b/i.test(pastText)) return 'PT_BR';
+  if (/\b(hola|jajaja|guapa)\b/i.test(pastText)) return 'ES';
+  if (/\b(hello|hi|babe|haha)\b/i.test(pastText)) return 'EN';
+  if (/\b(hallo|süßer)\b/i.test(pastText)) return 'DE';
 
   return 'PT_BR';
 }
@@ -120,7 +125,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const history = await getMemory(channel, userId, 60);
   const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
   const isFirstContact = !assistantAlreadyReplied;
-  const clientLang = detectClientLanguage(userMessage, userId);
+  const clientLang = detectClientLanguage(userMessage, userId, history);
 
   const sentUrls = new Set();
   for (const msg of history) {
