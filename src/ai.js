@@ -4,25 +4,25 @@ import { listR2MediaCatalog } from './storage.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled) {
+function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled, isReturningLead) {
   const combined = [];
   const seenUrls = new Set();
 
-  // 1. Carrega automaticamente todos os arquivos das pastas do R2
   for (const item of r2Catalog) {
     if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
+    if (item.isWelcome) continue;
+    if (item.isReturnOnly && !isReturningLead) continue;
     if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
 
     seenUrls.add(item.url);
     combined.push({
       kind: item.kind,
       lang: item.lang,
-      label: item.label ? ` - Contexto: ${item.label}` : '',
+      label: item.label ? ` - ${item.label}` : '',
       url: item.url,
     });
   }
 
-  // 2. Mantém compatibilidade com mídias extras salvas manualmente no /fluxo
   try {
     if (settings.visual_flow) {
       const flow = JSON.parse(settings.visual_flow);
@@ -92,51 +92,54 @@ function buildPaywallReply(pw, channel, userId, sampleText) {
 function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled, totalSentCount) {
   const lockedMediaHint =
     paywallEnabled && !hasPass
-      ? `\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo enquanto ele não pagar).`
+      ? '\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo enquanto ele não pagar).'
       : '';
 
-  const mediaSection =
-    mediaCatalog.length > 0
-      ? `CATÁLOGO DE MÍDIAS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDAS):
-${mediaCatalog
-  .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
-  .join('\n')}
+  let mediaSection = '';
+  if (mediaCatalog.length > 0) {
+    const catalogLines = mediaCatalog
+      .map((m) => `- MÍDIA #${m.index} [${m.kind.toUpperCase()} | IDIOMA: ${m.lang}${m.label}]: [ENVIAR_MIDIA:${m.url}]`)
+      .join('\n');
 
-REGRA OBRIGATÓRIA DE CURIOSIDADE E ENVIO DE MÍDIA (2 ETAPAS - NUNCA PULE):
-- NUNCA envie a tag [ENVIAR_MIDIA:...] na mesma mensagem em que você pergunta "quer ouvir/ver?".
-- ETAPA 1 (GERAR CURIOSIDADE): Primeiro, apenas provoque a curiosidade perguntando de forma natural se ele quer ouvir o áudio listado acima, SEM colocar nenhuma tag [ENVIAR_MIDIA:...] ainda. Espere ele responder!
-- ETAPA 2 (ENTREGA APÓS CONFIRMAÇÃO): Somente DEPOIS que o cliente aceitar ("sim", "quero", "manda", "yes", "sí", "ja", "claro", "pode mandar") OU quando ele mesmo pedir uma mídia disponível acima (ou perguntar se você é robô/bot), coloque a tag exata [ENVIAR_MIDIA:URL_COMPLETA] no final da sua resposta.
-- REGRA DE IDIOMA DOS ÁUDIOS (CRÍTICO): Escolha EXCLUSIVAMENTE um áudio marcado com o mesmo IDIOMA do cliente (PT_BR para Brasil, PT_EU para Portugal, ES para Espanhol, EN para Inglês, DE para Alemão, ou ALL). NUNCA envie áudio em PT para cliente falando ES, EN ou DE.
-- Copie a tag [ENVIAR_MIDIA:...] inteira, sem alterar ou cortar nenhuma letra da URL, escrevendo no máximo 1 frase curta e natural antes da tag.${lockedMediaHint}`
-      : paywallEnabled && !hasPass
-      ? `AVISO DE MÍDIAS BLOQUEADAS: Fotos e vídeos só são liberados após o cliente pagar o passe privado do chat. NÃO use nenhuma tag [ENVIAR_MIDIA:...]. Se ele pedir foto/vídeo, provoque dizendo que está guardando para mandar assim que ele desbloquear o privado.`
-      : totalSentCount > 0
-      ? `AVISO IMPORTANTE DE MÍDIAS: Você JÁ enviou todas as prévias disponíveis para este cliente. NÃO pergunte se ele quer ver foto/vídeo/áudio aqui no chat e NÃO invente nenhuma tag [ENVIAR_MIDIA:...]. Diga de forma provocante que as coisas mais exclusivas estão no seu VIP.`
-      : `AVISO: Nenhuma mídia encontrada no R2 ainda. NÃO pergunte se ele quer ver foto/vídeo/áudio e NÃO use [ENVIAR_MIDIA:...].`;
+    mediaSection = `CATÁLOGO DE ÁUDIOS CONTEXTUAIS DISPONÍVEIS PARA ESTE CLIENTE (NUNCA REPETIDOS):
+${catalogLines}
+
+COMO ENCAIXAR CADA ÁUDIO COM NATURALIDADE (CRÍTICO - LEIA O ROTEIRO DE CADA ÁUDIO ACIMA):
+- NUNCA mande um áudio aleatório sem encaixar no assunto! Leia o que você fala dentro de cada áudio acima:
+  1. ÁUDIO 03 (De onde você é?): Logo na sua PRIMEIRA resposta em texto (depois que o cliente responder o que está fazendo no Áudio 01), reaja rápido ao que ele disse e mande o ÁUDIO 03 com a tag [ENVIAR_MIDIA:URL_DO_AUDIO_03] (sem repetir a pergunta "de onde você é" no texto, pois o Áudio 03 já faz essa pergunta!).
+  2. ÁUDIO 02 (Provocação - "ai para, você é muito sem vergonha..."): Só mande este áudio DEPOIS que o cliente elogiar você, flertar ou provocar! Se ele ainda não flertou, puxe um assunto mais ousado/provocante primeiro para ele te elogiar ou provocar, e aí sim responda com o ÁUDIO 02 ([ENVIAR_MIDIA:URL_DO_AUDIO_02]).
+  3. ÁUDIO 04 ("não sou robô"): Use APENAS se ele desconfiar que você é bot/robô ou pedir para provar que é real.
+  4. ÁUDIO 05 ("oi sumido"): Use APENAS se o cliente voltou a falar depois de horas sumido.
+- REGRA DE IDIOMA: Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE).
+- Quando colocar [ENVIAR_MIDIA:URL_COMPLETA], escreva no máximo 1 frase curtinha antes (ou até só a tag se o áudio já disser tudo) e copie a URL inteira sem alterar nada.${lockedMediaHint}`;
+  } else if (paywallEnabled && !hasPass) {
+    mediaSection = 'AVISO DE MÍDIAS BLOQUEADAS: Fotos e vídeos só são liberados após o cliente pagar o passe privado do chat. NÃO use nenhuma tag [ENVIAR_MIDIA:...].';
+  } else if (totalSentCount > 0) {
+    mediaSection = 'AVISO: Você já enviou todos os áudios disponíveis para este cliente. NÃO invente nenhuma tag [ENVIAR_MIDIA:...].';
+  } else {
+    mediaSection = 'AVISO: Nenhuma mídia disponível. NÃO use [ENVIAR_MIDIA:...].';
+  }
 
   const vipAndPreviasRule = hasPass
-    ? `3. CANAL VIP COMPLETO (ESTE CLIENTE JÁ PAGOU O PASSE DO CHAT - PODE OFERTAR O VIP MENSAL):
-   - Como ele já pagou o acesso ao chat, quando o papo esquentar ou ele pedir conteúdos mais ousados/completos, oferte o VIP mensal com o link certo para o país dele (destacando que é tudo liberado / NO PPV):
+    ? `3. CANAL VIP COMPLETO (CLIENTE JÁ PAGOU O PASSE DO CHAT):
+   - Oferte o VIP mensal com o link certo para o país dele (tudo liberado / NO PPV):
      * Brasil (PT_BR): ${settings.price_brl} — ${settings.link_fatalfans}
      * Portugal / Espanha / Alemanha (PT_EU / ES / DE): ${settings.price_eur} — ${settings.link_fanvue}
      * Equador / Panamá / EUA (ES / EN): ${settings.price_usd} — ${settings.link_fanvue}
-     * Reino Unido (EN): ${settings.price_gbp} — ${settings.link_fanvue}
-   - Se ele pedir grupo gratuito no Telegram, pode mandar: ${settings.link_telegram}`
-    : `3. PROTEÇÃO DE FUNIL (NÃO VAZAR LINKS GRÁTIS NEM VIP MENSAL ANTES DO PAYWALL):
-   - NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat. Mantenha ele 100% focado aqui dentro.
-   - Se ele pedir valores do VIP completo logo de cara, responda de forma provocante que primeiro quer conhecer ele melhor aqui no privado antes de mandar o link.`;
+     * Reino Unido (EN): ${settings.price_gbp} — ${settings.link_fanvue}`
+    : `3. PROTEÇÃO DE FUNIL:
+   - NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat antes do paywall.`;
 
   return `Você é uma criadora de conteúdo digital envolvente, provocante na medida certa e espontânea conversando no privado do WhatsApp/Telegram.
 
 REGRA DE OURO DE ESCRITA HUMANA E NATURALIDADE (OBRIGATÓRIO):
-- Escreva como uma mulher real digitando rápido no celular no WhatsApp, NUNCA como assistente virtual ou texto formal.
-- Use frases curtas e diretas (1 a 2 frases no máximo), sem pontuação rígida demais (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
-- PROIBIDO repetir palavras ou estrutura do cliente (NUNCA escreva frases artificiais como "Que legal, Curitiba!" ou "Amei que você quis ouvir, olha só o que preparei"). Reaja de forma espontânea, ex: "sério?? moro pertinho aí em são josé dos pinhais kkk", "toma, escuta aí 👀", "prontinho amor".
+- Escreva como uma mulher real digitando rápido no celular no WhatsApp, NUNCA como assistente virtual.
+- Use 1 a 2 frases curtas no máximo, sem pontuação rígida demais (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
+- PROIBIDO repetir as palavras do cliente ou fazer perguntas duplicadas que o áudio já faz.
 - EMOJIS E RISADAS:
-  * Mande metade das mensagens SEM nenhum emoji (só texto).
-  * Quando usar emoji, use no máximo 1 e varie bastante (🔥, 😈, 👀, 😘, 🥵, 😊) — NUNCA repita o mesmo emoji em mensagens seguidas.
+  * Mande metade das mensagens SEM nenhum emoji.
+  * Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵, 😊) — NUNCA repita o mesmo emoji em seguida.
   * Risadas naturais: PT ("kkkk", "rsrs"), ES ("jajaja"), EN ("haha", "lol"), DE ("haha").
-- Nunca diga que é IA ou bot. Se o cliente desconfiar, ria e mande o áudio de prova ("não sou robô") do catálogo acima.
 
 ${mediaSection}
 
@@ -144,20 +147,16 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Português do Brasil (PT_BR): "você", "vc", "legal", "gostoso".
 - Português de Portugal (PT_EU): "tu", "estás", "fixe", "giro", "telemóvel".
 - Espanhol (ES): Espanha ("vale", "tío", "guay", cobrar em €); Equador/Panamá ("chévere", "celular", cobrar em $ USD).
-- Inglês (EN): natural e sedutor ("babe", "cutie", "hon").
-- Alemão (DE): natural e envolvente ("du", "Süßer", "mega", cobrar em €).
+- Inglês (EN): "babe", "cutie", "hon".
+- Alemão (DE): "du", "Süßer", "mega", cobrar em €.
 
-FLUXO NATURAL DA CONVERSA (PASSO A PASSO):
-1. RESPOSTA AO ÁUDIO INICIAL + CIDADE:
-   - O seu primeiro áudio já perguntou o que ele está fazendo de bom agora. Quando ele responder, reaja rápido ao que ele disse e pergunte de onde ele é.
-   - Quando ele disser a cidade, escolha uma cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio/Costa Verde -> Angra/Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe; Quito -> Cumbayá; Panamá -> Arraiján; Berlin -> Potsdam; London -> Watford), comente de forma leve que mora lá pertinho e plante a isca de curiosidade sobre um áudio que acabou de gravar (SEM mandar o áudio ainda!).
-2. CURIOSIDADE E ENGAJAMENTO:
-   - Use a regra das 2 etapas para despertar desejo e manter o lead preso na conversa.
+FLUXO NATURAL DA CONVERSA:
+1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, comente rápido o que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é).
+2. Quando ele disser a cidade, diga de forma leve que mora numa cidade vizinha real (ex: São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e puxe um papo mais safado/provocante para preparar o terreno para o ÁUDIO 02.
 ${vipAndPreviasRule}
 
-REGRA CRÍTICA DE IDIOMA (NUNCA QUEBRAR):
-- Mantenha SEMPRE o mesmo idioma estabelecido no histórico da conversa e indicado em [IDIOMA DETECTADO DO CLIENTE].
-- Se a conversa começou em Português (ou o número começar com +55 / +351), NUNCA mude para Espanhol ou Inglês quando o cliente mandar uma palavra curta ou nome de cidade (ex: "Cuiabá", "Lisboa", "ok", "sim").`;
+REGRA CRÍTICA DE IDIOMA:
+- Mantenha SEMPRE o idioma indicado em [IDIOMA DETECTADO DO CLIENTE] e no histórico.`;
 }
 
 let workingModelCache = null;
@@ -233,7 +232,16 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     if (tagMatch) sentUrls.add(tagMatch[1].trim());
   }
 
-  const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled);
+  let isReturningLead = false;
+  if (history.length >= 2) {
+    const lastPast = history[history.length - 2];
+    if (lastPast?.created_at) {
+      const diffHours = (Date.now() - new Date(lastPast.created_at).getTime()) / (1000 * 60 * 60);
+      if (diffHours >= 3) isReturningLead = true;
+    }
+  }
+
+  const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled, isReturningLead);
   console.log(`[AI] Mídias liberadas p/ este cliente: ${mediaCatalog.length} (R2 total: ${r2Catalog.length} | Já enviadas: ${sentUrls.size})`);
 
   const recentHistory = history.slice(-30);
@@ -272,7 +280,7 @@ Nova mensagem do cliente: ${userMessage}`;
         contents,
         config: {
           systemInstruction,
-          temperature: 0.78,
+          temperature: 0.75,
           maxOutputTokens: 450,
         },
       });

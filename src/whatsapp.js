@@ -1,5 +1,10 @@
 import axios from 'axios';
 import FormData from 'form-data';
+import ffmpegPath from 'ffmpeg-static';
+import { execFile } from 'child_process';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
 
 const META_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
@@ -9,6 +14,36 @@ const authHeaders = () => ({
   Authorization: `Bearer ${META_TOKEN}`,
   'Content-Type': 'application/json',
 });
+
+function convertAudioToOggOpus(inputBuffer) {
+  return new Promise(async (resolve, reject) => {
+    const uid = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const tmpIn = path.join(os.tmpdir(), `in_${uid}.audio`);
+    const tmpOut = path.join(os.tmpdir(), `out_${uid}.ogg`);
+
+    try {
+      await fs.writeFile(tmpIn, inputBuffer);
+      execFile(
+        ffmpegPath,
+        ['-y', '-i', tmpIn, '-c:a', 'libopus', '-b:a', '32k', '-ar', '48000', '-ac', '1', tmpOut],
+        async (err) => {
+          try {
+            if (err) return reject(err);
+            const oggBuffer = await fs.readFile(tmpOut);
+            resolve(oggBuffer);
+          } catch (readErr) {
+            reject(readErr);
+          } finally {
+            fs.unlink(tmpIn).catch(() => {});
+            fs.unlink(tmpOut).catch(() => {});
+          }
+        }
+      );
+    } catch (writeErr) {
+      reject(writeErr);
+    }
+  });
+}
 
 export async function downloadWhatsAppMedia(mediaId) {
   const metaRes = await axios.get(`${GRAPH_URL}/${mediaId}`, {
@@ -28,7 +63,6 @@ export async function downloadWhatsAppMedia(mediaId) {
   };
 }
 
-// Marca como lida e ativa "digitando..." (text) ou "gravando áudio..." (audio)
 export async function sendWhatsAppTyping(messageId, indicatorType = 'text') {
   if (!messageId) return;
   try {
@@ -62,7 +96,6 @@ export async function sendWhatsAppText(to, text) {
   );
 }
 
-// Baixa a mídia do R2, faz upload direto para a Meta (POST /media) e envia como Nota de Voz PTT
 export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   let type = mediaKind;
   if (!type) {
@@ -72,23 +105,27 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   }
 
   const fileRes = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
-  const buffer = Buffer.from(fileRes.data);
+  let buffer = Buffer.from(fileRes.data);
   let contentType = fileRes.headers['content-type'] || '';
+  let ext = 'jpg';
 
   if (type === 'audio') {
-    contentType = /\.mp3(\?|$)/i.test(mediaUrl) || contentType.includes('mpeg') ? 'audio/mpeg' : 'audio/ogg';
-  } else if (type === 'video' && (!contentType || contentType.includes('octet-stream'))) {
-    contentType = 'video/mp4';
-  } else if (type === 'image' && (!contentType || contentType.includes('octet-stream'))) {
-    contentType = 'image/jpeg';
+    // Converte qualquer áudio (MP3, WAV, M4A, OGG) para OGG/Opus 48kHz mono nativo do WhatsApp PTT
+    buffer = await convertAudioToOggOpus(buffer);
+    contentType = 'audio/ogg; codecs=opus';
+    ext = 'ogg';
+  } else if (type === 'video') {
+    if (!contentType || contentType.includes('octet-stream')) contentType = 'video/mp4';
+    ext = 'mp4';
+  } else {
+    if (!contentType || contentType.includes('octet-stream')) contentType = 'image/jpeg';
+    ext = 'jpg';
   }
-
-  const ext = type === 'audio' ? (contentType === 'audio/mpeg' ? 'mp3' : 'ogg') : type === 'video' ? 'mp4' : 'jpg';
 
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('file', buffer, {
-    filename: `midia_${Date.now()}.${ext}`,
+    filename: `voice_${Date.now()}.${ext}`,
     contentType,
   });
 
@@ -106,7 +143,7 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
 
   const mediaObject = { id: mediaId };
   if (type === 'audio') {
-    mediaObject.voice = true; // Faz todos os áudios (MP3 e OGG) chegarem como Nota de Voz PTT com foto de perfil
+    mediaObject.voice = true;
   }
 
   const payload = {
