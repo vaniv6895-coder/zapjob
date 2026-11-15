@@ -15,8 +15,11 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
       if (item.isWelcome) continue;
 
-      // Bloqueios rígidos por contexto real para nunca mandar áudio fora de hora
-      if (item.slot === '03_DE_ONDE_E' && alreadyKnowsLocation) continue;
+      // ÁUDIO 03 ("que bom que me chamou no privado... de onde você é?"): exclusivo do modo Paywall!
+      if (item.slot === '03_DE_ONDE_E') {
+        if (!paywallEnabled || alreadyKnowsLocation) continue;
+      }
+
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
       if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
       if (item.slot === '02_PROVOCACAO' && !isFlirtingOrRequesting) continue;
@@ -118,9 +121,11 @@ function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled)
 ${catalogLines}
 
 REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
+- NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, fazer ele falar dele e criar desejo.
 - Se houver **ÁUDIO 03 (De onde você é?)** acima: use-o AGORA nesta resposta! Escreva apenas uma reação curtinha ao que ele disse antes (SEM escrever "de onde você é?" ou "de onde vc fala?" no texto, porque o próprio Áudio 03 já faz essa pergunta) e coloque [ENVIAR_MIDIA:URL_DO_AUDIO_03] no final.
 - Se houver **ÁUDIO 02 (Provocação)** acima: use apenas quando ele estiver flertando ou pedindo mais ousadia, colocando [ENVIAR_MIDIA:URL_DO_AUDIO_02] no final.
 - Se houver **ÁUDIO 04 ("não sou robô")** acima: use agora para responder à desconfiança dele.
+- Se houver **ÁUDIO 05 ("oi sumido")** acima: use para dar boas-vindas ao retorno dele.
 - Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
     mediaSection = `NENHUM ÁUDIO LIBERADO NESTE TURNO:
@@ -140,9 +145,9 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
   return `Você é uma criadora de conteúdo digital envolvente, provocante na medida certa e espontânea conversando no privado do WhatsApp/Telegram.
 
 COMO ENVOLVER O CLIENTE (ESTILO DE CONVERSA REAL):
-- Escreva como uma mulher real digitando rápido no WhatsApp: 1 frase curta ou no máximo 2 curtinhas, direto ao ponto, sem parecer texto de blog ou guia turístico (NUNCA escreva coisas como "Nossa, Canela é lindo demais! Já ouvi falar muito bem daí, clima super aconchegante né?").
-- Pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk".
-- PROIBIDO repetir perguntas que um áudio já fez ou vai fazer.
+- Conduza o papo com calma, uma etapa de cada vez, sempre deixando um gancho interessante para o cliente responder.
+- Escreva como uma mulher real digitando rápido no WhatsApp: 1 frase curta ou no máximo 2 curtinhas, direto ao ponto, sem formalidade (pode começar frase em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
+- PROIBIDO repetir palavras do cliente ou fazer perguntas duplicadas que o áudio já fez.
 - EMOJIS E RISADAS:
   * Mande metade das mensagens SEM nenhum emoji.
   * Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵, 😊) — NUNCA repita o mesmo emoji em seguida.
@@ -158,7 +163,7 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Alemão (DE): "du", "Süßer", "mega", cobrar em €.
 
 ROTEIRO NATURAL DA CONVERSA:
-1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e mande o ÁUDIO 03 (que pergunta de onde ele é) — NÃO pergunte a cidade por texto.
+1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e pergunte de onde ele é (ou use o ÁUDIO 03 se estiver liberado acima, sem repetir a pergunta por texto).
 2. Quando ele responder a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e já puxe um papo mais safado/curioso (ex: "pertinho então rs... tava aqui deitada sem fazer nada, gosto de companhia assim 👀").
 3. Só depois que o clima esquentar e ele elogiar/flertar, entre na provocação e mande o ÁUDIO 02.
 ${vipAndPreviasRule}
@@ -253,7 +258,6 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
-  // Se a IA já perguntou de onde ele é no texto OU já passaram de 2 turnos da assistente, bloqueia o Áudio 03
   const alreadyKnowsLocation =
     assistantMessages.length >= 2 ||
     assistantMessages.some((m) =>
@@ -274,7 +278,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     alreadyKnowsLocation,
   });
 
-  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Já sabe cidade: ${alreadyKnowsLocation} | Áudio no turno anterior: ${sentAudioLastTurn}`);
+  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Paywall: ${paywallEnabled} | Já sabe cidade: ${alreadyKnowsLocation}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
