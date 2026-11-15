@@ -41,14 +41,59 @@ function inferKindFromKey(key) {
   return 'image';
 }
 
-function inferLabelFromKey(key) {
+function inferAudioMetadata(key) {
   const fileName = key.split('/').pop() || '';
-  const clean = fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
-  if (/01|boas|vindas|welcome|hola|hallo|oi/i.test(clean)) return `boas-vindas (${clean})`;
-  if (/02|provo/i.test(clean)) return `provocação (${clean})`;
-  if (/03|onde|cidade|where|donde|woher/i.test(clean)) return `de onde você é / conexão (${clean})`;
-  if (/04|robo|robô|bot|real/i.test(clean)) return `não sou robô / prova real (${clean})`;
-  return clean;
+  const clean = fileName.replace(/\.[^.]+$/, '').toLowerCase();
+
+  // Áudio 03 ("que bom que me chamou no privado... de onde você é?") vira o Áudio Inicial (Boas-vindas)
+  if (/03|onde|cidade|where|donde|woher/.test(clean)) {
+    return {
+      slot: '01_WELCOME_CIDADE',
+      isWelcome: true,
+      isReturnOnly: false,
+      label: 'ÁUDIO INICIAL (Boas-vindas + Cidade): Agradece por ter chamado no privado e pergunta de onde ele é.',
+    };
+  }
+  // Áudio 01 ("tô te mandando um áudio rapidinho... o que você tá fazendo de bom agora?") vira o Áudio de Continuidade
+  if (/01|boas|vindas|welcome|hola|hallo/.test(clean)) {
+    return {
+      slot: '02_O_QUE_FAZ',
+      isWelcome: false,
+      isReturnOnly: false,
+      label: 'ÁUDIO DE CONTINUIDADE: Diz "tô te mandando um áudio rapidinho porque aqui é bem melhor de conversar, me conta o que você tá fazendo de bom agora?". USAR depois que ele responder a cidade (sem repetir essa pergunta no texto!).',
+    };
+  }
+  if (/02|provo/.test(clean)) {
+    return {
+      slot: '03_PROVOCACAO',
+      isWelcome: false,
+      isReturnOnly: false,
+      label: 'ÁUDIO DE PROVOCAÇÃO: Diz "ai para, você é muito sem vergonha sabia? tô deitada na cama sem fazer nada, se continuar assim vou te mandar o que não devo". USAR SOMENTE quando ele elogiar, flertar ou provocar!',
+    };
+  }
+  if (/04|robo|robô|bot|real/.test(clean)) {
+    return {
+      slot: '04_NAO_SOU_ROBO',
+      isWelcome: false,
+      isReturnOnly: false,
+      label: 'ÁUDIO PROVA REAL: Diz "haha bobo, não sou robô não, tô aqui de verdade falando contigo, entra no meu privado que te mostro tudo". USAR SOMENTE se ele perguntar se você é robô/bot!',
+    };
+  }
+  if (/05|sumido|volta|lembrei|back/.test(clean)) {
+    return {
+      slot: '05_SUMIDO',
+      isWelcome: false,
+      isReturnOnly: true,
+      label: 'ÁUDIO REENGAJAMENTO: Diz "oi sumido, passei rapidinho porque lembrei de você". NUNCA usar na primeira conversa!',
+    };
+  }
+
+  return {
+    slot: 'EXTRA',
+    isWelcome: false,
+    isReturnOnly: false,
+    label: clean.replace(/[_-]+/g, ' '),
+  };
 }
 
 let r2CatalogCache = { items: [], expiresAt: 0 };
@@ -76,9 +121,8 @@ export async function listR2MediaCatalog(prefix = 'audiozabe/') {
         const url = `${publicBase}/${encodedKey}`;
         const kind = inferKindFromKey(obj.Key);
         const lang = inferLangFromKey(obj.Key);
-        const label = inferLabelFromKey(obj.Key);
-        const isWelcome = /01|boas|vindas|welcome|hola|hallo|oi/i.test(obj.Key);
-        return { key: obj.Key, url, kind, lang, label, isWelcome };
+        const meta = inferAudioMetadata(obj.Key);
+        return { key: obj.Key, url, kind, lang, ...meta };
       });
 
     r2CatalogCache = {

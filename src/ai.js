@@ -8,21 +8,17 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
   const combined = [];
   const seenUrls = new Set();
 
-  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn, alreadyKnowsLocation } = contextFlags;
+  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn, alreadyAskedWhatDoing } = contextFlags;
 
   if (!sentAudioLastTurn) {
     for (const item of r2Catalog) {
       if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
       if (item.isWelcome) continue;
 
-      // ÁUDIO 03 ("que bom que me chamou no privado... de onde você é?"): só após pagar o Paywall!
-      if (item.slot === '03_DE_ONDE_E') {
-        if (!paywallEnabled || !hasPass || alreadyKnowsLocation) continue;
-      }
-
+      if (item.slot === '02_O_QUE_FAZ' && alreadyAskedWhatDoing) continue;
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
       if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
-      if (item.slot === '02_PROVOCACAO' && !isFlirtingOrRequesting) continue;
+      if (item.slot === '03_PROVOCACAO' && !isFlirtingOrRequesting) continue;
 
       if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
 
@@ -122,10 +118,10 @@ ${catalogLines}
 
 REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 - NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, fazer ele falar dele e criar desejo.
-- Se houver **ÁUDIO 03 (De onde você é?)** acima: use-o AGORA nesta resposta! Escreva apenas uma reação curtinha ao que ele disse antes (SEM escrever "de onde você é?" ou "de onde vc fala?" no texto, porque o próprio Áudio 03 já faz essa pergunta) e coloque [ENVIAR_MIDIA:URL_DO_AUDIO_03] no final.
-- Se houver **ÁUDIO 02 (Provocação)** acima: use apenas quando ele estiver flertando ou pedindo mais ousadia, colocando [ENVIAR_MIDIA:URL_DO_AUDIO_02] no final.
-- Se houver **ÁUDIO 04 ("não sou robô")** acima: use agora para responder à desconfiança dele.
-- Se houver **ÁUDIO 05 ("oi sumido")** acima: use para dar boas-vindas ao retorno dele.
+- Se houver **ÁUDIO DE CONTINUIDADE ("o que você tá fazendo de bom agora?")** acima: quando ele responder a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e mande esse áudio com [ENVIAR_MIDIA:URL] no final (SEM escrever "o que você tá fazendo?" no texto, pois o áudio já faz essa pergunta!).
+- Se houver **ÁUDIO DE PROVOCAÇÃO** acima: use apenas quando ele estiver flertando ou pedindo mais ousadia, colocando [ENVIAR_MIDIA:URL] no final.
+- Se houver **ÁUDIO PROVA REAL ("não sou robô")** acima: use agora para responder à desconfiança dele.
+- Se houver **ÁUDIO REENGAJAMENTO ("oi sumido")** acima: use para dar boas-vindas ao retorno dele.
 - Escolha EXCLUSIVAMENTE o áudio com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
     mediaSection = `NENHUM ÁUDIO LIBERADO NESTE TURNO:
@@ -163,9 +159,8 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Alemão (DE): "du", "Süßer", "mega", cobrar em €.
 
 ROTEIRO NATURAL DA CONVERSA:
-1. O Áudio 01 já perguntou o que ele está fazendo. Quando ele responder, reaja rápido ao que ele disse e pergunte de onde ele é (ou use o ÁUDIO 03 se estiver liberado acima, sem repetir a pergunta por texto).
-2. Quando ele responder a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e já puxe um papo mais safado/curioso (ex: "pertinho então rs... tava aqui deitada sem fazer nada, gosto de companhia assim 👀").
-3. Só depois que o clima esquentar e ele elogiar/flertar, entre na provocação e mande o ÁUDIO 02.
+1. O primeiro áudio já agradeceu por ele ter chamado no privado e perguntou de onde ele é. Quando ele disser a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e mande o ÁUDIO DE CONTINUIDADE (que pergunta o que ele está fazendo de bom agora) sem repetir essa pergunta no texto.
+2. Depois que ele responder o que está fazendo, puxe um papo mais envolvente/provocante antes de enviar o ÁUDIO DE PROVOCAÇÃO.
 ${vipAndPreviasRule}
 
 REGRA CRÍTICA DE IDIOMA:
@@ -258,10 +253,10 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
-  const alreadyKnowsLocation =
+  const alreadyAskedWhatDoing =
     assistantMessages.length >= 2 ||
     assistantMessages.some((m) =>
-      /\b(de onde|onde vc|onde você|qual cidade|mora onde|where are you from|de donde|de dónde|woher)\b/i.test(m.content || '')
+      /\b(fazendo de bom|tá fazendo|está fazendo|ta fazendo|up to right now|haciendo de bueno|machst du gerade)\b/i.test(m.content || '')
     );
 
   const rawTextOnly = String(userMessage || '').split('\n\n[IDIOMA')[0].toLowerCase();
@@ -275,10 +270,10 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     isAskingIfBot,
     isFlirtingOrRequesting,
     sentAudioLastTurn,
-    alreadyKnowsLocation,
+    alreadyAskedWhatDoing,
   });
 
-  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Paywall: ${paywallEnabled} | Passe: ${hasPass} | Já sabe cidade: ${alreadyKnowsLocation}`);
+  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Áudio no turno anterior: ${sentAudioLastTurn}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory

@@ -129,11 +129,11 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | R2 Itens: ${r2Catalog.length}`);
 
   const welcomeTranscripts = {
-    PT_BR: 'Oi amor, tudo bem? Olha, tô te mandando um áudio rapidinho porque aqui é bem melhor de conversar. Me conta, o que você tá fazendo de bom agora?',
-    PT_EU: 'Olá amor, tudo bem? Olha estou a mandar-te um áudio rapidinho porque aqui é bem melhor de conversar. Conta-me o que estás a fazer de bom agora?',
-    ES: 'Hola amor, ¿todo bien? Mira te mando un audio rapidito porque por aquí es mucho mejor conversar. Cuéntame, ¿qué estás haciendo de bueno ahora?',
-    EN: 'Hey babe, how are you? Look I am sending you a quick voice note because it is way better to talk here. Tell me, what are you up to right now?',
-    DE: 'Hey Süßer, alles gut? Schau ich schicke dir eine kurze Sprachnachricht weil man hier viel besser schreiben kann. Erzähl mal, was machst du gerade Schönes?',
+    PT_BR: 'Oi lindo, que bom que você me chamou aqui no privado. Tava mesmo precisando de uma companhia legal hoje pra conversar. Me fala, de onde você é?',
+    PT_EU: 'Olá lindo, que bom que me chamaste aqui no privado. Estava mesmo a precisar de uma companhia gira hoje para conversar. Diz-me, de onde és?',
+    ES: 'Hola lindo, qué bueno que me escribiste aquí al privado. Justo estaba necesitando una buena compañía hoy para conversar. Dime, ¿de dónde eres?',
+    EN: 'Hey handsome, so glad you messaged me privately here. I was really needing some good company to chat with today. Tell me, where are you from?',
+    DE: 'Hey Süßer, wie schön dass du mir hier privat schreibst. Ich habe heute wirklich nette Gesellschaft zum Quatschen gebraucht. Sag mal, woher kommst du?',
   };
 
   // REGRA 1: No 1º contato, dispara APENAS o Áudio 01 de boas-vindas do R2 e PARA (espera o cliente responder!)
