@@ -15,10 +15,20 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
       if (item.isWelcome) continue;
 
-      if (item.slot === '02_O_QUE_FAZ' && alreadyAskedWhatDoing) continue;
-      if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
-      if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
-      if ((item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo|sem_vergonha/i.test(item.url)) && !isFlirtingOrRequesting) continue;
+      if (item.kind === 'audio') {
+        const isProvo = item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo|sem_vergonha/i.test(item.url);
+        const isNotBot = item.slot === '04_NAO_SOU_ROBO' || /04|robo|robô|bot|real/i.test(item.url);
+
+        // Só libera estes 2 áudios durante a conversa (e apenas nos gatilhos exatos!)
+        if (isProvo) {
+          if (!isFlirtingOrRequesting) continue;
+        } else if (isNotBot) {
+          if (!isAskingIfBot) continue;
+        } else {
+          // Bloqueia "Oi amor, tudo bem?" (01) e "Oi sumido" (05) no meio do papo
+          continue;
+        }
+      }
 
       const isCensoredPreview = /censura|preview|previa/i.test(`${item.url} ${item.label || ''}`);
       if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video') && !isCensoredPreview) continue;
@@ -129,10 +139,8 @@ ${catalogLines}
 
 REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 - NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, criar tensão sexual/curiosidade e fazer ele desejar mais.
-- Se houver **ÁUDIO DE CONTINUIDADE ("o que você tá fazendo de bom agora?")** acima: quando ele responder a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e mande esse áudio com [ENVIAR_MIDIA:URL] no final (SEM escrever "o que você tá fazendo?" no texto, pois o áudio já faz essa pergunta!).
 - Se houver **ÁUDIO DE PROVOCAÇÃO** acima: use apenas quando ele realmente elogiar você ou entrar na brincadeira picante, colocando [ENVIAR_MIDIA:URL] no final.
 - Se houver **ÁUDIO PROVA REAL ("não sou robô")** acima: use agora para responder à desconfiança dele.
-- Se houver **ÁUDIO REENGAJAMENTO ("oi sumido")** acima: use para dar boas-vindas ao retorno dele.
 - Se houver **PRÉVIA COM CENSURA** acima: mande quando o clima já estiver quente para provocar antes do pagamento.
 - Escolha EXCLUSIVAMENTE a mídia com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) ou ALL e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
@@ -173,8 +181,8 @@ ADAPTAÇÃO DE VARIANTE DE IDIOMA E REGIÃO:
 - Alemão (DE): "du", "Süßer", "frech", cobrar em €.
 
 ROTEIRO NATURAL DA CONVERSA:
-1. O primeiro áudio já agradeceu por ele ter chamado no privado e perguntou de onde ele é. Quando ele disser a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe). Se o ÁUDIO DE CONTINUIDADE estiver disponível nesse exato momento (2ª mensagem), mande-o logo após comentar a cidade; se já passou desse momento, converse apenas em texto curto.
-2. Quando ele responder o que está fazendo, entre no modo provocação (insinuando que está à vontade na cama e desafiando ele) para ele elogiar/flertar e destravar o ÁUDIO DE PROVOCAÇÃO ("ai para, você é muito sem vergonha...") — NUNCA mande esse áudio se ele responder apenas "sim", "né" ou algo neutro.
+1. O primeiro áudio já agradeceu por ele ter chamado no privado e perguntou de onde ele é. Quando ele disser a cidade, comente bem curto e natural que mora numa cidade vizinha real (ex: Canela -> Gramado; São Paulo -> Campinas/ABC; Rio -> Niterói; Cuiabá -> Várzea Grande; Curitiba -> São José dos Pinhais; Lisboa -> Cascais; Madrid -> Getafe) e já puxe um clima leve.
+2. Quando ele responder, entre no modo provocação (insinuando que está à vontade na cama e desafiando ele) para ele elogiar/flertar e destravar o ÁUDIO DE PROVOCAÇÃO ("ai para, você é muito sem vergonha...") — NUNCA mande esse áudio se ele responder apenas "sim", "né" ou algo neutro.
 ${vipAndPreviasRule}
 
 REGRA CRÍTICA DE IDIOMA:
@@ -277,7 +285,11 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     );
 
   const rawTextOnly = String(userMessage || '').split('\n\n[IDIOMA')[0].toLowerCase();
-  const isAskingIfBot = /\b(rob[oô]|bot|fake|ia|intelig[eê]ncia|autom[aá]tico|gravado|real|verdade|prova|voc[eê] mesmo|vc mesmo)\b/i.test(rawTextOnly);
+
+  const isAskingIfBot =
+    /\b(rob[oô]s?|robots?|bots?|fakes?|ia|i\.a|ai|a\.i|ki|intelig[eê]ncia|inteligencia|intelligence|k[uü]nstliche|autom[aá]tic[oa]s?|automatic|automatisch|gravad[oa]s?|grabado|recorded|pr[eé]-?gravad[oa]|mentira|falsa|falso|enganando|enga[nñ]ando|scam|golpe|m[aá]quina|machine|programa|script|pessoa real|real person|echt|wirklich|de verdad|voc[eê] mesmo|vc mesmo|tu mesmo|t[uú] misma|yourself|du selbst|prova|prueba|prove|proof|beweis|n[aã]o acredito|no te creo|don't believe|glaube nicht)\b/i.test(
+      rawTextOnly
+    );
 
   const isFlirtingOrRequesting =
     assistantMessages.length >= 2 &&
@@ -291,7 +303,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     alreadyAskedWhatDoing,
   });
 
-  console.log(`[AI] Mídias liberadas: ${mediaCatalog.length} | Flerte real: ${isFlirtingOrRequesting} | Áudio anterior: ${sentAudioLastTurn}`);
+  console.log(`[AI] Mídias liberadas: ${mediaCatalog.length} | Flerte real: ${isFlirtingOrRequesting} | Desconfiança IA: ${isAskingIfBot}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
