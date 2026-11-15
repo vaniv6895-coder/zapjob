@@ -99,6 +99,12 @@ function isLikelyBrazilian(channel, userId, text) {
   return false;
 }
 
+function extractPriceFromMsg(msg, fallback = '4.90') {
+  if (!msg) return fallback;
+  const match = String(msg).match(/R\$\s*(\d+(?:[.,]\d{1,2})?)/i);
+  return match ? match[1] : fallback;
+}
+
 async function buildPaywallReply(pw, channel, userId, sampleText) {
   const isBr = isLikelyBrazilian(channel, userId, sampleText);
   const hours = Number(pw.hours || 24);
@@ -107,13 +113,16 @@ async function buildPaywallReply(pw, channel, userId, sampleText) {
   if (isBr) {
     const baseMsg =
       pw.msgBr ||
-      `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${hours}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por ${pw.priceBr || 'R$ 4,90'}:`;
+      `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${hours}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por R$ 4,90:`;
 
-    // Tenta gerar Pix dinâmico 100% automático via Mercado Pago
+    // Lê o valor direto do texto da cobrança no painel (ex: "R$ 0.01" ou "R$ 4,90")
+    const detectedPrice = extractPriceFromMsg(baseMsg, pw.priceBr || '4.90');
+
+    // Gera Pix dinâmico 100% automático via Mercado Pago
     const pixData = await createMercadoPagoPix({
       channel,
       userId,
-      priceBr: pw.priceBr || 'R$ 4,90',
+      priceBr: detectedPrice,
       hours,
     });
 
