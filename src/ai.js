@@ -217,12 +217,15 @@ async function getCandidateModels() {
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
-  const [history, settings, hasPass, r2Catalog] = await Promise.all([
+  const [history, settings, hasPass, audioCatalog, previewCatalog] = await Promise.all([
     getMemory(channel, userId, 60),
     getBotSettings(),
     hasActiveChatPass(channel, userId),
     listR2MediaCatalog('audiozabe/'),
+    listR2MediaCatalog('previa/'),
   ]);
+
+  const r2Catalog = [...audioCatalog, ...previewCatalog];
 
   let pw = null;
   try {
