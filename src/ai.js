@@ -15,9 +15,9 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (sentUrlsSet.has(item.url) || seenUrls.has(item.url)) continue;
       if (item.isWelcome) continue;
 
-      // ÁUDIO 03 ("que bom que me chamou no privado... de onde você é?"): exclusivo do modo Paywall!
+      // ÁUDIO 03 ("que bom que me chamou no privado... de onde você é?"): só após pagar o Paywall!
       if (item.slot === '03_DE_ONDE_E') {
-        if (!paywallEnabled || alreadyKnowsLocation) continue;
+        if (!paywallEnabled || !hasPass || alreadyKnowsLocation) continue;
       }
 
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
@@ -278,7 +278,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     alreadyKnowsLocation,
   });
 
-  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Paywall: ${paywallEnabled} | Já sabe cidade: ${alreadyKnowsLocation}`);
+  console.log(`[AI] Áudios liberados: ${mediaCatalog.length} | Paywall: ${paywallEnabled} | Passe: ${hasPass} | Já sabe cidade: ${alreadyKnowsLocation}`);
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
