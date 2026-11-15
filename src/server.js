@@ -335,11 +335,13 @@ app.post('/webhook/mercadopago', async (req, reply) => {
 
     const paymentIdStr = String(paymentId);
     if (processedMpPayments.has(paymentIdStr)) return;
+    processedMpPayments.add(paymentIdStr);
 
     const payment = await getMercadoPagoPayment(paymentIdStr);
-    if (!payment || payment.status !== 'approved') return;
-
-    processedMpPayments.add(paymentIdStr);
+    if (!payment || payment.status !== 'approved') {
+      processedMpPayments.delete(paymentIdStr);
+      return;
+    }
 
     const extRef = String(payment.external_reference || '');
     const [channel, userId, hoursRaw] = extRef.split(':');
