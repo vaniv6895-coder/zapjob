@@ -18,7 +18,7 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (item.slot === '02_O_QUE_FAZ' && alreadyAskedWhatDoing) continue;
       if (item.slot === '04_NAO_SOU_ROBO' && !isAskingIfBot) continue;
       if (item.slot === '05_SUMIDO' && !isReturningLead) continue;
-      if (item.slot === '03_PROVOCACAO' && !isFlirtingOrRequesting) continue;
+      if ((item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo/i.test(item.url)) && !isFlirtingOrRequesting) continue;
 
       if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) continue;
 
