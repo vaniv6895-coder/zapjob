@@ -105,8 +105,8 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   }
 
   const mediaObject = { id: mediaId };
-  if (type === 'audio' && contentType === 'audio/ogg') {
-    mediaObject.voice = true; // Faz chegar com a foto de perfil (Nota de Voz PTT)
+  if (type === 'audio') {
+    mediaObject.voice = true; // Faz todos os áudios (MP3 e OGG) chegarem como Nota de Voz PTT com foto de perfil
   }
 
   const payload = {

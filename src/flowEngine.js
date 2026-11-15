@@ -205,7 +205,17 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  // DISPARO AUTOMÁTICO DO ÁUDIO DE BOAS-VINDAS DIRETO DA PASTA DO R2 NO 1º CONTATO
+  const welcomeTranscripts = {
+    PT_BR: 'Oi amor tudo bem? Olha estou te mandando um áudio rapidinho porque aqui é bem melhor de conversar, me conta o que você está fazendo de bom agora?',
+    PT_EU: 'Olá amor, tudo bem? Olha estou a mandar-te um áudio rapidinho porque aqui é bem melhor de conversar, conta-me o que estás a fazer de bom agora?',
+    ES: 'Hola amor, ¿todo bien? Mira te mando un audio rapidito porque por aquí es mucho mejor conversar, cuéntame ¿qué estás haciendo de bueno ahora?',
+    EN: 'Hey babe, how are you? Look I am sending you a quick voice note because it is way better to talk here, tell me what are you up to right now?',
+    DE: 'Hey Süßer, alles gut? Schau ich schicke dir eine kurze Sprachnachricht weil man hier viel besser schreiben kann, erzähl mal was machst du gerade Schönes?',
+  };
+
+  let sentWelcomeOnly = false;
+
+  // DISPARO AUTOMÁTICO DO ÁUDIO DE BOAS-VINDAS DIRETO DA PASTA DO R2 NO 1º CONTATO (SEM TEXTO EXTRA)
   if (isFirstContact && !sentMediaInThisTurn) {
     const r2Welcome =
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
@@ -217,17 +227,18 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
         await sleep(3500);
         await sendChannelMedia(channel, userId, r2Welcome.url, 'audio');
-        await saveMessage(channel, userId, 'assistant', `[Áudio de boas-vindas ${clientLang} enviado]`, 'audio', r2Welcome.url);
+        const spokenText = welcomeTranscripts[clientLang] || welcomeTranscripts.PT_BR;
+        await saveMessage(channel, userId, 'assistant', spokenText, 'audio', r2Welcome.url);
         sentUrls.add(r2Welcome.url);
-        executedFlowSummary.push(`Você acabou de enviar seu áudio de boas-vindas em ${clientLang} (${r2Welcome.label}).`);
         sentMediaInThisTurn = true;
+        sentWelcomeOnly = true;
       } catch (err) {
         console.error('[FlowEngine] Erro ao enviar boas-vindas do R2:', err?.response?.data || err.message);
       }
     }
   }
 
-  const shouldCallAi = !aiPaused && (!startNode || reachedAiNode);
+  const shouldCallAi = !aiPaused && !sentWelcomeOnly && (!startNode || reachedAiNode);
 
   if (shouldCallAi) {
     await sendTypingIndicator(channel, userId, lastMessageId, 'text');
