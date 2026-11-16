@@ -412,3 +412,38 @@ export async function getCreatorStats30d(creatorId) {
   );
   return res.rows[0] || { views_30d: 0, contacts_30d: 0 };
 }
+
+// =========================================================================
+// 8. LOGIN / CADASTRO COM 1 CLIQUE VIA GOOGLE
+// =========================================================================
+export async function findOrCreateGoogleCreator({ email, name, picture }) {
+  const cleanEmail = String(email).trim().toLowerCase();
+
+  const existing = await pool.query(
+    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
+            verified, active, tier, featured_until, last_boost_at
+     FROM creator_accounts
+     WHERE email = $1
+     LIMIT 1`,
+    [cleanEmail]
+  );
+
+  if (existing.rows[0]) {
+    return existing.rows[0];
+  }
+
+  const slug = makeSlug(name || cleanEmail.split('@')[0]);
+  const randomPass = hashPassword(crypto.randomBytes(24).toString('hex'));
+
+  const created = await pool.query(
+    `INSERT INTO creator_accounts (
+      email, password_hash, slug, stage_name, city, state, avatar_url, cover_url
+    )
+    VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', $5, $5)
+    RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
+              verified, active, tier, featured_until, last_boost_at`,
+    [cleanEmail, randomPass, slug, String(name || 'Modelo VIP').trim(), picture || null]
+  );
+
+  return created.rows[0];
+}

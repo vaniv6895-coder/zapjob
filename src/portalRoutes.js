@@ -12,6 +12,7 @@ import {
   setCreatorApproval,
   trackProfileEvent,
   getCreatorStats30d,
+  findOrCreateGoogleCreator,
 } from './portalDb.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
 import { pool } from './db.js';
@@ -84,7 +85,7 @@ export function registerPortalRoutes(app) {
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   // =======================================================================
-  // APIs DE CONTA, LOGIN, MÉTRICAS E DESTAQUE PIX
+  // APIs DE CONTA, LOGIN (E-MAIL + GOOGLE), MÉTRICAS E DESTAQUE PIX
   // =======================================================================
   app.post('/api/portal/register', async (req, reply) => {
     try {
@@ -108,6 +109,34 @@ export function registerPortalRoutes(app) {
     const creator = await authenticateCreator(email, password);
     if (!creator) return reply.status(401).send({ error: 'E-mail ou senha incorretos.' });
     return reply.send({ ok: true, token: signSessionToken(creator.id), creator });
+  });
+
+  app.post('/api/portal/google-auth', async (req, reply) => {
+    try {
+      const { credential } = req.body || {};
+      if (!credential) return reply.status(400).send({ error: 'Token Google ausente.' });
+
+      const googleRes = await axios.get(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+      );
+      const payload = googleRes.data;
+
+      if (process.env.GOOGLE_CLIENT_ID && payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+        return reply.status(401).send({ error: 'Client ID do Google inválido.' });
+      }
+
+      const creator = await findOrCreateGoogleCreator({
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+      });
+
+      const token = signSessionToken(creator.id);
+      return reply.send({ ok: true, token, creator });
+    } catch (err) {
+      app.log.error(err, '[Portal] Erro no login com Google');
+      return reply.status(401).send({ error: 'Falha ao autenticar com a conta Google.' });
+    }
   });
 
   app.get('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
@@ -582,7 +611,6 @@ export function registerPortalRoutes(app) {
       return reply.status(404).type('text/html; charset=utf-8').send('<body style="background:#f4f6f8;color:#263238;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#e25352;font-weight:bold">Voltar para a Vitrine</a></body>');
     }
 
-    // Registra +1 visualização no perfil
     await trackProfileEvent(creator.id, 'view');
 
     const mediaList = await listCreatorMedia(creator.id, false);
@@ -634,9 +662,11 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — PERFORMANCE + VALOR + DESTAQUE PIX
+  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — GOOGLE 1-CLIQUE + PERFORMANCE + VALOR + DESTAQUE PIX
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+
     return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -644,6 +674,7 @@ export function registerPortalRoutes(app) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel da Criadora — Portal VIP</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  ${googleClientId ? '<script src="https://accounts.google.com/gsi/client" async defer></script>' : ''}
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; padding:16px; }
@@ -659,7 +690,6 @@ export function registerPortalRoutes(app) {
     .tab { flex:1; padding:10px; border-radius:10px; border:1px solid #cad4d8; background:#f4f6f8; color:#5d7a89; font-family:inherit; font-weight:700; cursor:pointer; }
     .tab.active { background:#e25352; border-color:#e25352; color:#fff; }
 
-    /* KPIs de Performance */
     .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
     .kpi-box { background:#f8fafc; border:1px solid #e2e9ed; border-radius:12px; padding:12px 8px; text-align:center; }
     .kpi-num { font-size:22px; font-weight:800; color:#263238; }
@@ -680,6 +710,29 @@ export function registerPortalRoutes(app) {
     </div>
 
     <div id="auth-box" class="card">
+      ${
+        googleClientId
+          ? `
+        <div style="display:flex;justify-content:center;margin-bottom:6px">
+          <div id="g_id_onload"
+               data-client_id="${googleClientId}"
+               data-callback="handleGoogleCredential"
+               data-auto_prompt="false">
+          </div>
+          <div class="g_id_signin"
+               data-type="standard"
+               data-size="large"
+               data-theme="outline"
+               data-text="continue_with"
+               data-shape="pill"
+               data-width="320">
+          </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#94a3b8;margin:12px 0">— ou entre com e-mail e senha —</div>
+      `
+          : ''
+      }
+
       <div class="tabs">
         <button class="tab active" id="t-login" onclick="switchAuth('login')">Entrar</button>
         <button class="tab" id="t-reg" onclick="switchAuth('reg')">Criar Conta Grátis</button>
@@ -794,6 +847,19 @@ export function registerPortalRoutes(app) {
   <script>
     let token = localStorage.getItem('portal_token') || '';
 
+    async function handleGoogleCredential(response) {
+      const res = await fetch('/api/portal/google-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!data.ok) return alert(data.error);
+      token = data.token;
+      localStorage.setItem('portal_token', token);
+      loadDashboard();
+    }
+
     function switchAuth(mode) {
       document.getElementById('t-login').classList.toggle('active', mode === 'login');
       document.getElementById('t-reg').classList.toggle('active', mode === 'reg');
@@ -855,7 +921,6 @@ export function registerPortalRoutes(app) {
         ? '✅ Ativa na Vitrine | Plano: ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação para entrar no ar';
 
-      // Preenche KPIs
       const views = Number(stats?.views_30d || 0);
       const contacts = Number(stats?.contacts_30d || 0);
       const conv = views > 0 ? Math.min(100, Math.round((contacts / views) * 100)) : 0;
@@ -863,7 +928,6 @@ export function registerPortalRoutes(app) {
       document.getElementById('kpi-contacts').innerText = contacts;
       document.getElementById('kpi-rate').innerText = conv + '%';
 
-      // Preenche formulário de edição
       document.getElementById('p-rate').value = creator.hourly_rate || '';
       document.getElementById('p-wa').value = creator.whatsapp || '';
       document.getElementById('p-name').value = creator.stage_name || '';
