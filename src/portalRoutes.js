@@ -21,7 +21,6 @@ const HIGHLIGHT_PLANS = [
   { code: 'diamond_30d', name: 'Topo Diamante (30 Dias)', badge: 'MÁXIMO ALCANCE 👑', price: 349.9, desc: '30 dias na 1ª linha da página inicial.' },
 ];
 
-// Token de sessão simples assinado com HMAC (sem depender de cookie/redis externo)
 function signSessionToken(creatorId) {
   const secret = process.env.PANEL_PASSWORD || 'portal_secret_2026';
   const payload = `${creatorId}.${Date.now()}`;
@@ -90,7 +89,6 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
-  // Registra as rotas de upload direto R2 (/api/creator/upload-url, /api/creator/media)
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   // =======================================================================
@@ -167,51 +165,110 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 1: VITRINE / PRIMEIRA PÁGINA (/vitrine)
+  // PÁGINA 1: VITRINE / PRIMEIRA PÁGINA (/vitrine) — VISUAL PORTAL PROFISSIONAL
   // =======================================================================
   app.get('/vitrine', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
-    const profiles = await getHomeRanking({ city, limit: 60 });
+    const filter = String(req.query.filter || 'all');
+
+    let profiles = await getHomeRanking({ city, limit: 80 });
+
+    // Busca contagem de mídias/vídeos por perfil para exibir selos e filtros
+    const mediaCountsRes = await pool.query(`
+      SELECT creator_id,
+             COUNT(*)::int AS total_media,
+             COUNT(*) FILTER (WHERE media_type = 'video')::int AS total_videos
+      FROM creator_media
+      WHERE visibility IN ('public', 'preview')
+      GROUP BY creator_id
+    `);
+    const mediaMap = new Map();
+    for (const row of mediaCountsRes.rows) {
+      mediaMap.set(row.creator_id, row);
+    }
+
+    profiles = profiles.map((p) => ({
+      ...p,
+      total_media: mediaMap.get(p.id)?.total_media || 0,
+      total_videos: mediaMap.get(p.id)?.total_videos || 0,
+    }));
+
+    // Barra de Stories no topo (prioriza Diamantes e VIPs ativos)
+    const storyProfiles = profiles.slice(0, 15);
+    const storiesHtml =
+      storyProfiles.length > 0
+        ? storyProfiles
+            .map((s) => {
+              const thumb = s.avatar_url || s.cover_url || 'https://placehold.co/120x120/1e293b/e25352?text=VIP';
+              const ringColor = s.is_featured && s.tier === 'diamond' ? 'linear-gradient(135deg,#e25352,#b9a36a)' : '#e25352';
+              return `
+              <a href="/modelo/${s.slug}" class="story-item">
+                <div class="story-ring" style="background:${ringColor}">
+                  <img src="${thumb}" alt="${s.stage_name}" loading="lazy" />
+                </div>
+                <span>${s.stage_name.split(' ')[0]}</span>
+              </a>`;
+            })
+            .join('')
+        : '';
+
+    // Aplica filtros rápidos
+    let filteredProfiles = profiles;
+    if (filter === 'diamond') {
+      filteredProfiles = profiles.filter((p) => p.is_featured && p.tier === 'diamond');
+    } else if (filter === 'vip') {
+      filteredProfiles = profiles.filter((p) => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
+    } else if (filter === 'video') {
+      filteredProfiles = profiles.filter((p) => p.total_videos > 0);
+    }
+
+    const baseQuery = city ? `&city=${encodeURIComponent(city)}` : '';
 
     const cardsHtml =
-      profiles.length === 0
-        ? `<div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:#94a3b8;background:#111827;border-radius:16px;border:1px solid #1f2937">
-            <p style="font-size:16px;margin-bottom:10px">Nenhum perfil ativo encontrado${city ? ` em <strong>${city}</strong>` : ''} ainda.</p>
-            <a href="/minha-conta" style="display:inline-block;background:#ec4899;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">Cadastrar Meu Perfil Agora</a>
+      filteredProfiles.length === 0
+        ? `<div class="empty-box">
+            <p style="font-size:16px;margin-bottom:12px">Nenhum perfil encontrado para este filtro${city ? ` em <strong>${city}</strong>` : ''}.</p>
+            <a href="/vitrine" style="display:inline-block;background:#263238;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:8px">Ver Todos</a>
+            <a href="/minha-conta" style="display:inline-block;background:#e25352;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">Cadastrar Meu Perfil</a>
            </div>`
-        : profiles
+        : filteredProfiles
             .map((p) => {
               const isDiamond = p.is_featured && p.tier === 'diamond';
               const isVip = p.is_featured && p.tier === 'vip';
-              const borderStyle = isDiamond
-                ? 'border:2px solid #ec4899;box-shadow:0 0 24px rgba(236,72,153,0.28);'
+              const cardClass = isDiamond ? 'card card--diamond' : isVip ? 'card card--vip' : 'card';
+              const badgeHtml = isDiamond
+                ? `<span class="badge badge--diamond">💎 LUXO DIAMANTE</span>`
                 : isVip
-                ? 'border:2px solid #eab308;'
-                : 'border:1px solid #1f2937;';
-              const badge = isDiamond
-                ? `<span style="position:absolute;top:10px;left:10px;background:linear-gradient(90deg,#ec4899,#8b5cf6);color:#fff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px">💎 TOPO DIAMANTE</span>`
-                : isVip
-                ? `<span style="position:absolute;top:10px;left:10px;background:#eab308;color:#000;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px">⭐ DESTAQUE VIP</span>`
+                ? `<span class="badge badge--vip">⭐ DESTAQUE VIP</span>`
                 : '';
 
-              const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/111827/ec4899?text=VIP';
-              const waLink = p.whatsapp ? `https://wa.me/55${p.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${p.stage_name}, vi seu perfil no Portal VIP!`)}` : `/modelo/${p.slug}`;
+              const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/1e293b/e25352?text=VIP';
+              const waLink = p.whatsapp
+                ? `https://wa.me/55${p.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${p.stage_name}, vi seu perfil no Portal VIP!`)}`
+                : `/modelo/${p.slug}`;
 
               return `
-              <div style="background:#111827;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;${borderStyle}">
-                <a href="/modelo/${p.slug}" style="position:relative;display:block;aspect-ratio:3/4;background:#090d16;overflow:hidden">
-                  ${badge}
-                  <img src="${cover}" alt="${p.stage_name}" style="width:100%;height:100%;object-fit:cover" loading="lazy" />
-                  <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.9));padding:28px 12px 10px">
-                    <div style="font-size:17px;font-weight:800;color:#fff">${p.stage_name} ✅</div>
-                    <div style="font-size:12px;color:#cbd5e1">📍 ${p.city} - ${p.state}</div>
+              <article class="${cardClass}">
+                <a href="/modelo/${p.slug}" class="card-media">
+                  ${badgeHtml}
+                  ${p.total_videos > 0 ? `<span class="media-pill">🎬 ${p.total_videos}</span>` : ''}
+                  <img src="${cover}" alt="${p.stage_name}" loading="lazy" />
+                  <div class="card-gradient">
+                    <div class="card-name">
+                      <span>${p.stage_name}</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                    </div>
+                    <div class="card-loc">📍 ${p.city} - ${p.state}</div>
                   </div>
                 </a>
-                <div style="padding:12px;display:flex;gap:8px;margin-top:auto">
-                  <a href="/modelo/${p.slug}" style="flex:1;text-align:center;background:#1e293b;color:#f8fafc;padding:9px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700">Ver Fotos</a>
-                  <a href="${waLink}" target="_blank" style="flex:1;text-align:center;background:#22c55e;color:#052e16;padding:9px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:800">WhatsApp</a>
+                <div class="card-body">
+                  <p class="card-bio">${p.bio ? p.bio.slice(0, 72) + (p.bio.length > 72 ? '...' : '') : 'Atendimento exclusivo e fotos verificadas.'}</p>
+                  <div class="card-actions">
+                    <a href="/modelo/${p.slug}" class="btn-outline">Perfil</a>
+                    <a href="${waLink}" target="_blank" class="btn-wa">WhatsApp</a>
+                  </div>
                 </div>
-              </div>`;
+              </article>`;
             })
             .join('');
 
@@ -220,33 +277,145 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal VIP — Modelos em Destaque</title>
+  <title>Portal VIP — Modelos em Destaque${city ? ` em ${city}` : ''}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:#090d16; color:#f8fafc; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-    .nav { background:#111827; border-bottom:1px solid #1f2937; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:20; }
-    .logo { font-size:19px; font-weight:900; background:linear-gradient(90deg,#ec4899,#a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .btn-anunciar { background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; padding:8px 14px; border-radius:99px; text-decoration:none; font-size:13px; font-weight:700; }
-    .container { max-width:1120px; margin:0 auto; padding:18px 14px 40px; }
-    .search-bar { display:flex; gap:8px; margin-bottom:20px; }
-    .search-bar input { flex:1; padding:12px 14px; border-radius:12px; border:1px solid #334155; background:#111827; color:#fff; font-size:14px; }
-    .search-bar button { padding:12px 18px; border-radius:12px; border:none; background:#ec4899; color:#fff; font-weight:700; cursor:pointer; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(165px,1fr)); gap:12px; }
-    @media(min-width:640px){ .grid { grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; } }
+    body { font-family:'Montserrat',sans-serif; background:#f4f6f8; color:#263238; overflow-x:hidden; }
+
+    /* Modal +18 */
+    .age-modal { position:fixed; inset:0; background:rgba(1,7,31,0.78); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .age-card { background:#fff; border-radius:14px; max-width:380px; width:100%; padding:24px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4); }
+    .age-card h2 { font-size:18px; font-weight:700; margin-bottom:10px; color:#263238; }
+    .age-card p { font-size:13px; color:#5d7a89; line-height:1.5; margin-bottom:18px; }
+    .age-btn { width:100%; padding:13px; border:none; border-radius:8px; background:#e25352; color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+
+    /* Topbar & Header */
+    .topbar { background:#e25352; color:#fff; text-align:center; font-size:12px; font-weight:600; padding:8px 12px; }
+    .header { background:#fff; border-bottom:1px solid #e2e9ed; position:sticky; top:0; z-index:50; }
+    .header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .brand { font-size:20px; font-weight:800; color:#263238; text-decoration:none; letter-spacing:-0.5px; }
+    .brand span { color:#e25352; }
+    .cta-announce { background:#e25352; color:#fff; padding:9px 16px; border-radius:99px; font-size:13px; font-weight:700; text-decoration:none; white-space:nowrap; transition:0.2s; }
+    .cta-announce:hover { background:#d04c4c; }
+
+    .container { max-width:1100px; margin:0 auto; padding:16px 16px 48px; }
+
+    /* Stories Bar */
+    .stories-wrap { display:flex; gap:14px; overflow-x:auto; padding:6px 2px 14px; scrollbar-width:none; }
+    .stories-wrap::-webkit-scrollbar { display:none; }
+    .story-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#263238; flex-shrink:0; width:74px; }
+    .story-ring { width:68px; height:68px; border-radius:50%; padding:3px; margin-bottom:6px; }
+    .story-ring img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:2px solid #fff; display:block; }
+    .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:72px; }
+
+    /* Banner Luxo (Inspirado no FATAL) */
+    .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:14px; padding:18px 20px; margin:8px 0 18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; color:#fff; }
+    .lux-title { display:flex; align-items:center; gap:8px; font-size:18px; font-weight:700; color:#e5d39b; }
+    .lux-desc { font-size:13px; color:#e2e8f0; max-width:440px; }
+    .lux-btn { border:2px solid #b9a36a; color:#fff; padding:9px 18px; border-radius:99px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(185,163,106,0.15); }
+
+    /* Busca e Filtros Rápidos */
+    .search-row { display:flex; gap:8px; margin-bottom:14px; }
+    .search-row input { flex:1; padding:12px 16px; border-radius:99px; border:1px solid #cad4d8; background:#fff; font-family:inherit; font-size:14px; outline:none; }
+    .search-row input:focus { border-color:#263238; }
+    .search-row button { padding:0 22px; border-radius:99px; border:none; background:#263238; color:#fff; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; }
+
+    .pills { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; scrollbar-width:none; }
+    .pills::-webkit-scrollbar { display:none; }
+    .pill { padding:8px 16px; border-radius:99px; border:1px solid #263238; color:#263238; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap; background:#fff; }
+    .pill.active { background:#e25352; border-color:#e25352; color:#fff; }
+
+    .section-h1 { font-size:18px; font-weight:700; margin-bottom:14px; color:#263238; }
+    .section-h1 span { color:#e25352; }
+
+    /* Grid de Perfis */
+    .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    @media(min-width:640px){ .grid { grid-template-columns:repeat(3,1fr); gap:16px; } }
+    @media(min-width:960px){ .grid { grid-template-columns:repeat(4,1fr); gap:18px; } }
+
+    .card { background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e2e9ed; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform 0.2s; }
+    .card:hover { transform:translateY(-2px); }
+    .card--diamond { border:3px solid #ed3a3b; box-shadow:0 8px 20px rgba(237,58,59,0.18); }
+    .card--vip { border:2px solid #b9a36a; }
+
+    .card-media { position:relative; display:block; aspect-ratio:3/4; background:#1e293b; overflow:hidden; text-decoration:none; }
+    .card-media img { width:100%; height:100%; object-fit:cover; display:block; }
+    .badge { position:absolute; top:8px; left:8px; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:2; }
+    .badge--diamond { background:#ed3a3b; color:#fff; }
+    .badge--vip { background:linear-gradient(90deg,#534930,#b9a36a); color:#fff; }
+    .media-pill { position:absolute; top:8px; right:8px; background:rgba(1,7,31,0.65); color:#fff; font-size:10px; font-weight:600; padding:3px 8px; border-radius:99px; }
+
+    .card-gradient { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(16,22,24,0.92)); padding:32px 10px 10px; color:#fff; }
+    .card-name { display:flex; align-items:center; gap:5px; font-size:15px; font-weight:700; }
+    .card-loc { font-size:11px; color:#e2e8f0; margin-top:2px; }
+
+    .card-body { padding:10px; display:flex; flex-direction:column; flex:1; }
+    .card-bio { font-size:12px; color:#5d7a89; line-height:1.4; margin-bottom:10px; }
+    .card-actions { display:flex; gap:6px; margin-top:auto; }
+    .btn-outline { flex:1; text-align:center; padding:8px 6px; border-radius:6px; border:1px solid #cad4d8; color:#263238; font-size:12px; font-weight:700; text-decoration:none; }
+    .btn-wa { flex:1.3; text-align:center; padding:8px 6px; border-radius:6px; background:#43a047; color:#fff; font-size:12px; font-weight:700; text-decoration:none; }
+
+    .empty-box { grid-column:1/-1; background:#fff; border:1px solid #e2e9ed; border-radius:12px; padding:40px 20px; text-align:center; color:#5d7a89; }
   </style>
 </head>
 <body>
-  <div class="nav">
-    <a href="/vitrine" class="logo">💎 PORTAL VIP</a>
-    <a href="/minha-conta" class="btn-anunciar">+ Anunciar / Entrar</a>
+  <!-- Verificação de Idade +18 -->
+  <div id="age-gate" class="age-modal" style="display:none">
+    <div class="age-card">
+      <h2>🔞 Conteúdo Exclusivo para Maiores de 18 Anos</h2>
+      <p>Este portal exibe perfis e conteúdos destinados exclusivamente ao público adulto (+18). Ao continuar, você confirma ter 18 anos ou mais.</p>
+      <button class="age-btn" onclick="acceptAge()">Tenho 18 anos ou mais — Entrar</button>
+    </div>
   </div>
-  <div class="container">
-    <form class="search-bar" method="GET" action="/vitrine">
-      <input type="text" name="city" placeholder="Filtrar por cidade (ex: Cuiabá, São Paulo...)" value="${city || ''}" />
+
+  <div class="topbar">✨ Perfis verificados com contato direto e liberação automática</div>
+
+  <header class="header">
+    <div class="header-inner">
+      <a href="/vitrine" class="brand">PORTAL<span>VIP</span></a>
+      <a href="/minha-conta" class="cta-announce">+ Anunciar Perfil</a>
+    </div>
+  </header>
+
+  <main class="container">
+    ${storiesHtml ? `<div class="stories-wrap">${storiesHtml}</div>` : ''}
+
+    <div class="lux-banner">
+      <div>
+        <div class="lux-title">👑 Destaque Luxo & Diamante</div>
+        <p class="lux-desc">Os perfis de maior destaque e exclusividade no topo da primeira página.</p>
+      </div>
+      <a href="/vitrine?filter=diamond${baseQuery}" class="lux-btn">Ver Perfis Diamante</a>
+    </div>
+
+    <form class="search-row" method="GET" action="/vitrine">
+      <input type="text" name="city" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande, São Paulo...)" value="${city || ''}" />
       <button type="submit">Buscar</button>
     </form>
+
+    <div class="pills">
+      <a href="/vitrine?filter=all${baseQuery}" class="pill ${filter === 'all' ? 'active' : ''}">Todos (${profiles.length})</a>
+      <a href="/vitrine?filter=diamond${baseQuery}" class="pill ${filter === 'diamond' ? 'active' : ''}">💎 Topo Diamante</a>
+      <a href="/vitrine?filter=vip${baseQuery}" class="pill ${filter === 'vip' ? 'active' : ''}">⭐ Destaques VIP</a>
+      <a href="/vitrine?filter=video${baseQuery}" class="pill ${filter === 'video' ? 'active' : ''}">🎬 Com Vídeos</a>
+    </div>
+
+    <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
+
     <div class="grid">${cardsHtml}</div>
-  </div>
+  </main>
+
+  <script>
+    if (!document.cookie.includes('age_verified=1')) {
+      document.getElementById('age-gate').style.display = 'flex';
+    }
+    function acceptAge() {
+      document.cookie = 'age_verified=1; max-age=2592000; path=/';
+      document.getElementById('age-gate').style.display = 'none';
+    }
+  </script>
 </body>
 </html>`);
   });
@@ -257,7 +426,7 @@ export function registerPortalRoutes(app) {
   app.get('/modelo/:slug', async (req, reply) => {
     const creator = await getCreatorBySlug(req.params.slug);
     if (!creator) {
-      return reply.status(404).type('text/html; charset=utf-8').send('<body style="background:#090d16;color:#fff;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#ec4899">Voltar para a Vitrine</a></body>');
+      return reply.status(404).type('text/html; charset=utf-8').send('<body style="background:#f4f6f8;color:#263238;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#e25352;font-weight:bold">Voltar para a Vitrine</a></body>');
     }
 
     const mediaList = await listCreatorMedia(creator.id, false);
@@ -267,12 +436,12 @@ export function registerPortalRoutes(app) {
 
     const galleryHtml =
       mediaList.length === 0
-        ? `<p style="color:#94a3b8;text-align:center;padding:24px">Nenhuma foto ou vídeo publicado na galeria ainda.</p>`
+        ? `<p style="color:#5d7a89;text-align:center;padding:24px;grid-column:1/-1">Nenhuma foto ou vídeo publicado na galeria ainda.</p>`
         : mediaList
             .map((m) =>
               m.media_type === 'video'
                 ? `<video src="${m.public_url}" controls playsinline style="width:100%;border-radius:12px;background:#000;max-height:420px"></video>`
-                : `<img src="${m.public_url}" style="width:100%;border-radius:12px;object-fit:cover" loading="lazy" />`
+                : `<img src="${m.public_url}" style="width:100%;border-radius:12px;object-fit:cover;aspect-ratio:3/4" loading="lazy" />`
             )
             .join('');
 
@@ -282,24 +451,25 @@ export function registerPortalRoutes(app) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${creator.stage_name} — Portal VIP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { background:#090d16; color:#f8fafc; font-family:-apple-system,sans-serif; margin:0; padding:16px; }
-    .wrap { max-width:540px; margin:0 auto; }
-    .top-card { background:#111827; border-radius:16px; padding:20px; border:1px solid #1f2937; margin-bottom:16px; }
-    .wa-btn { display:block; text-align:center; background:#22c55e; color:#052e16; padding:14px; border-radius:12px; font-weight:800; text-decoration:none; font-size:16px; margin-top:14px; }
+    body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; margin:0; padding:16px; }
+    .wrap { max-width:560px; margin:0 auto; }
+    .top-card { background:#fff; border-radius:16px; padding:22px; border:1px solid #e2e9ed; margin-bottom:18px; box-shadow:0 4px 12px rgba(0,0,0,0.04); }
+    .wa-btn { display:block; text-align:center; background:#43a047; color:#fff; padding:14px; border-radius:10px; font-weight:700; text-decoration:none; font-size:15px; margin-top:16px; }
     .gallery { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <a href="/vitrine" style="color:#94a3b8;text-decoration:none;font-size:14px;display:inline-block;margin-bottom:12px">← Voltar para a Vitrine</a>
+    <a href="/vitrine" style="color:#5d7a89;text-decoration:none;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px">← Voltar para a Vitrine</a>
     <div class="top-card">
       <h1 style="margin:0 0 6px;font-size:24px">${creator.stage_name} ✅</h1>
-      <div style="color:#f472b6;font-size:14px;margin-bottom:10px">📍 ${creator.city} - ${creator.state}</div>
-      <p style="color:#cbd5e1;font-size:14px;line-height:1.5">${creator.bio || 'Perfil verificado no Portal VIP.'}</p>
+      <div style="color:#e25352;font-size:14px;font-weight:600;margin-bottom:10px">📍 ${creator.city} - ${creator.state}</div>
+      <p style="color:#5d7a89;font-size:14px;line-height:1.5">${creator.bio || 'Perfil verificado no Portal VIP.'}</p>
       <a href="${waLink}" target="_blank" class="wa-btn">💬 Chamar no WhatsApp Agora</a>
     </div>
-    <h3 style="margin-bottom:10px">Galeria de Fotos e Vídeos (${mediaList.length})</h3>
+    <h3 style="margin-bottom:10px;font-size:16px">Galeria de Fotos e Vídeos (${mediaList.length})</h3>
     <div class="gallery">${galleryHtml}</div>
   </div>
 </body>
@@ -316,33 +486,33 @@ export function registerPortalRoutes(app) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel da Modelo — Portal VIP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:#090d16; color:#f8fafc; font-family:-apple-system,sans-serif; padding:16px; }
+    body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; padding:16px; }
     .wrap { max-width:520px; margin:0 auto; }
-    .card { background:#111827; border:1px solid #1f2937; border-radius:16px; padding:18px; margin-bottom:16px; }
+    .card { background:#fff; border:1px solid #e2e9ed; border-radius:16px; padding:18px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
     h2, h3 { margin-bottom:10px; }
-    input, textarea, select { width:100%; padding:11px; border-radius:10px; border:1px solid #334155; background:#090d16; color:#fff; margin-bottom:10px; font-size:14px; }
-    .btn { width:100%; padding:13px; border-radius:10px; border:none; background:#ec4899; color:#fff; font-weight:800; font-size:15px; cursor:pointer; }
-    .btn-green { background:#22c55e; color:#052e16; }
+    input, textarea, select { width:100%; padding:11px; border-radius:10px; border:1px solid #cad4d8; background:#fff; color:#263238; margin-bottom:10px; font-family:inherit; font-size:14px; }
+    .btn { width:100%; padding:13px; border-radius:10px; border:none; background:#e25352; color:#fff; font-family:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+    .btn-green { background:#43a047; color:#fff; }
     .tabs { display:flex; gap:8px; margin-bottom:14px; }
-    .tab { flex:1; padding:10px; border-radius:10px; border:1px solid #334155; background:#111827; color:#cbd5e1; font-weight:700; cursor:pointer; }
-    .tab.active { background:#ec4899; border-color:#ec4899; color:#fff; }
+    .tab { flex:1; padding:10px; border-radius:10px; border:1px solid #cad4d8; background:#f4f6f8; color:#5d7a89; font-family:inherit; font-weight:700; cursor:pointer; }
+    .tab.active { background:#e25352; border-color:#e25352; color:#fff; }
     .media-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
     .media-item { position:relative; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background:#000; }
     .media-item img, .media-item video { width:100%; height:100%; object-fit:cover; }
     .del-btn { position:absolute; top:4px; right:4px; background:rgba(220,38,38,0.9); color:#fff; border:none; border-radius:6px; padding:3px 7px; font-size:11px; cursor:pointer; }
-    .plan-box { border:1px solid #334155; border-radius:12px; padding:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .plan-box { border:1px solid #e2e9ed; border-radius:12px; padding:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; background:#f8fafc; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <a href="/vitrine" style="color:#ec4899;text-decoration:none;font-weight:800">💎 PORTAL VIP</a>
-      <button id="logout-btn" onclick="logout()" style="display:none;background:none;border:1px solid #334155;color:#94a3b8;padding:6px 12px;border-radius:8px">Sair</button>
+      <a href="/vitrine" style="color:#e25352;text-decoration:none;font-weight:800;font-size:18px">PORTAL VIP</a>
+      <button id="logout-btn" onclick="logout()" style="display:none;background:#fff;border:1px solid #cad4d8;color:#5d7a89;padding:6px 12px;border-radius:8px;font-weight:600">Sair</button>
     </div>
 
-    <!-- TELA DE LOGIN / CADASTRO -->
     <div id="auth-box" class="card">
       <div class="tabs">
         <button class="tab active" id="t-login" onclick="switchAuth('login')">Entrar</button>
@@ -369,15 +539,13 @@ export function registerPortalRoutes(app) {
       </div>
     </div>
 
-    <!-- PAINEL LOGADO -->
     <div id="dash-box" style="display:none">
       <div class="card">
         <h2 id="welcome-title">Olá!</h2>
-        <p id="status-badge" style="font-size:13px;color:#fbbf24;margin-bottom:8px"></p>
-        <a id="profile-link" href="#" target="_blank" style="color:#38bdf8;font-size:13px">Ver meu perfil público ↗</a>
+        <p id="status-badge" style="font-size:13px;color:#d97706;font-weight:600;margin-bottom:8px"></p>
+        <a id="profile-link" href="#" target="_blank" style="color:#e25352;font-size:13px;font-weight:700">Ver meu perfil público ↗</a>
       </div>
 
-      <!-- UPLOAD RÁPIDO DO CELULAR -->
       <div class="card">
         <h3>📸 Subir Fotos e Vídeos do Celular</h3>
         <select id="vis-select">
@@ -385,19 +553,18 @@ export function registerPortalRoutes(app) {
           <option value="subscriber">Visibilidade: Exclusivo VIP (Só Assinantes)</option>
         </select>
         <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
-        <p id="upload-status" style="font-size:13px;color:#4ade80"></p>
+        <p id="upload-status" style="font-size:13px;color:#16a34a;font-weight:600"></p>
         <div id="media-grid" class="media-grid"></div>
       </div>
 
-      <!-- COMPRAR DESTAQUE NA PRIMEIRA PÁGINA -->
       <div class="card">
         <h3>🚀 Aparecer no Topo da 1ª Página</h3>
-        <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Escolha um pacote abaixo para ativar seu destaque automaticamente via Pix:</p>
+        <p style="font-size:13px;color:#5d7a89;margin-bottom:12px">Escolha um pacote abaixo para ativar seu destaque automaticamente via Pix:</p>
         <div id="plans-list"></div>
 
-        <div id="pix-area" style="display:none;text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid #334155">
+        <div id="pix-area" style="display:none;text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid #e2e9ed">
           <p id="pix-plan-title" style="font-weight:700;margin-bottom:8px"></p>
-          <img id="pix-qr" style="width:190px;height:190px;background:#fff;padding:8px;border-radius:10px;margin:0 auto 10px;display:block" />
+          <img id="pix-qr" style="width:190px;height:190px;background:#fff;padding:8px;border:1px solid #cad4d8;border-radius:10px;margin:0 auto 10px;display:block" />
           <textarea id="pix-code" rows="3" readonly style="font-size:11px"></textarea>
           <button class="btn btn-green" onclick="copyPix()">📋 Copiar Código Pix</button>
         </div>
@@ -475,10 +642,10 @@ export function registerPortalRoutes(app) {
       document.getElementById('plans-list').innerHTML = plans.map(p => \`
         <div class="plan-box">
           <div>
-            <strong>\${p.name}</strong> <span style="font-size:11px;color:#f472b6">\${p.badge}</span>
-            <div style="font-size:12px;color:#94a3b8">\${p.desc}</div>
+            <strong>\${p.name}</strong> <span style="font-size:11px;color:#e25352;font-weight:700">\${p.badge}</span>
+            <div style="font-size:12px;color:#5d7a89">\${p.desc}</div>
           </div>
-          <button onclick="buyPlan('\${p.code}')" style="background:#22c55e;color:#052e16;border:none;padding:10px 12px;border-radius:10px;font-weight:800;cursor:pointer;white-space:nowrap">
+          <button onclick="buyPlan('\${p.code}')" style="background:#43a047;color:#fff;border:none;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">
             R$ \${Number(p.price).toFixed(2).replace('.', ',')}
           </button>
         </div>
@@ -533,12 +700,11 @@ export function registerPortalRoutes(app) {
           }),
         });
 
-        // Define automaticamente a primeira foto pública como capa se ainda não tiver
         if (presign.mediaType === 'image' && visibility === 'public') {
           await fetch('/api/portal/me', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ cover_url: presign.publicUrl }),
+            body: JSON.stringify({ cover_url: presign.publicUrl, avatar_url: presign.publicUrl }),
           });
         }
       }
@@ -589,11 +755,11 @@ export function registerPortalRoutes(app) {
     const pwd = req.query.pwd || '';
     if (pwd !== PANEL_PASSWORD) {
       return reply.status(401).type('text/html; charset=utf-8').send(`
-        <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
-          <form method="GET" style="background:#111827;padding:24px;border-radius:12px">
+        <body style="background:#f4f6f8;color:#263238;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
+          <form method="GET" style="background:#fff;padding:24px;border-radius:12px;border:1px solid #e2e9ed">
             <h3>Admin do Portal</h3>
-            <input type="password" name="pwd" placeholder="Senha do painel" style="padding:10px;border-radius:8px;border:none" />
-            <button style="padding:10px 16px;border-radius:8px;background:#ec4899;color:#fff;border:none;font-weight:bold">Entrar</button>
+            <input type="password" name="pwd" placeholder="Senha do painel" style="padding:10px;border-radius:8px;border:1px solid #cad4d8" />
+            <button style="padding:10px 16px;border-radius:8px;background:#e25352;color:#fff;border:none;font-weight:bold">Entrar</button>
           </form>
         </body>
       `);
@@ -603,12 +769,12 @@ export function registerPortalRoutes(app) {
     const rows = res.rows
       .map(
         (c) => `
-      <div style="background:#111827;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="background:#fff;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid #e2e9ed;display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div>
           <strong>#${c.id} ${c.stage_name}</strong> (${c.city}-${c.state})<br/>
-          <small style="color:#94a3b8">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small>
+          <small style="color:#5d7a89">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small>
         </div>
-        <button onclick="toggle(${c.id}, ${!c.verified})" style="padding:8px 12px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;background:${c.verified ? '#22c55e' : '#f59e0b'};color:#000">
+        <button onclick="toggle(${c.id}, ${!c.verified})" style="padding:8px 12px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;background:${c.verified ? '#43a047' : '#f59e0b'};color:#fff">
           ${c.verified ? '✅ Aprovada' : '⏳ Aprovar'}
         </button>
       </div>`
@@ -618,9 +784,9 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Admin Portal</title></head>
-<body style="background:#090d16;color:#fff;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
+<body style="background:#f4f6f8;color:#263238;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
   <h2>🛡️ Aprovação de Perfis do Portal</h2>
-  <p style="color:#94a3b8;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
+  <p style="color:#5d7a89;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
   ${rows}
   <script>
     async function toggle(id, status) {
