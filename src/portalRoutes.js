@@ -43,20 +43,15 @@ async function requireCreatorAuth(req, reply) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : req.query.token;
   const creatorId = verifySessionToken(token);
-  if (!creatorId) {
-    return reply.status(401).send({ error: 'Sessão inválida ou expirada.' });
-  }
+  if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida ou expirada.' });
   const creator = await getCreatorById(creatorId);
-  if (!creator) {
-    return reply.status(401).send({ error: 'Conta não encontrada.' });
-  }
+  if (!creator) return reply.status(401).send({ error: 'Conta não encontrada.' });
   req.creator = creator;
 }
 
 async function createPortalHighlightPix({ orderId, planName, amount, creatorEmail }) {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) return null;
-
   const webhookBase = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
 
   const res = await axios.post(
@@ -80,19 +75,14 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 
   const tx = res.data?.point_of_interaction?.transaction_data;
   if (!tx?.qr_code) return null;
-
-  return {
-    paymentId: res.data.id,
-    qrCode: tx.qr_code,
-    qrCodeBase64: tx.qr_code_base64 || null,
-  };
+  return { paymentId: res.data.id, qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64 || null };
 }
 
 export function registerPortalRoutes(app) {
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   // =======================================================================
-  // API DE CADASTRO, LOGIN, PERFIL E COMPRA DE DESTAQUE PIX
+  // APIs DE CONTA, LOGIN E DESTAQUE PIX
   // =======================================================================
   app.post('/api/portal/register', async (req, reply) => {
     try {
@@ -107,7 +97,6 @@ export function registerPortalRoutes(app) {
       if (String(err.message).includes('unique')) {
         return reply.status(409).send({ error: 'Este e-mail já está cadastrado.' });
       }
-      app.log.error(err, '[Portal] Erro ao cadastrar');
       return reply.status(500).send({ error: 'Erro interno ao criar conta.' });
     }
   });
@@ -115,11 +104,8 @@ export function registerPortalRoutes(app) {
   app.post('/api/portal/login', async (req, reply) => {
     const { email, password } = req.body || {};
     const creator = await authenticateCreator(email, password);
-    if (!creator) {
-      return reply.status(401).send({ error: 'E-mail ou senha incorretos.' });
-    }
-    const token = signSessionToken(creator.id);
-    return reply.send({ ok: true, token, creator });
+    if (!creator) return reply.status(401).send({ error: 'E-mail ou senha incorretos.' });
+    return reply.send({ ok: true, token: signSessionToken(creator.id), creator });
   });
 
   app.get('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
@@ -136,36 +122,21 @@ export function registerPortalRoutes(app) {
     const plan = HIGHLIGHT_PLANS.find((p) => p.code === planCode);
     if (!plan) return reply.status(400).send({ error: 'Plano inválido.' });
 
-    const order = await createHighlightOrder({
-      creatorId: req.creator.id,
-      planCode: plan.code,
-      amount: plan.price,
-    });
-
+    const order = await createHighlightOrder({ creatorId: req.creator.id, planCode: plan.code, amount: plan.price });
     const pix = await createPortalHighlightPix({
       orderId: order.id,
       planName: plan.name,
       amount: plan.price,
       creatorEmail: req.creator.email,
     });
-
-    if (!pix) {
-      return reply.status(500).send({ error: 'Falha ao gerar Pix no Mercado Pago.' });
-    }
+    if (!pix) return reply.status(500).send({ error: 'Falha ao gerar Pix no Mercado Pago.' });
 
     await pool.query(`UPDATE highlight_orders SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), order.id]);
-
-    return reply.send({
-      ok: true,
-      orderId: order.id,
-      plan,
-      qrCode: pix.qrCode,
-      qrCodeBase64: pix.qrCodeBase64,
-    });
+    return reply.send({ ok: true, orderId: order.id, plan, qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 });
   });
 
   // =======================================================================
-  // PÁGINA 1: VITRINE / PRIMEIRA PÁGINA (/vitrine) — VISUAL PORTAL PROFISSIONAL
+  // PÁGINA 1: VITRINE COMPLETA (/vitrine) — STORIES + REELS + DESTAQUES
   // =======================================================================
   app.get('/vitrine', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
@@ -173,19 +144,29 @@ export function registerPortalRoutes(app) {
 
     let profiles = await getHomeRanking({ city, limit: 80 });
 
-    // Busca contagem de mídias/vídeos por perfil para exibir selos e filtros
-    const mediaCountsRes = await pool.query(`
-      SELECT creator_id,
-             COUNT(*)::int AS total_media,
-             COUNT(*) FILTER (WHERE media_type = 'video')::int AS total_videos
-      FROM creator_media
-      WHERE visibility IN ('public', 'preview')
-      GROUP BY creator_id
-    `);
+    const [mediaCountsRes, recentVideosRes] = await Promise.all([
+      pool.query(`
+        SELECT creator_id,
+               COUNT(*)::int AS total_media,
+               COUNT(*) FILTER (WHERE media_type = 'video')::int AS total_videos
+        FROM creator_media
+        WHERE visibility IN ('public', 'preview')
+        GROUP BY creator_id
+      `),
+      pool.query(`
+        SELECT m.id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.avatar_url, c.cover_url
+        FROM creator_media m
+        JOIN creator_accounts c ON c.id = m.creator_id
+        WHERE m.media_type = 'video'
+          AND m.visibility IN ('public', 'preview')
+          AND c.active = TRUE AND c.verified = TRUE
+        ORDER BY m.created_at DESC
+        LIMIT 12
+      `),
+    ]);
+
     const mediaMap = new Map();
-    for (const row of mediaCountsRes.rows) {
-      mediaMap.set(row.creator_id, row);
-    }
+    for (const row of mediaCountsRes.rows) mediaMap.set(row.creator_id, row);
 
     profiles = profiles.map((p) => ({
       ...p,
@@ -193,43 +174,75 @@ export function registerPortalRoutes(app) {
       total_videos: mediaMap.get(p.id)?.total_videos || 0,
     }));
 
-    // Barra de Stories no topo (prioriza Diamantes e VIPs ativos)
-    const storyProfiles = profiles.slice(0, 15);
-    const storiesHtml =
-      storyProfiles.length > 0
-        ? storyProfiles
-            .map((s) => {
-              const thumb = s.avatar_url || s.cover_url || 'https://placehold.co/120x120/1e293b/e25352?text=VIP';
-              const ringColor = s.is_featured && s.tier === 'diamond' ? 'linear-gradient(135deg,#e25352,#b9a36a)' : '#e25352';
-              return `
-              <a href="/modelo/${s.slug}" class="story-item">
-                <div class="story-ring" style="background:${ringColor}">
-                  <img src="${thumb}" alt="${s.stage_name}" loading="lazy" />
-                </div>
-                <span>${s.stage_name.split(' ')[0]}</span>
-              </a>`;
-            })
-            .join('')
+    // Stories interativos no topo (abre modal fullscreen ao clicar)
+    const storiesData = profiles.slice(0, 15).map((s) => ({
+      name: s.stage_name,
+      city: `${s.city}-${s.state}`,
+      slug: s.slug,
+      img: s.avatar_url || s.cover_url || 'https://placehold.co/400x600/1e293b/e25352?text=VIP',
+      isDiamond: s.is_featured && s.tier === 'diamond',
+    }));
+
+    const storiesHtml = `
+      <div class="stories-wrap">
+        <a href="/reels" class="story-item">
+          <div class="story-ring" style="background:linear-gradient(135deg,#e25352,#8b5cf6)">
+            <div style="width:100%;height:100%;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid #fff">🎬</div>
+          </div>
+          <span style="color:#e25352;font-weight:800">VIP Reels</span>
+        </a>
+        ${storiesData
+          .map(
+            (s, idx) => `
+          <div class="story-item" onclick="openStory(${idx})" style="cursor:pointer">
+            <div class="story-ring" style="background:${s.isDiamond ? 'linear-gradient(135deg,#e25352,#b9a36a)' : '#e25352'}">
+              <img src="${s.img}" alt="${s.name}" loading="lazy" />
+            </div>
+            <span>${s.name.split(' ')[0]}</span>
+          </div>`
+          )
+          .join('')}
+      </div>`;
+
+    // Carrossel horizontal de Reels na Home
+    const reelsStripHtml =
+      recentVideosRes.rows.length > 0
+        ? `
+      <div class="reels-section">
+        <div class="reels-header">
+          <h3>🔥 Reels & Vídeos Recentes</h3>
+          <a href="/reels">Ver todos em tela cheia →</a>
+        </div>
+        <div class="reels-row">
+          ${recentVideosRes.rows
+            .map(
+              (v) => `
+            <a href="/reels?v=${v.id}" class="reel-card">
+              <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
+              <div class="reel-play">▶</div>
+              <div class="reel-info">
+                <strong>${v.stage_name}</strong>
+                <span>${v.city}-${v.state}</span>
+              </div>
+            </a>`
+            )
+            .join('')}
+        </div>
+      </div>`
         : '';
 
-    // Aplica filtros rápidos
     let filteredProfiles = profiles;
-    if (filter === 'diamond') {
-      filteredProfiles = profiles.filter((p) => p.is_featured && p.tier === 'diamond');
-    } else if (filter === 'vip') {
-      filteredProfiles = profiles.filter((p) => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
-    } else if (filter === 'video') {
-      filteredProfiles = profiles.filter((p) => p.total_videos > 0);
-    }
+    if (filter === 'diamond') filteredProfiles = profiles.filter((p) => p.is_featured && p.tier === 'diamond');
+    else if (filter === 'vip') filteredProfiles = profiles.filter((p) => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
+    else if (filter === 'video') filteredProfiles = profiles.filter((p) => p.total_videos > 0);
 
     const baseQuery = city ? `&city=${encodeURIComponent(city)}` : '';
 
     const cardsHtml =
       filteredProfiles.length === 0
         ? `<div class="empty-box">
-            <p style="font-size:16px;margin-bottom:12px">Nenhum perfil encontrado para este filtro${city ? ` em <strong>${city}</strong>` : ''}.</p>
-            <a href="/vitrine" style="display:inline-block;background:#263238;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:8px">Ver Todos</a>
-            <a href="/minha-conta" style="display:inline-block;background:#e25352;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">Cadastrar Meu Perfil</a>
+            <p style="font-size:16px;margin-bottom:14px">Nenhum perfil ativo encontrado${city ? ` em <strong>${city}</strong>` : ''} ainda.</p>
+            <a href="/minha-conta" style="display:inline-block;background:#e25352;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:700">Cadastrar Meu Perfil Grátis</a>
            </div>`
         : filteredProfiles
             .map((p) => {
@@ -240,7 +253,7 @@ export function registerPortalRoutes(app) {
                 ? `<span class="badge badge--diamond">💎 LUXO DIAMANTE</span>`
                 : isVip
                 ? `<span class="badge badge--vip">⭐ DESTAQUE VIP</span>`
-                : '';
+                : `<span class="badge badge--online">🟢 ONLINE</span>`;
 
               const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/1e293b/e25352?text=VIP';
               const waLink = p.whatsapp
@@ -251,7 +264,10 @@ export function registerPortalRoutes(app) {
               <article class="${cardClass}">
                 <a href="/modelo/${p.slug}" class="card-media">
                   ${badgeHtml}
-                  ${p.total_videos > 0 ? `<span class="media-pill">🎬 ${p.total_videos}</span>` : ''}
+                  <div class="media-counters">
+                    ${p.total_media > 0 ? `<span>📷 ${p.total_media}</span>` : ''}
+                    ${p.total_videos > 0 ? `<span>🎬 ${p.total_videos}</span>` : ''}
+                  </div>
                   <img src="${cover}" alt="${p.stage_name}" loading="lazy" />
                   <div class="card-gradient">
                     <div class="card-name">
@@ -262,10 +278,10 @@ export function registerPortalRoutes(app) {
                   </div>
                 </a>
                 <div class="card-body">
-                  <p class="card-bio">${p.bio ? p.bio.slice(0, 72) + (p.bio.length > 72 ? '...' : '') : 'Atendimento exclusivo e fotos verificadas.'}</p>
+                  <p class="card-bio">${p.bio ? p.bio.slice(0, 75) + (p.bio.length > 75 ? '...' : '') : 'Atendimento exclusivo, fotos e vídeos verificados.'}</p>
                   <div class="card-actions">
-                    <a href="/modelo/${p.slug}" class="btn-outline">Perfil</a>
-                    <a href="${waLink}" target="_blank" class="btn-wa">WhatsApp</a>
+                    <a href="/modelo/${p.slug}" class="btn-outline">Ver Perfil</a>
+                    <a href="${waLink}" target="_blank" class="btn-wa">💬 WhatsApp</a>
                   </div>
                 </div>
               </article>`;
@@ -277,7 +293,7 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal VIP — Modelos em Destaque${city ? ` em ${city}` : ''}</title>
+  <title>Portal VIP — Modelos e Acompanhantes${city ? ` em ${city}` : ''}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -285,49 +301,70 @@ export function registerPortalRoutes(app) {
     body { font-family:'Montserrat',sans-serif; background:#f4f6f8; color:#263238; overflow-x:hidden; }
 
     /* Modal +18 */
-    .age-modal { position:fixed; inset:0; background:rgba(1,7,31,0.78); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .age-modal { position:fixed; inset:0; background:rgba(1,7,31,0.82); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
     .age-card { background:#fff; border-radius:14px; max-width:380px; width:100%; padding:24px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4); }
-    .age-card h2 { font-size:18px; font-weight:700; margin-bottom:10px; color:#263238; }
+    .age-card h2 { font-size:18px; font-weight:700; margin-bottom:10px; }
     .age-card p { font-size:13px; color:#5d7a89; line-height:1.5; margin-bottom:18px; }
     .age-btn { width:100%; padding:13px; border:none; border-radius:8px; background:#e25352; color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+
+    /* Story Lightbox */
+    .story-modal { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:9998; display:none; align-items:center; justify-content:center; padding:16px; }
+    .story-box { position:relative; width:100%; max-width:390px; aspect-ratio:9/16; border-radius:16px; overflow:hidden; background:#111; }
+    .story-box img { width:100%; height:100%; object-fit:cover; }
+    .story-top { position:absolute; top:0; left:0; right:0; padding:14px; background:linear-gradient(rgba(0,0,0,0.7),transparent); display:flex; justify-content:space-between; align-items:center; color:#fff; }
+    .story-bottom { position:absolute; bottom:0; left:0; right:0; padding:20px 14px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); text-align:center; }
 
     /* Topbar & Header */
     .topbar { background:#e25352; color:#fff; text-align:center; font-size:12px; font-weight:600; padding:8px 12px; }
     .header { background:#fff; border-bottom:1px solid #e2e9ed; position:sticky; top:0; z-index:50; }
-    .header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .brand { font-size:20px; font-weight:800; color:#263238; text-decoration:none; letter-spacing:-0.5px; }
     .brand span { color:#e25352; }
-    .cta-announce { background:#e25352; color:#fff; padding:9px 16px; border-radius:99px; font-size:13px; font-weight:700; text-decoration:none; white-space:nowrap; transition:0.2s; }
-    .cta-announce:hover { background:#d04c4c; }
+    .nav-actions { display:flex; gap:8px; align-items:center; }
+    .nav-reels { background:#111827; color:#fff; padding:8px 13px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; }
+    .cta-announce { background:#e25352; color:#fff; padding:8px 14px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; }
 
-    .container { max-width:1100px; margin:0 auto; padding:16px 16px 48px; }
+    .container { max-width:1100px; margin:0 auto; padding:14px 16px 48px; }
 
-    /* Stories Bar */
-    .stories-wrap { display:flex; gap:14px; overflow-x:auto; padding:6px 2px 14px; scrollbar-width:none; }
+    /* Stories */
+    .stories-wrap { display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px; scrollbar-width:none; }
     .stories-wrap::-webkit-scrollbar { display:none; }
-    .story-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#263238; flex-shrink:0; width:74px; }
-    .story-ring { width:68px; height:68px; border-radius:50%; padding:3px; margin-bottom:6px; }
+    .story-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#263238; flex-shrink:0; width:72px; }
+    .story-ring { width:66px; height:66px; border-radius:50%; padding:3px; margin-bottom:5px; }
     .story-ring img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:2px solid #fff; display:block; }
-    .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:72px; }
+    .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70px; }
 
-    /* Banner Luxo (Inspirado no FATAL) */
-    .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:14px; padding:18px 20px; margin:8px 0 18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; color:#fff; }
-    .lux-title { display:flex; align-items:center; gap:8px; font-size:18px; font-weight:700; color:#e5d39b; }
-    .lux-desc { font-size:13px; color:#e2e8f0; max-width:440px; }
-    .lux-btn { border:2px solid #b9a36a; color:#fff; padding:9px 18px; border-radius:99px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(185,163,106,0.15); }
+    /* Reels Strip */
+    .reels-section { margin:6px 0 18px; }
+    .reels-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .reels-header h3 { font-size:15px; font-weight:700; }
+    .reels-header a { font-size:12px; font-weight:700; color:#e25352; text-decoration:none; }
+    .reels-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+    .reels-row::-webkit-scrollbar { display:none; }
+    .reel-card { position:relative; width:126px; height:210px; border-radius:12px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #e25352; }
+    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; }
+    .reel-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:34px; height:34px; border-radius:50%; background:rgba(226,83,82,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; }
+    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:18px 8px 8px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); color:#fff; }
+    .reel-info strong { display:block; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reel-info span { font-size:10px; color:#cbd5e1; }
 
-    /* Busca e Filtros Rápidos */
-    .search-row { display:flex; gap:8px; margin-bottom:14px; }
-    .search-row input { flex:1; padding:12px 16px; border-radius:99px; border:1px solid #cad4d8; background:#fff; font-family:inherit; font-size:14px; outline:none; }
-    .search-row input:focus { border-color:#263238; }
-    .search-row button { padding:0 22px; border-radius:99px; border:none; background:#263238; color:#fff; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; }
+    /* Banner Luxo */
+    .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:14px; padding:16px 18px; margin:8px 0 16px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; color:#fff; }
+    .lux-title { font-size:17px; font-weight:700; color:#e5d39b; }
+    .lux-desc { font-size:12px; color:#e2e8f0; max-width:440px; }
+    .lux-btn { border:2px solid #b9a36a; color:#fff; padding:8px 16px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; background:rgba(185,163,106,0.15); }
+
+    /* Busca e Filtros */
+    .search-row { display:flex; gap:8px; margin-bottom:12px; }
+    .search-row input { flex:1; padding:11px 16px; border-radius:99px; border:1px solid #cad4d8; background:#fff; font-family:inherit; font-size:14px; outline:none; }
+    .search-row button { padding:0 20px; border-radius:99px; border:none; background:#263238; color:#fff; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; }
 
     .pills { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; scrollbar-width:none; }
     .pills::-webkit-scrollbar { display:none; }
-    .pill { padding:8px 16px; border-radius:99px; border:1px solid #263238; color:#263238; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap; background:#fff; }
+    .pill { padding:8px 15px; border-radius:99px; border:1px solid #263238; color:#263238; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap; background:#fff; }
     .pill.active { background:#e25352; border-color:#e25352; color:#fff; }
 
-    .section-h1 { font-size:18px; font-weight:700; margin-bottom:14px; color:#263238; }
+    .section-h1 { font-size:17px; font-weight:700; margin-bottom:14px; }
     .section-h1 span { color:#e25352; }
 
     /* Grid de Perfis */
@@ -335,8 +372,7 @@ export function registerPortalRoutes(app) {
     @media(min-width:640px){ .grid { grid-template-columns:repeat(3,1fr); gap:16px; } }
     @media(min-width:960px){ .grid { grid-template-columns:repeat(4,1fr); gap:18px; } }
 
-    .card { background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e2e9ed; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform 0.2s; }
-    .card:hover { transform:translateY(-2px); }
+    .card { background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e2e9ed; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
     .card--diamond { border:3px solid #ed3a3b; box-shadow:0 8px 20px rgba(237,58,59,0.18); }
     .card--vip { border:2px solid #b9a36a; }
 
@@ -345,9 +381,11 @@ export function registerPortalRoutes(app) {
     .badge { position:absolute; top:8px; left:8px; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:2; }
     .badge--diamond { background:#ed3a3b; color:#fff; }
     .badge--vip { background:linear-gradient(90deg,#534930,#b9a36a); color:#fff; }
-    .media-pill { position:absolute; top:8px; right:8px; background:rgba(1,7,31,0.65); color:#fff; font-size:10px; font-weight:600; padding:3px 8px; border-radius:99px; }
+    .badge--online { background:rgba(16,22,24,0.75); color:#4ade80; }
+    .media-counters { position:absolute; top:8px; right:8px; display:flex; gap:4px; }
+    .media-counters span { background:rgba(1,7,31,0.68); color:#fff; font-size:10px; font-weight:600; padding:3px 7px; border-radius:99px; }
 
-    .card-gradient { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(16,22,24,0.92)); padding:32px 10px 10px; color:#fff; }
+    .card-gradient { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(16,22,24,0.94)); padding:34px 10px 10px; color:#fff; }
     .card-name { display:flex; align-items:center; gap:5px; font-size:15px; font-weight:700; }
     .card-loc { font-size:11px; color:#e2e8f0; margin-top:2px; }
 
@@ -356,17 +394,30 @@ export function registerPortalRoutes(app) {
     .card-actions { display:flex; gap:6px; margin-top:auto; }
     .btn-outline { flex:1; text-align:center; padding:8px 6px; border-radius:6px; border:1px solid #cad4d8; color:#263238; font-size:12px; font-weight:700; text-decoration:none; }
     .btn-wa { flex:1.3; text-align:center; padding:8px 6px; border-radius:6px; background:#43a047; color:#fff; font-size:12px; font-weight:700; text-decoration:none; }
-
     .empty-box { grid-column:1/-1; background:#fff; border:1px solid #e2e9ed; border-radius:12px; padding:40px 20px; text-align:center; color:#5d7a89; }
   </style>
 </head>
 <body>
-  <!-- Verificação de Idade +18 -->
   <div id="age-gate" class="age-modal" style="display:none">
     <div class="age-card">
       <h2>🔞 Conteúdo Exclusivo para Maiores de 18 Anos</h2>
-      <p>Este portal exibe perfis e conteúdos destinados exclusivamente ao público adulto (+18). Ao continuar, você confirma ter 18 anos ou mais.</p>
+      <p>Este portal exibe perfis e conteúdos destinados exclusivamente ao público adulto (+18).</p>
       <button class="age-btn" onclick="acceptAge()">Tenho 18 anos ou mais — Entrar</button>
+    </div>
+  </div>
+
+  <!-- Modal Story Fullscreen -->
+  <div id="story-modal" class="story-modal" onclick="if(event.target===this) closeStory()">
+    <div class="story-box">
+      <div class="story-top">
+        <strong id="st-name"></strong>
+        <button onclick="closeStory()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">✕</button>
+      </div>
+      <img id="st-img" src="" />
+      <div class="story-bottom">
+        <p id="st-city" style="color:#cbd5e1;font-size:12px;margin-bottom:10px"></p>
+        <a id="st-link" href="#" style="display:inline-block;background:#e25352;color:#fff;padding:10px 22px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">Ver Perfil Completo</a>
+      </div>
     </div>
   </div>
 
@@ -375,12 +426,16 @@ export function registerPortalRoutes(app) {
   <header class="header">
     <div class="header-inner">
       <a href="/vitrine" class="brand">PORTAL<span>VIP</span></a>
-      <a href="/minha-conta" class="cta-announce">+ Anunciar Perfil</a>
+      <div class="nav-actions">
+        <a href="/reels" class="nav-reels">🎬 Reels</a>
+        <a href="/minha-conta" class="cta-announce">+ Anunciar</a>
+      </div>
     </div>
   </header>
 
   <main class="container">
-    ${storiesHtml ? `<div class="stories-wrap">${storiesHtml}</div>` : ''}
+    ${storiesHtml}
+    ${reelsStripHtml}
 
     <div class="lux-banner">
       <div>
@@ -403,11 +458,11 @@ export function registerPortalRoutes(app) {
     </div>
 
     <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
-
     <div class="grid">${cardsHtml}</div>
   </main>
 
   <script>
+    const stories = ${JSON.stringify(storiesData)};
     if (!document.cookie.includes('age_verified=1')) {
       document.getElementById('age-gate').style.display = 'flex';
     }
@@ -415,6 +470,99 @@ export function registerPortalRoutes(app) {
       document.cookie = 'age_verified=1; max-age=2592000; path=/';
       document.getElementById('age-gate').style.display = 'none';
     }
+    function openStory(idx) {
+      const s = stories[idx];
+      if (!s) return;
+      document.getElementById('st-name').innerText = s.name;
+      document.getElementById('st-city').innerText = '📍 ' + s.city;
+      document.getElementById('st-img').src = s.img;
+      document.getElementById('st-link').href = '/modelo/' + s.slug;
+      document.getElementById('story-modal').style.display = 'flex';
+    }
+    function closeStory() {
+      document.getElementById('story-modal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>`);
+  });
+
+  // =======================================================================
+  // PÁGINA 1.5: VIP REELS (/reels) — FEED VERTICAL ESTILO TIKTOK / SHOTS
+  // =======================================================================
+  app.get('/reels', async (req, reply) => {
+    const videosRes = await pool.query(`
+      SELECT m.id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.whatsapp
+      FROM creator_media m
+      JOIN creator_accounts c ON c.id = m.creator_id
+      WHERE m.media_type = 'video'
+        AND m.visibility IN ('public', 'preview')
+        AND c.active = TRUE AND c.verified = TRUE
+      ORDER BY m.created_at DESC
+      LIMIT 40
+    `);
+
+    const slidesHtml =
+      videosRes.rows.length === 0
+        ? `<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px">
+            <p style="font-size:18px;margin-bottom:14px">Nenhum vídeo publicado nos Reels ainda 🎬</p>
+            <a href="/vitrine" style="background:#e25352;color:#fff;padding:12px 20px;border-radius:99px;text-decoration:none;font-weight:700">Voltar para a Vitrine</a>
+           </div>`
+        : videosRes.rows
+            .map((v) => {
+              const wa = v.whatsapp
+                ? `https://wa.me/55${v.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${v.stage_name}, vi teu vídeo no VIP Reels!`)}`
+                : `/modelo/${v.slug}`;
+              return `
+              <section class="reel-slide">
+                <video src="${v.public_url}" loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>
+                <div class="reel-overlay">
+                  <div>
+                    <a href="/modelo/${v.slug}" style="color:#fff;font-size:18px;font-weight:800;text-decoration:none">${v.stage_name} ✅</a>
+                    <p style="font-size:13px;color:#e2e8f0;margin:4px 0 12px">📍 ${v.city} - ${v.state}</p>
+                    <div style="display:flex;gap:8px">
+                      <a href="/modelo/${v.slug}" style="background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">Ver Perfil</a>
+                      <a href="${wa}" target="_blank" style="background:#43a047;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">💬 WhatsApp</a>
+                    </div>
+                  </div>
+                </div>
+              </section>`;
+            })
+            .join('');
+
+    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VIP Reels — Vídeos Curtos</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:#000; color:#fff; font-family:-apple-system,sans-serif; overflow:hidden; }
+    .top-bar { position:fixed; top:14px; left:14px; right:14px; z-index:20; display:flex; justify-content:space-between; align-items:center; }
+    .back-pill { background:rgba(0,0,0,0.6);backdrop-filter:blur(8px); color:#fff; padding:8px 14px; border-radius:99px; text-decoration:none; font-size:13px; font-weight:700; }
+    .feed { height:100dvh; overflow-y:scroll; scroll-snap-type:y mandatory; scrollbar-width:none; }
+    .feed::-webkit-scrollbar { display:none; }
+    .reel-slide { position:relative; height:100dvh; width:100%; scroll-snap-align:start; display:flex; justify-content:center; background:#000; }
+    .reel-slide video { height:100%; width:100%; max-width:480px; object-fit:cover; }
+    .reel-overlay { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; padding:40px 18px 28px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <a href="/vitrine" class="back-pill">← Vitrine</a>
+    <span style="font-weight:800;font-size:14px;background:rgba(226,83,82,0.9);padding:5px 12px;border-radius:99px">🎬 VIP REELS</span>
+  </div>
+  <div class="feed" id="feed">${slidesHtml}</div>
+  <script>
+    const videos = document.querySelectorAll('video');
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.play().catch(() => {});
+        else e.target.pause();
+      });
+    }, { threshold: 0.65 });
+    videos.forEach(v => obs.observe(v));
   </script>
 </body>
 </html>`);
@@ -455,7 +603,7 @@ export function registerPortalRoutes(app) {
   <style>
     body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; margin:0; padding:16px; }
     .wrap { max-width:560px; margin:0 auto; }
-    .top-card { background:#fff; border-radius:16px; padding:22px; border:1px solid #e2e9ed; margin-bottom:18px; box-shadow:0 4px 12px rgba(0,0,0,0.04); }
+    .top-card { background:#fff; border-radius:16px; padding:22px; border:1px solid #e2e9ed; margin-bottom:18px; }
     .wa-btn { display:block; text-align:center; background:#43a047; color:#fff; padding:14px; border-radius:10px; font-weight:700; text-decoration:none; font-size:15px; margin-top:16px; }
     .gallery { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   </style>
@@ -477,7 +625,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 3: PAINEL DA MODELO (/minha-conta) — Upload R2 + Comprar Destaque Pix
+  // PÁGINA 3: PAINEL DA MODELO (/minha-conta)
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
     return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
@@ -491,7 +639,7 @@ export function registerPortalRoutes(app) {
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; padding:16px; }
     .wrap { max-width:520px; margin:0 auto; }
-    .card { background:#fff; border:1px solid #e2e9ed; border-radius:16px; padding:18px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+    .card { background:#fff; border:1px solid #e2e9ed; border-radius:16px; padding:18px; margin-bottom:16px; }
     h2, h3 { margin-bottom:10px; }
     input, textarea, select { width:100%; padding:11px; border-radius:10px; border:1px solid #cad4d8; background:#fff; color:#263238; margin-bottom:10px; font-family:inherit; font-size:14px; }
     .btn { width:100%; padding:13px; border-radius:10px; border:none; background:#e25352; color:#fff; font-family:inherit; font-weight:700; font-size:15px; cursor:pointer; }
@@ -549,7 +697,7 @@ export function registerPortalRoutes(app) {
       <div class="card">
         <h3>📸 Subir Fotos e Vídeos do Celular</h3>
         <select id="vis-select">
-          <option value="public">Visibilidade: Público (Aparece na Vitrine)</option>
+          <option value="public">Visibilidade: Público (Aparece na Vitrine e Reels)</option>
           <option value="subscriber">Visibilidade: Exclusivo VIP (Só Assinantes)</option>
         </select>
         <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
@@ -586,10 +734,7 @@ export function registerPortalRoutes(app) {
       const res = await fetch('/api/portal/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('l-email').value,
-          password: document.getElementById('l-pass').value,
-        }),
+        body: JSON.stringify({ email: document.getElementById('l-email').value, password: document.getElementById('l-pass').value }),
       });
       const data = await res.json();
       if (!data.ok) return alert(data.error);
@@ -683,11 +828,7 @@ export function registerPortalRoutes(app) {
 
         if (!presign.ok) { alert(presign.error); continue; }
 
-        await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': f.type },
-          body: f,
-        });
+        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f });
 
         await fetch('/api/creator/media', {
           method: 'POST',
@@ -738,7 +879,7 @@ export function registerPortalRoutes(app) {
       const el = document.getElementById('pix-code');
       el.select();
       navigator.clipboard.writeText(el.value);
-      alert('Código Pix copiado! Assim que pagar, seu destaque ativa automaticamente.');
+      alert('Código Pix copiado!');
     }
 
     loadDashboard();
@@ -748,7 +889,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
+  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS E POPULAR VITRINE (/portal-admin)
   // =======================================================================
   app.get('/portal-admin', async (req, reply) => {
     const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
@@ -785,7 +926,10 @@ export function registerPortalRoutes(app) {
 <html lang="pt-BR">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Admin Portal</title></head>
 <body style="background:#f4f6f8;color:#263238;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
-  <h2>🛡️ Aprovação de Perfis do Portal</h2>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2>🛡️ Admin do Portal</h2>
+    <button onclick="seedDemo()" style="background:#263238;color:#fff;border:none;padding:9px 14px;border-radius:8px;font-weight:bold;cursor:pointer">+ Criar Perfis Demo</button>
+  </div>
   <p style="color:#5d7a89;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
   ${rows}
   <script>
@@ -795,6 +939,10 @@ export function registerPortalRoutes(app) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId: id, verified: status, active: status }),
       });
+      location.reload();
+    }
+    async function seedDemo() {
+      await fetch('/api/portal/admin/seed?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
       location.reload();
     }
   </script>
@@ -807,6 +955,28 @@ export function registerPortalRoutes(app) {
     if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
     const { creatorId, verified, active } = req.body || {};
     await setCreatorApproval(creatorId, { verified, active });
+    return reply.send({ ok: true });
+  });
+
+  app.post('/api/portal/admin/seed', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+
+    const demos = [
+      { name: 'Valentina Luxo', city: 'Cuiabá', state: 'MT', tier: 'diamond', img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80' },
+      { name: 'Isabela Ferraz', city: 'Várzea Grande', state: 'MT', tier: 'diamond', img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=80' },
+      { name: 'Camila Moraes', city: 'Cuiabá', state: 'MT', tier: 'vip', img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&q=80' },
+      { name: 'Larissa Ribeiro', city: 'São Paulo', state: 'SP', tier: 'free', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80' },
+    ];
+
+    for (const d of demos) {
+      const slug = d.name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 999);
+      await pool.query(
+        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, avatar_url, cover_url, verified, active, tier, featured_until)
+         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', 'Atendimento VIP exclusivo e fotos verificadas.', $6, $6, TRUE, TRUE, $7, NOW() + INTERVAL '30 days')`,
+        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.img, d.tier]
+      );
+    }
     return reply.send({ ok: true });
   });
 }
