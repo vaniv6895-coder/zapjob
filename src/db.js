@@ -51,9 +51,12 @@ export async function initDB() {
       channel VARCHAR(20) NOT NULL,
       phone VARCHAR(50) NOT NULL,
       paid_until TIMESTAMP NOT NULL,
+      renewal_notified BOOLEAN DEFAULT FALSE,
       updated_at TIMESTAMP DEFAULT NOW(),
       PRIMARY KEY (channel, phone)
     );
+
+    ALTER TABLE chat_passes ADD COLUMN IF NOT EXISTS renewal_notified BOOLEAN DEFAULT FALSE;
   `);
 }
 
@@ -74,6 +77,7 @@ export async function getBotSettings() {
     visual_flow: map.visual_flow || null,
     vitrine_config: map.vitrine_config || null,
     paywall_config: map.paywall_config || null,
+    checkout_plans: map.checkout_plans || null,
   };
 }
 
@@ -100,11 +104,29 @@ export async function hasActiveChatPass(channel, phone) {
 export async function grantChatPass(channel, phone, hours = 24) {
   const h = Math.max(1, Number(hours) || 24);
   await pool.query(
-    `INSERT INTO chat_passes (channel, phone, paid_until, updated_at)
-     VALUES ($1, $2, NOW() + ($3 || ' hours')::INTERVAL, NOW())
+    `INSERT INTO chat_passes (channel, phone, paid_until, renewal_notified, updated_at)
+     VALUES ($1, $2, NOW() + ($3 || ' hours')::INTERVAL, FALSE, NOW())
      ON CONFLICT (channel, phone)
-     DO UPDATE SET paid_until = GREATEST(chat_passes.paid_until, NOW()) + ($3 || ' hours')::INTERVAL, updated_at = NOW()`,
+     DO UPDATE SET paid_until = GREATEST(chat_passes.paid_until, NOW()) + ($3 || ' hours')::INTERVAL, renewal_notified = FALSE, updated_at = NOW()`,
     [String(channel), String(phone), String(h)]
+  );
+}
+
+export async function getExpiredUnnotifiedPasses() {
+  const res = await pool.query(
+    `SELECT channel, phone, paid_until
+     FROM chat_passes
+     WHERE paid_until <= NOW()
+       AND COALESCE(renewal_notified, FALSE) = FALSE
+     LIMIT 20`
+  );
+  return res.rows;
+}
+
+export async function markPassRenewalNotified(channel, phone) {
+  await pool.query(
+    `UPDATE chat_passes SET renewal_notified = TRUE, updated_at = NOW() WHERE channel = $1 AND phone = $2`,
+    [String(channel), String(phone)]
   );
 }
 

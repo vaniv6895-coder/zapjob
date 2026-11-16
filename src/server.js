@@ -1,15 +1,26 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fs from 'fs';
+import { registerPortalRoutes } from './portalRoutes.js';
 import path from 'path';
 import dotenv from 'dotenv';
-import { initDB, saveMessage, isAiPaused, setAiPaused, grantChatPass } from './db.js';
+import {
+  initDB,
+  saveMessage,
+  isAiPaused,
+  setAiPaused,
+  grantChatPass,
+  getExpiredUnnotifiedPasses,
+  markPassRenewalNotified,
+} from './db.js';
+import { initPortalDB, approveHighlightOrder } from './portalDb.js';
 import { downloadWhatsAppMedia, sendWhatsAppTyping, sendWhatsAppText } from './whatsapp.js';
 import { downloadTelegramMedia, sendTelegramText } from './telegram.js';
 import { downloadMessengerMedia } from './messenger.js';
 import { uploadMedia } from './storage.js';
 import { runHybridFlow } from './flowEngine.js';
 import { registerPanelRoutes } from './panel.js';
+import { registerCheckoutRoutes } from './checkout.js';
 import { getMercadoPagoPayment } from './mercadopago.js';
 
 dotenv.config();
@@ -150,8 +161,10 @@ app.get('/fluxo', async (req, reply) => {
   return reply.status(404).send('Arquivo index.html não encontrado na raiz.');
 });
 
-// Registra o Painel CRM (/painel)
+// Registra o Painel CRM (/painel) e o Checkout Próprio (/checkout e /checkout-admin)
 registerPanelRoutes(app);
+registerCheckoutRoutes(app);
+registerPortalRoutes(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
 app.get('/webhook', async (req, reply) => {
@@ -321,7 +334,7 @@ app.post('/webhook/telegram', async (req, reply) => {
   }
 });
 
-// 3. Webhook Mercado Pago (Liberação automática de Pix)
+// 3. Webhook Mercado Pago (Liberação automática de Pix — Bot + Portal)
 app.post('/webhook/mercadopago', async (req, reply) => {
   reply.status(200).send('OK');
 
@@ -344,6 +357,20 @@ app.post('/webhook/mercadopago', async (req, reply) => {
     }
 
     const extRef = String(payment.external_reference || '');
+
+    // Caso A: Pagamento de destaque do Portal (external_reference = "portal:orderId")
+    if (extRef.startsWith('portal:')) {
+      const orderId = Number(extRef.split(':')[1]);
+      if (orderId) {
+        const order = await approveHighlightOrder(orderId, paymentIdStr);
+        if (order) {
+          app.log.info(`[Portal] ✅ Destaque #${orderId} (${order.plan_code}) aprovado para criadora #${order.creator_id}`);
+        }
+      }
+      return;
+    }
+
+    // Caso B: Pagamento de passe do Chat Bot (external_reference = "channel:userId:hours")
     const [channel, userId, hoursRaw] = extRef.split(':');
     const hours = Number(hoursRaw) || 24;
 
@@ -370,6 +397,33 @@ app.post('/webhook/mercadopago', async (req, reply) => {
 
 const start = async () => {
   await initDB();
+  await initPortalDB();
+
+  // Robô de Renovação Automática: verifica a cada 5 min se algum plano venceu e dispara lembrete com o checkout
+  setInterval(async () => {
+    try {
+      const expired = await getExpiredUnnotifiedPasses();
+      const publicBase = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+
+      for (const row of expired) {
+        await markPassRenewalNotified(row.channel, row.phone);
+        const renewUrl = `${publicBase}/checkout?c=${encodeURIComponent(row.channel)}&u=${encodeURIComponent(row.phone)}`;
+        const renewMsg = `Oi amor, teu acesso VIP ao meu privado acabou de expirar 😢 Não quero parar nossa conversa agora... escolhe um plano aqui pra renovar na hora (24h, 7 dias ou 30 dias) 💕:\n\n👉 ${renewUrl}`;
+
+        await saveMessage(row.channel, row.phone, 'assistant', renewMsg, 'text', null);
+
+        if (row.channel === 'whatsapp') {
+          await sendWhatsAppText(row.phone, renewMsg);
+        } else if (row.channel === 'telegram') {
+          await sendTelegramText(row.phone, renewMsg);
+        }
+        app.log.info(`[Renovação] Mensagem de renovação enviada para ${row.channel}:${row.phone}`);
+      }
+    } catch (err) {
+      app.log.error(err, '[Renovação] Erro ao verificar passes expirados');
+    }
+  }, 5 * 60 * 1000);
+
   const port = Number(process.env.PORT) || 3000;
   await app.listen({ port, host: '0.0.0.0' });
 };

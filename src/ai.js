@@ -109,6 +109,8 @@ async function buildPaywallReply(pw, channel, userId, sampleText) {
   const isBr = isLikelyBrazilian(channel, userId, sampleText);
   const hours = Number(pw.hours || 24);
   const clientRef = encodeURIComponent(`${channel}_${userId}`);
+  const publicBase = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+  const checkoutUrl = `${publicBase}/checkout?c=${encodeURIComponent(channel)}&u=${encodeURIComponent(userId)}`;
 
   if (isBr) {
     const baseMsg =
@@ -124,16 +126,14 @@ async function buildPaywallReply(pw, channel, userId, sampleText) {
       userId,
       priceBr: detectedPrice,
       hours,
+      planName: `Acesso Privado ${hours}h`,
     });
 
     if (pixData?.qrCode) {
-      return `${baseMsg}\n\n💠 *Pix Copia e Cola (liberação automática na hora):*\n\n${pixData.qrCode}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
+      return `${baseMsg}\n\n💠 *Pix Copia e Cola (Acesso ${hours}h — libera na hora):*\n\n${pixData.qrCode}\n\n👑 *Quer ver os planos Semanal ou Mensal VIP com desconto?*\n👉 ${checkoutUrl}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
     }
 
-    // Fallback caso MERCADOPAGO_ACCESS_TOKEN ainda não esteja configurado
-    if (pw.linkBr) {
-      return `${baseMsg}\n\n👉 ${pw.linkBr}\n\nAssim que pagar me manda o print aqui que já continuo com você 😘`;
-    }
+    return `${baseMsg}\n\n👉 ${checkoutUrl}`;
   }
 
   let linkIntl = pw.linkIntl || pw.linkBr || '';
