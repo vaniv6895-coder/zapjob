@@ -10,6 +10,8 @@ import {
   getHomeRanking,
   createHighlightOrder,
   setCreatorApproval,
+  trackProfileEvent,
+  getCreatorStats30d,
 } from './portalDb.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
 import { pool } from './db.js';
@@ -82,7 +84,7 @@ export function registerPortalRoutes(app) {
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   // =======================================================================
-  // APIs DE CONTA, LOGIN E DESTAQUE PIX
+  // APIs DE CONTA, LOGIN, MÉTRICAS E DESTAQUE PIX
   // =======================================================================
   app.post('/api/portal/register', async (req, reply) => {
     try {
@@ -109,7 +111,8 @@ export function registerPortalRoutes(app) {
   });
 
   app.get('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    return reply.send({ ok: true, creator: req.creator, plans: HIGHLIGHT_PLANS });
+    const stats = await getCreatorStats30d(req.creator.id);
+    return reply.send({ ok: true, creator: req.creator, stats, plans: HIGHLIGHT_PLANS });
   });
 
   app.put('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
@@ -136,7 +139,21 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 1: VITRINE COMPLETA (/vitrine) — STORIES + REELS + DESTAQUES
+  // ROTA DE CONTAGEM DE CLIQUE NO WHATSAPP (/r/wa/:slug)
+  // =======================================================================
+  app.get('/r/wa/:slug', async (req, reply) => {
+    const creator = await getCreatorBySlug(req.params.slug);
+    if (!creator || !creator.whatsapp) {
+      return reply.redirect('/vitrine');
+    }
+    await trackProfileEvent(creator.id, 'whatsapp_click');
+    const cleanPhone = String(creator.whatsapp).replace(/\D/g, '').replace(/^55/, '');
+    const msg = encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no Portal VIP!`);
+    return reply.redirect(`https://wa.me/55${cleanPhone}?text=${msg}`);
+  });
+
+  // =======================================================================
+  // PÁGINA 1: VITRINE COMPLETA (/vitrine)
   // =======================================================================
   app.get('/vitrine', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
@@ -174,7 +191,6 @@ export function registerPortalRoutes(app) {
       total_videos: mediaMap.get(p.id)?.total_videos || 0,
     }));
 
-    // Stories interativos no topo (abre modal fullscreen ao clicar)
     const storiesData = profiles.slice(0, 15).map((s) => ({
       name: s.stage_name,
       city: `${s.city}-${s.state}`,
@@ -187,7 +203,7 @@ export function registerPortalRoutes(app) {
       <div class="stories-wrap">
         <a href="/reels" class="story-item">
           <div class="story-ring" style="background:linear-gradient(135deg,#e25352,#8b5cf6)">
-            <div style="width:100%;height:100%;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid #fff">🎬</div>
+            <div style="width:60px;height:60px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid #fff">🎬</div>
           </div>
           <span style="color:#e25352;font-weight:800">VIP Reels</span>
         </a>
@@ -204,7 +220,6 @@ export function registerPortalRoutes(app) {
           .join('')}
       </div>`;
 
-    // Carrossel horizontal de Reels na Home
     const reelsStripHtml =
       recentVideosRes.rows.length > 0
         ? `
@@ -256,9 +271,7 @@ export function registerPortalRoutes(app) {
                 : `<span class="badge badge--online">🟢 ONLINE</span>`;
 
               const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/1e293b/e25352?text=VIP';
-              const waLink = p.whatsapp
-                ? `https://wa.me/55${p.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${p.stage_name}, vi seu perfil no Portal VIP!`)}`
-                : `/modelo/${p.slug}`;
+              const rateTag = p.hourly_rate ? `<span style="font-weight:800;color:#263238">R$ ${Number(p.hourly_rate).toFixed(0)}/h</span>` : '';
 
               return `
               <article class="${cardClass}">
@@ -278,10 +291,14 @@ export function registerPortalRoutes(app) {
                   </div>
                 </a>
                 <div class="card-body">
-                  <p class="card-bio">${p.bio ? p.bio.slice(0, 75) + (p.bio.length > 75 ? '...' : '') : 'Atendimento exclusivo, fotos e vídeos verificados.'}</p>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px">
+                    <span style="color:#43a047;font-weight:700">● Disponível</span>
+                    ${rateTag}
+                  </div>
+                  <p class="card-bio">${p.bio ? p.bio.slice(0, 70) + (p.bio.length > 70 ? '...' : '') : 'Atendimento exclusivo, fotos e vídeos verificados.'}</p>
                   <div class="card-actions">
                     <a href="/modelo/${p.slug}" class="btn-outline">Ver Perfil</a>
-                    <a href="${waLink}" target="_blank" class="btn-wa">💬 WhatsApp</a>
+                    <a href="/r/wa/${p.slug}" target="_blank" class="btn-wa">💬 WhatsApp</a>
                   </div>
                 </div>
               </article>`;
@@ -300,21 +317,18 @@ export function registerPortalRoutes(app) {
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'Montserrat',sans-serif; background:#f4f6f8; color:#263238; overflow-x:hidden; }
 
-    /* Modal +18 */
     .age-modal { position:fixed; inset:0; background:rgba(1,7,31,0.82); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
     .age-card { background:#fff; border-radius:14px; max-width:380px; width:100%; padding:24px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4); }
     .age-card h2 { font-size:18px; font-weight:700; margin-bottom:10px; }
     .age-card p { font-size:13px; color:#5d7a89; line-height:1.5; margin-bottom:18px; }
     .age-btn { width:100%; padding:13px; border:none; border-radius:8px; background:#e25352; color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
 
-    /* Story Lightbox */
     .story-modal { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:9998; display:none; align-items:center; justify-content:center; padding:16px; }
     .story-box { position:relative; width:100%; max-width:390px; aspect-ratio:9/16; border-radius:16px; overflow:hidden; background:#111; }
     .story-box img { width:100%; height:100%; object-fit:cover; }
     .story-top { position:absolute; top:0; left:0; right:0; padding:14px; background:linear-gradient(rgba(0,0,0,0.7),transparent); display:flex; justify-content:space-between; align-items:center; color:#fff; }
     .story-bottom { position:absolute; bottom:0; left:0; right:0; padding:20px 14px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); text-align:center; }
 
-    /* Topbar & Header */
     .topbar { background:#e25352; color:#fff; text-align:center; font-size:12px; font-weight:600; padding:8px 12px; }
     .header { background:#fff; border-bottom:1px solid #e2e9ed; position:sticky; top:0; z-index:50; }
     .header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
@@ -326,15 +340,13 @@ export function registerPortalRoutes(app) {
 
     .container { max-width:1100px; margin:0 auto; padding:14px 16px 48px; }
 
-    /* Stories */
     .stories-wrap { display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px; scrollbar-width:none; }
     .stories-wrap::-webkit-scrollbar { display:none; }
     .story-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#263238; flex-shrink:0; width:72px; }
-    .story-ring { width:66px; height:66px; border-radius:50%; padding:3px; margin-bottom:5px; }
-    .story-ring img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:2px solid #fff; display:block; }
+    .story-ring { width:66px; height:66px; min-width:66px; min-height:66px; border-radius:50%; padding:3px; margin-bottom:5px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+    .story-ring img { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #fff; display:block; }
     .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70px; }
 
-    /* Reels Strip */
     .reels-section { margin:6px 0 18px; }
     .reels-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .reels-header h3 { font-size:15px; font-weight:700; }
@@ -348,13 +360,11 @@ export function registerPortalRoutes(app) {
     .reel-info strong { display:block; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .reel-info span { font-size:10px; color:#cbd5e1; }
 
-    /* Banner Luxo */
     .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:14px; padding:16px 18px; margin:8px 0 16px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; color:#fff; }
     .lux-title { font-size:17px; font-weight:700; color:#e5d39b; }
     .lux-desc { font-size:12px; color:#e2e8f0; max-width:440px; }
     .lux-btn { border:2px solid #b9a36a; color:#fff; padding:8px 16px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; background:rgba(185,163,106,0.15); }
 
-    /* Busca e Filtros */
     .search-row { display:flex; gap:8px; margin-bottom:12px; }
     .search-row input { flex:1; padding:11px 16px; border-radius:99px; border:1px solid #cad4d8; background:#fff; font-family:inherit; font-size:14px; outline:none; }
     .search-row button { padding:0 20px; border-radius:99px; border:none; background:#263238; color:#fff; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; }
@@ -367,7 +377,6 @@ export function registerPortalRoutes(app) {
     .section-h1 { font-size:17px; font-weight:700; margin-bottom:14px; }
     .section-h1 span { color:#e25352; }
 
-    /* Grid de Perfis */
     .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
     @media(min-width:640px){ .grid { grid-template-columns:repeat(3,1fr); gap:16px; } }
     @media(min-width:960px){ .grid { grid-template-columns:repeat(4,1fr); gap:18px; } }
@@ -406,7 +415,6 @@ export function registerPortalRoutes(app) {
     </div>
   </div>
 
-  <!-- Modal Story Fullscreen -->
   <div id="story-modal" class="story-modal" onclick="if(event.target===this) closeStory()">
     <div class="story-box">
       <div class="story-top">
@@ -488,7 +496,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 1.5: VIP REELS (/reels) — FEED VERTICAL ESTILO TIKTOK / SHOTS
+  // PÁGINA 1.5: VIP REELS (/reels)
   // =======================================================================
   app.get('/reels', async (req, reply) => {
     const videosRes = await pool.query(`
@@ -509,11 +517,8 @@ export function registerPortalRoutes(app) {
             <a href="/vitrine" style="background:#e25352;color:#fff;padding:12px 20px;border-radius:99px;text-decoration:none;font-weight:700">Voltar para a Vitrine</a>
            </div>`
         : videosRes.rows
-            .map((v) => {
-              const wa = v.whatsapp
-                ? `https://wa.me/55${v.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${v.stage_name}, vi teu vídeo no VIP Reels!`)}`
-                : `/modelo/${v.slug}`;
-              return `
+            .map(
+              (v) => `
               <section class="reel-slide">
                 <video src="${v.public_url}" loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>
                 <div class="reel-overlay">
@@ -522,12 +527,12 @@ export function registerPortalRoutes(app) {
                     <p style="font-size:13px;color:#e2e8f0;margin:4px 0 12px">📍 ${v.city} - ${v.state}</p>
                     <div style="display:flex;gap:8px">
                       <a href="/modelo/${v.slug}" style="background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">Ver Perfil</a>
-                      <a href="${wa}" target="_blank" style="background:#43a047;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">💬 WhatsApp</a>
+                      <a href="/r/wa/${v.slug}" target="_blank" style="background:#43a047;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">💬 WhatsApp</a>
                     </div>
                   </div>
                 </div>
-              </section>`;
-            })
+              </section>`
+            )
             .join('');
 
     return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
@@ -577,10 +582,13 @@ export function registerPortalRoutes(app) {
       return reply.status(404).type('text/html; charset=utf-8').send('<body style="background:#f4f6f8;color:#263238;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#e25352;font-weight:bold">Voltar para a Vitrine</a></body>');
     }
 
+    // Registra +1 visualização no perfil
+    await trackProfileEvent(creator.id, 'view');
+
     const mediaList = await listCreatorMedia(creator.id, false);
-    const waLink = creator.whatsapp
-      ? `https://wa.me/55${creator.whatsapp.replace(/^55/, '')}?text=${encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no Portal VIP!`)}`
-      : '#';
+    const rateHtml = creator.hourly_rate
+      ? `<div style="display:inline-block;background:#fef2f2;color:#e25352;font-weight:800;font-size:15px;padding:6px 12px;border-radius:8px;margin-bottom:10px">Cachê: R$ ${Number(creator.hourly_rate).toFixed(2).replace('.', ',')} / hora</div>`
+      : '';
 
     const galleryHtml =
       mediaList.length === 0
@@ -614,8 +622,9 @@ export function registerPortalRoutes(app) {
     <div class="top-card">
       <h1 style="margin:0 0 6px;font-size:24px">${creator.stage_name} ✅</h1>
       <div style="color:#e25352;font-size:14px;font-weight:600;margin-bottom:10px">📍 ${creator.city} - ${creator.state}</div>
+      ${rateHtml}
       <p style="color:#5d7a89;font-size:14px;line-height:1.5">${creator.bio || 'Perfil verificado no Portal VIP.'}</p>
-      <a href="${waLink}" target="_blank" class="wa-btn">💬 Chamar no WhatsApp Agora</a>
+      <a href="/r/wa/${creator.slug}" target="_blank" class="wa-btn">💬 Chamar no WhatsApp Agora</a>
     </div>
     <h3 style="margin-bottom:10px;font-size:16px">Galeria de Fotos e Vídeos (${mediaList.length})</h3>
     <div class="gallery">${galleryHtml}</div>
@@ -625,7 +634,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 3: PAINEL DA MODELO (/minha-conta)
+  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — PERFORMANCE + VALOR + DESTAQUE PIX
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
     return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
@@ -633,20 +642,29 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel da Modelo — Portal VIP</title>
+  <title>Painel da Criadora — Portal VIP</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:#f4f6f8; color:#263238; font-family:'Montserrat',sans-serif; padding:16px; }
-    .wrap { max-width:520px; margin:0 auto; }
-    .card { background:#fff; border:1px solid #e2e9ed; border-radius:16px; padding:18px; margin-bottom:16px; }
+    .wrap { max-width:540px; margin:0 auto; }
+    .card { background:#fff; border:1px solid #e2e9ed; border-radius:16px; padding:18px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
     h2, h3 { margin-bottom:10px; }
+    label { display:block; font-size:12px; font-weight:700; color:#5d7a89; margin-bottom:4px; }
     input, textarea, select { width:100%; padding:11px; border-radius:10px; border:1px solid #cad4d8; background:#fff; color:#263238; margin-bottom:10px; font-family:inherit; font-size:14px; }
-    .btn { width:100%; padding:13px; border-radius:10px; border:none; background:#e25352; color:#fff; font-family:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+    .btn { width:100%; padding:13px; border-radius:10px; border:none; background:#e25352; color:#fff; font-family:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+    .btn-dark { background:#263238; color:#fff; }
     .btn-green { background:#43a047; color:#fff; }
     .tabs { display:flex; gap:8px; margin-bottom:14px; }
     .tab { flex:1; padding:10px; border-radius:10px; border:1px solid #cad4d8; background:#f4f6f8; color:#5d7a89; font-family:inherit; font-weight:700; cursor:pointer; }
     .tab.active { background:#e25352; border-color:#e25352; color:#fff; }
+
+    /* KPIs de Performance */
+    .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+    .kpi-box { background:#f8fafc; border:1px solid #e2e9ed; border-radius:12px; padding:12px 8px; text-align:center; }
+    .kpi-num { font-size:22px; font-weight:800; color:#263238; }
+    .kpi-label { font-size:11px; color:#5d7a89; font-weight:600; margin-top:3px; }
+
     .media-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
     .media-item { position:relative; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background:#000; }
     .media-item img, .media-item video { width:100%; height:100%; object-fit:cover; }
@@ -688,26 +706,67 @@ export function registerPortalRoutes(app) {
     </div>
 
     <div id="dash-box" style="display:none">
+      <!-- 1. PERFORMANCE NOS ÚLTIMOS 30 DIAS -->
       <div class="card">
-        <h2 id="welcome-title">Olá!</h2>
-        <p id="status-badge" style="font-size:13px;color:#d97706;font-weight:600;margin-bottom:8px"></p>
-        <a id="profile-link" href="#" target="_blank" style="color:#e25352;font-size:13px;font-weight:700">Ver meu perfil público ↗</a>
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <h2 id="welcome-title" style="margin-bottom:4px">Olá!</h2>
+            <p id="status-badge" style="font-size:12px;color:#d97706;font-weight:700"></p>
+          </div>
+          <a id="profile-link" href="#" target="_blank" style="background:#fef2f2;color:#e25352;padding:7px 11px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">Ver Perfil ↗</a>
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e9ed">
+          <span style="font-size:12px;font-weight:700;color:#5d7a89">📊 PERFORMANCE NOS ÚLTIMOS 30 DIAS</span>
+          <div class="kpi-grid">
+            <div class="kpi-box">
+              <div class="kpi-num" id="kpi-views">0</div>
+              <div class="kpi-label">👁️ Visitas no Perfil</div>
+            </div>
+            <div class="kpi-box">
+              <div class="kpi-num" style="color:#43a047" id="kpi-contacts">0</div>
+              <div class="kpi-label">💬 Cliques WhatsApp</div>
+            </div>
+            <div class="kpi-box">
+              <div class="kpi-num" style="color:#e25352" id="kpi-rate">0%</div>
+              <div class="kpi-label">🔥 Conversão</div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- 2. EDITAR VALOR DO SERVIÇO E DADOS DO PERFIL -->
       <div class="card">
-        <h3>📸 Subir Fotos e Vídeos do Celular</h3>
-        <select id="vis-select">
-          <option value="public">Visibilidade: Público (Aparece na Vitrine e Reels)</option>
-          <option value="subscriber">Visibilidade: Exclusivo VIP (Só Assinantes)</option>
-        </select>
-        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
-        <p id="upload-status" style="font-size:13px;color:#16a34a;font-weight:600"></p>
-        <div id="media-grid" class="media-grid"></div>
+        <h3>💰 Valor do Serviço & Dados do Perfil</h3>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label>Valor da Hora (R$)</label>
+            <input id="p-rate" type="number" step="10" placeholder="Ex: 250" />
+          </div>
+          <div style="flex:1.4">
+            <label>WhatsApp (com DDD)</label>
+            <input id="p-wa" placeholder="65999999999" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:2">
+            <label>Nome Artístico</label>
+            <input id="p-name" />
+          </div>
+          <div style="flex:1.5">
+            <label>Cidade</label>
+            <input id="p-city" />
+          </div>
+        </div>
+        <label>Descrição do Atendimento</label>
+        <textarea id="p-bio" rows="2" placeholder="Descreva seu atendimento, horário, local..."></textarea>
+        <button class="btn btn-dark" onclick="saveProfile()">💾 Salvar Alterações</button>
       </div>
 
+      <!-- 3. COMPRAR DESTAQUE NA PRIMEIRA PÁGINA -->
       <div class="card">
-        <h3>🚀 Aparecer no Topo da 1ª Página</h3>
-        <p style="font-size:13px;color:#5d7a89;margin-bottom:12px">Escolha um pacote abaixo para ativar seu destaque automaticamente via Pix:</p>
+        <h3>🚀 Aparecer em Destaque na 1ª Página</h3>
+        <p style="font-size:13px;color:#5d7a89;margin-bottom:12px">Multiplique suas visitas e mensagens ativando um plano de destaque via Pix:</p>
         <div id="plans-list"></div>
 
         <div id="pix-area" style="display:none;text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid #e2e9ed">
@@ -716,6 +775,18 @@ export function registerPortalRoutes(app) {
           <textarea id="pix-code" rows="3" readonly style="font-size:11px"></textarea>
           <button class="btn btn-green" onclick="copyPix()">📋 Copiar Código Pix</button>
         </div>
+      </div>
+
+      <!-- 4. FOTOS E VÍDEOS -->
+      <div class="card">
+        <h3>📸 Minhas Fotos e Vídeos</h3>
+        <select id="vis-select">
+          <option value="public">Visibilidade: Público (Aparece na Vitrine e Reels)</option>
+          <option value="subscriber">Visibilidade: Exclusivo VIP (Só Assinantes)</option>
+        </select>
+        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
+        <p id="upload-status" style="font-size:13px;color:#16a34a;font-weight:600"></p>
+        <div id="media-grid" class="media-grid"></div>
       </div>
     </div>
   </div>
@@ -773,16 +844,31 @@ export function registerPortalRoutes(app) {
       if (!token) return;
       const res = await fetch('/api/portal/me', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return logout();
-      const { creator, plans } = await res.json();
+      const { creator, stats, plans } = await res.json();
 
       document.getElementById('auth-box').style.display = 'none';
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
-      document.getElementById('welcome-title').innerText = 'Olá, ' + creator.stage_name;
+      document.getElementById('welcome-title').innerText = creator.stage_name;
       document.getElementById('profile-link').href = '/modelo/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
-        ? '✅ Perfil Verificado e Ativo na Vitrine | Plano: ' + creator.tier.toUpperCase()
-        : '⏳ Aguardando aprovação do administrador para aparecer na vitrine';
+        ? '✅ Ativa na Vitrine | Plano: ' + creator.tier.toUpperCase()
+        : '⏳ Aguardando aprovação para entrar no ar';
+
+      // Preenche KPIs
+      const views = Number(stats?.views_30d || 0);
+      const contacts = Number(stats?.contacts_30d || 0);
+      const conv = views > 0 ? Math.min(100, Math.round((contacts / views) * 100)) : 0;
+      document.getElementById('kpi-views').innerText = views;
+      document.getElementById('kpi-contacts').innerText = contacts;
+      document.getElementById('kpi-rate').innerText = conv + '%';
+
+      // Preenche formulário de edição
+      document.getElementById('p-rate').value = creator.hourly_rate || '';
+      document.getElementById('p-wa').value = creator.whatsapp || '';
+      document.getElementById('p-name').value = creator.stage_name || '';
+      document.getElementById('p-city').value = creator.city || '';
+      document.getElementById('p-bio').value = creator.bio || '';
 
       document.getElementById('plans-list').innerHTML = plans.map(p => \`
         <div class="plan-box">
@@ -797,6 +883,23 @@ export function registerPortalRoutes(app) {
       \`).join('');
 
       loadMedia();
+    }
+
+    async function saveProfile() {
+      const rateVal = document.getElementById('p-rate').value;
+      const res = await fetch('/api/portal/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          hourly_rate: rateVal ? Number(rateVal) : null,
+          whatsapp: document.getElementById('p-wa').value.replace(/\\D/g, ''),
+          stage_name: document.getElementById('p-name').value.trim(),
+          city: document.getElementById('p-city').value.trim(),
+          bio: document.getElementById('p-bio').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) alert('✅ Valor do serviço e perfil atualizados!');
     }
 
     async function loadMedia() {
@@ -889,7 +992,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS E POPULAR VITRINE (/portal-admin)
+  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
   // =======================================================================
   app.get('/portal-admin', async (req, reply) => {
     const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
@@ -926,9 +1029,12 @@ export function registerPortalRoutes(app) {
 <html lang="pt-BR">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Admin Portal</title></head>
 <body style="background:#f4f6f8;color:#263238;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
     <h2>🛡️ Admin do Portal</h2>
-    <button onclick="seedDemo()" style="background:#263238;color:#fff;border:none;padding:9px 14px;border-radius:8px;font-weight:bold;cursor:pointer">+ Criar Perfis Demo</button>
+    <div style="display:flex;gap:6px">
+      <button onclick="seedDemo()" style="background:#263238;color:#fff;border:none;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">+ Demos</button>
+      <button onclick="clearDemo()" style="background:#dc2626;color:#fff;border:none;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">Limpar Demos</button>
+    </div>
   </div>
   <p style="color:#5d7a89;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
   ${rows}
@@ -943,6 +1049,10 @@ export function registerPortalRoutes(app) {
     }
     async function seedDemo() {
       await fetch('/api/portal/admin/seed?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
+      location.reload();
+    }
+    async function clearDemo() {
+      await fetch('/api/portal/admin/clear-demo?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
       location.reload();
     }
   </script>
@@ -963,20 +1073,27 @@ export function registerPortalRoutes(app) {
     if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
 
     const demos = [
-      { name: 'Valentina Luxo', city: 'Cuiabá', state: 'MT', tier: 'diamond', img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80' },
-      { name: 'Isabela Ferraz', city: 'Várzea Grande', state: 'MT', tier: 'diamond', img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=80' },
-      { name: 'Camila Moraes', city: 'Cuiabá', state: 'MT', tier: 'vip', img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&q=80' },
-      { name: 'Larissa Ribeiro', city: 'São Paulo', state: 'SP', tier: 'free', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80' },
+      { name: 'Valentina Luxo', city: 'Cuiabá', state: 'MT', tier: 'diamond', rate: 300, img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80' },
+      { name: 'Isabela Ferraz', city: 'Várzea Grande', state: 'MT', tier: 'diamond', rate: 250, img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=80' },
+      { name: 'Camila Moraes', city: 'Cuiabá', state: 'MT', tier: 'vip', rate: 200, img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&q=80' },
+      { name: 'Larissa Ribeiro', city: 'São Paulo', state: 'SP', tier: 'free', rate: 180, img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80' },
     ];
 
     for (const d of demos) {
       const slug = d.name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 999);
       await pool.query(
-        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, avatar_url, cover_url, verified, active, tier, featured_until)
-         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', 'Atendimento VIP exclusivo e fotos verificadas.', $6, $6, TRUE, TRUE, $7, NOW() + INTERVAL '30 days')`,
-        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.img, d.tier]
+        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url, verified, active, tier, featured_until)
+         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, TRUE, TRUE, $8, NOW() + INTERVAL '30 days')`,
+        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.rate, d.img, d.tier]
       );
     }
+    return reply.send({ ok: true });
+  });
+
+  app.post('/api/portal/admin/clear-demo', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+    await pool.query(`DELETE FROM creator_accounts WHERE email LIKE '%@demo.com'`);
     return reply.send({ ok: true });
   });
 }

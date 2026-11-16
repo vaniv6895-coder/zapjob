@@ -15,6 +15,7 @@ export async function initPortalDB() {
       city VARCHAR(100) NOT NULL,
       state VARCHAR(10) NOT NULL,
       whatsapp VARCHAR(30),
+      hourly_rate NUMERIC(10, 2),
       bio TEXT,
       avatar_url TEXT,
       cover_url TEXT,
@@ -27,6 +28,8 @@ export async function initPortalDB() {
       last_boost_at TIMESTAMP DEFAULT NOW(),
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(10, 2);
 
     CREATE INDEX IF NOT EXISTS idx_creators_home_ranking
       ON creator_accounts (city, active, verified, tier, featured_until DESC, last_boost_at DESC);
@@ -66,6 +69,16 @@ export async function initPortalDB() {
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE (creator_id, subscriber_contact)
     );
+
+    CREATE TABLE IF NOT EXISTS profile_events (
+      id SERIAL PRIMARY KEY,
+      creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
+      event_type VARCHAR(20) NOT NULL, -- 'view' ou 'whatsapp_click'
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_profile_events_creator_date
+      ON profile_events (creator_id, event_type, created_at DESC);
   `);
 }
 
@@ -99,15 +112,15 @@ function makeSlug(name) {
 // =========================================================================
 // 3. CADASTRO, LOGIN E ATUALIZAÇÃO DE PERFIL (ISOLADO POR CONTA)
 // =========================================================================
-export async function registerCreator({ email, password, stageName, city, state, whatsapp, bio }) {
+export async function registerCreator({ email, password, stageName, city, state, whatsapp, bio, hourlyRate = null }) {
   const cleanEmail = String(email).trim().toLowerCase();
   const passwordHash = hashPassword(password);
   const slug = makeSlug(stageName);
 
   const res = await pool.query(
-    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, email, slug, stage_name, city, state, whatsapp, verified, active, tier`,
+    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, hourly_rate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, verified, active, tier`,
     [
       cleanEmail,
       passwordHash,
@@ -117,6 +130,7 @@ export async function registerCreator({ email, password, stageName, city, state,
       String(state).trim().toUpperCase(),
       whatsapp ? String(whatsapp).replace(/\D/g, '') : null,
       bio ? String(bio).trim() : null,
+      hourlyRate !== null && hourlyRate !== '' ? Number(hourlyRate) : null,
     ]
   );
 
@@ -137,7 +151,7 @@ export async function authenticateCreator(email, password) {
 
 export async function getCreatorById(creatorId) {
   const res = await pool.query(
-    `SELECT id, email, slug, stage_name, city, state, whatsapp, bio, avatar_url, cover_url,
+    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
             subscription_price, verified, active, tier, featured_until, last_boost_at, created_at
      FROM creator_accounts
      WHERE id = $1`,
@@ -148,7 +162,7 @@ export async function getCreatorById(creatorId) {
 
 export async function getCreatorBySlug(slug) {
   const res = await pool.query(
-    `SELECT id, slug, stage_name, city, state, whatsapp, bio, avatar_url, cover_url,
+    `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
             subscription_price, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE slug = $1 AND active = TRUE AND verified = TRUE`,
@@ -163,6 +177,7 @@ export async function updateCreatorProfile(creatorId, fields) {
     'city',
     'state',
     'whatsapp',
+    'hourly_rate',
     'bio',
     'avatar_url',
     'cover_url',
@@ -235,7 +250,7 @@ export async function deleteCreatorMedia(creatorId, mediaId) {
      RETURNING r2_key`,
     [Number(mediaId), Number(creatorId)]
   );
-  return res.rows[0] || null; // Retorna r2_key para apagar também do Cloudflare R2
+  return res.rows[0] || null;
 }
 
 // =========================================================================
@@ -257,7 +272,7 @@ export async function getHomeRanking({ city = null, state = null, limit = 60 } =
   params.push(Number(limit) || 60);
 
   const res = await pool.query(
-    `SELECT id, slug, stage_name, city, state, whatsapp, bio, avatar_url, cover_url,
+    `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
             subscription_price, tier, featured_until, last_boost_at,
             (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured
      FROM creator_accounts
@@ -366,7 +381,7 @@ export async function hasActiveCreatorSubscription(creatorId, subscriberContact)
 }
 
 // =========================================================================
-// 7. MODERAÇÃO ADMIN (APROVAÇÃO DE PERFIL VERIFICADO)
+// 7. MODERAÇÃO ADMIN E MÉTRICAS DE PERFORMANCE (30 DIAS)
 // =========================================================================
 export async function setCreatorApproval(creatorId, { verified, active }) {
   await pool.query(
@@ -376,4 +391,24 @@ export async function setCreatorApproval(creatorId, { verified, active }) {
      WHERE id = $1`,
     [Number(creatorId), verified, active]
   );
+}
+
+export async function trackProfileEvent(creatorId, eventType) {
+  if (!['view', 'whatsapp_click'].includes(eventType)) return;
+  await pool.query(
+    `INSERT INTO profile_events (creator_id, event_type) VALUES ($1, $2)`,
+    [Number(creatorId), eventType]
+  );
+}
+
+export async function getCreatorStats30d(creatorId) {
+  const res = await pool.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE event_type = 'view')::int AS views_30d,
+       COUNT(*) FILTER (WHERE event_type = 'whatsapp_click')::int AS contacts_30d
+     FROM profile_events
+     WHERE creator_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
+    [Number(creatorId)]
+  );
+  return res.rows[0] || { views_30d: 0, contacts_30d: 0 };
 }
