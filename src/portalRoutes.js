@@ -83,7 +83,6 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
-  // Registra a página pública da acompanhante (/acompanhante/:slug) e rotas de mídia
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
@@ -245,13 +244,12 @@ export function registerPortalRoutes(app) {
           )
           .join('')}
       </div>`;
-    
 
-      const demoReels = [
+    const demoReels = [
       {
         id: 1,
         public_url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4',
-        caption: 'Bastidores do ensaio de hoje à noite 🔥vem conferir...',
+        caption: 'Bastidores do ensaio de hoje à noite 🔥 vem conferir...',
         stage_name: 'Isabela Ferraz',
         slug: 'isabela-ferraz',
         city: 'Várzea Grande',
@@ -388,30 +386,6 @@ export function registerPortalRoutes(app) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-
-
-  /* Carrossel Horizontal Reels Bombando (Abaixo da grade) */
-    .hot-reels-section { margin: 28px 0 12px; padding-top: 22px; border-top: 1px solid #1f2937; }
-    .reels-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:10px; }
-    .reels-header h3 { font-size:18px; font-weight:800; color:#fff; }
-    .reels-sub { font-size:12px; color:#94a3b8; margin-top:3px; }
-    .reels-header a { font-size:12px; font-weight:700; color:#ec4899; text-decoration:none; white-space:nowrap; }
-    .reels-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
-    .reels-row::-webkit-scrollbar { display:none; }
-    .reel-card { position:relative; width:168px; height:285px; border-radius:16px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #ec4899; scroll-snap-align:start; box-shadow:0 8px 20px rgba(236,72,153,0.18); transition:transform 0.2s; }
-    .reel-card:hover { transform:translateY(-3px); }
-    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; display:block; }
-    .reel-fire-badge { position:absolute; top:10px; left:10px; background:linear-gradient(90deg,#f97316,#ec4899); color:#fff; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
-    .reel-play { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(236,72,153,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
-    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:28px 10px 10px; background:linear-gradient(transparent,rgba(5,8,15,0.96)); color:#fff; }
-    .reel-info strong { display:block; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .reel-desc { font-size:11px; color:#e2e8f0; line-height:1.35; margin:4px 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .reel-info span { display:block; font-size:10px; color:#94a3b8; font-weight:600; }
-
-
-
-
-
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'Montserrat',sans-serif; background:#090d16; color:#f8fafc; overflow-x:hidden; }
 
@@ -443,19 +417,6 @@ export function registerPortalRoutes(app) {
     .story-ring { width:66px; height:66px; min-width:66px; min-height:66px; border-radius:50%; padding:3px; margin-bottom:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
     .story-ring img { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #111827; display:block; }
     .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70px; }
-
-    .reels-section { margin:6px 0 20px; }
-    .reels-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .reels-header h3 { font-size:15px; font-weight:700; color:#fff; }
-    .reels-header a { font-size:12px; font-weight:700; color:#ec4899; text-decoration:none; }
-    .reels-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
-    .reels-row::-webkit-scrollbar { display:none; }
-    .reel-card { position:relative; width:126px; height:210px; border-radius:14px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #ec4899; }
-    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; }
-    .reel-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:34px; height:34px; border-radius:50%; background:rgba(236,72,153,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; }
-    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:18px 8px 8px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); color:#fff; }
-    .reel-info strong { display:block; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .reel-info span { font-size:10px; color:#cbd5e1; }
 
     .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:16px; padding:16px 18px; margin:8px 0 18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; color:#fff; }
     .lux-title { font-size:17px; font-weight:700; color:#e5d39b; }
@@ -505,6 +466,24 @@ export function registerPortalRoutes(app) {
     .btn-wa { flex:1.3; text-align:center; padding:9px 6px; border-radius:8px; background:#22c55e; color:#052e16; font-size:12px; font-weight:800; text-decoration:none; }
     .btn-wa:hover { background:#16a34a; color:#fff; }
     .empty-box { grid-column:1/-1; background:#111827; border:1px solid #1f2937; border-radius:14px; padding:40px 20px; text-align:center; color:#94a3b8; }
+
+    /* Carrossel Horizontal Reels Bombando (Abaixo da grade) */
+    .hot-reels-section { margin: 28px 0 12px; padding-top: 22px; border-top: 1px solid #1f2937; }
+    .reels-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:10px; }
+    .reels-header h3 { font-size:18px; font-weight:800; color:#fff; }
+    .reels-sub { font-size:12px; color:#94a3b8; margin-top:3px; }
+    .reels-header a { font-size:12px; font-weight:700; color:#ec4899; text-decoration:none; white-space:nowrap; }
+    .reels-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+    .reels-row::-webkit-scrollbar { display:none; }
+    .reel-card { position:relative; width:168px; height:285px; border-radius:16px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #ec4899; scroll-snap-align:start; box-shadow:0 8px 20px rgba(236,72,153,0.18); transition:transform 0.2s; }
+    .reel-card:hover { transform:translateY(-3px); }
+    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; display:block; }
+    .reel-fire-badge { position:absolute; top:10px; left:10px; background:linear-gradient(90deg,#f97316,#ec4899); color:#fff; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+    .reel-play { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(236,72,153,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:28px 10px 10px; background:linear-gradient(transparent,rgba(5,8,15,0.96)); color:#fff; }
+    .reel-info strong { display:block; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reel-desc { font-size:11px; color:#e2e8f0; line-height:1.35; margin:4px 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .reel-info span { display:block; font-size:10px; color:#94a3b8; font-weight:600; }
   </style>
 </head>
 <body>
@@ -547,7 +526,6 @@ export function registerPortalRoutes(app) {
 
   <main class="container">
     ${storiesHtml}
-    ${reelsStripHtml}
 
     <div class="lux-banner">
       <div>
@@ -572,36 +550,7 @@ export function registerPortalRoutes(app) {
     <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
     <div class="grid">${cardsHtml}</div>
 
-    <main class="container">
-    ${storiesHtml}
-
-    <div class="lux-banner">
-      <div>
-        <div class="lux-title">👑 Destaque Luxo & Diamante</div>
-        <p class="lux-desc">Os perfis de maior destaque e exclusividade no topo da primeira página.</p>
-      </div>
-      <a href="/vitrine?filter=diamond${baseQuery}" class="lux-btn">Ver Perfis Diamante</a>
-    </div>
-
-    <form class="search-row" method="GET" action="/vitrine">
-      <input type="text" name="city" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande, São Paulo...)" value="${city || ''}" />
-      <button type="submit">Buscar</button>
-    </form>
-
-    <div class="pills">
-      <a href="/vitrine?filter=all${baseQuery}" class="pill ${filter === 'all' ? 'active' : ''}">Todos (${profiles.length})</a>
-      <a href="/vitrine?filter=diamond${baseQuery}" class="pill ${filter === 'diamond' ? 'active' : ''}">💎 Topo Diamante</a>
-      <a href="/vitrine?filter=vip${baseQuery}" class="pill ${filter === 'vip' ? 'active' : ''}">⭐ Destaques VIP</a>
-      <a href="/vitrine?filter=video${baseQuery}" class="pill ${filter === 'video' ? 'active' : ''}">🎬 Com Vídeos</a>
-    </div>
-
-    <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
-    <div class="grid">${cardsHtml}</div>
-
-    <!-- Carrossel Horizontal de Reels Bombando (exatamente onde você marcou) -->
     ${hotReelsCarouselHtml}
-  </main>
-  
   </main>
 
   <script>
@@ -631,7 +580,7 @@ export function registerPortalRoutes(app) {
 </html>`);
   });
 
- // =======================================================================
+  // =======================================================================
   // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — COM PRÉVIA AO VIVO E EDIÇÃO DE CAPA
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
@@ -673,13 +622,11 @@ export function registerPortalRoutes(app) {
     .tab { flex:1; padding:10px; border-radius:10px; border:none; background:transparent; color:#94a3b8; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; transition:0.2s; }
     .tab.active { background:#1f2937; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
 
-    /* Barra de Alternância Edição vs Prévia */
     .mode-switcher { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
     .mode-pills { display:flex; background:#0b101d; border:1px solid #1f2937; border-radius:99px; padding:3px; }
     .mode-pill { border:none; background:transparent; color:#94a3b8; font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:99px; cursor:pointer; }
     .mode-pill.active { background:#ec4899; color:#fff; }
 
-    /* Cartão de Prévia Ao Vivo (Como o Cliente Vê) */
     .live-preview-card { background:#ffffff; color:#263238; border-radius:16px; overflow:hidden; border:2px solid #ec4899; box-shadow:0 12px 30px rgba(0,0,0,0.45); margin-bottom:16px; }
     .lp-cover { position:relative; height:150px; background:#1e293b; }
     .lp-cover img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -704,7 +651,6 @@ export function registerPortalRoutes(app) {
     .lp-btn-wa { background:#389e47; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
     .lp-btn-vip { background:#b73347; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
 
-    /* Oculta botões de edição rápida quando estiver no modo "Como os Clientes Veem" */
     .client-view-mode .edit-cover-btn,
     .client-view-mode .edit-avatar-btn { display:none !important; }
 
@@ -791,7 +737,6 @@ export function registerPortalRoutes(app) {
     </div>
 
     <div id="dash-box" style="display:none">
-      <!-- Barra de Controle: Modo Edição vs Como os Clientes Veem -->
       <div class="mode-switcher">
         <div class="mode-pills">
           <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar Perfil</button>
@@ -800,7 +745,6 @@ export function registerPortalRoutes(app) {
         <a id="profile-link" href="#" target="_blank" style="background:rgba(236,72,153,0.15);color:#ec4899;border:1px solid rgba(236,72,153,0.3);padding:7px 12px;border-radius:99px;font-size:11px;font-weight:700;text-decoration:none;">Abrir Página Pública ↗</a>
       </div>
 
-      <!-- Prévia Ao Vivo do Perfil (Atualiza em Tempo Real) -->
       <div id="live-preview-card" class="live-preview-card">
         <div class="lp-cover">
           <img id="lp-cover-img" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA" alt="Capa" />
@@ -841,7 +785,6 @@ export function registerPortalRoutes(app) {
         </div>
       </div>
 
-      <!-- Formulário de Edição (Ocultado quando ativa "Como Clientes Veem") -->
       <div id="edit-form-card" class="card">
         <h3>✏️ Editar Valores e Informações</h3>
         <div style="display:flex;gap:10px">
@@ -869,7 +812,6 @@ export function registerPortalRoutes(app) {
         <button class="btn" onclick="saveProfile()">💾 Salvar Alterações do Perfil</button>
       </div>
 
-      <!-- Métricas -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.5px">📊 PERFORMANCE (30 DIAS)</span>
@@ -891,7 +833,6 @@ export function registerPortalRoutes(app) {
         </div>
       </div>
 
-      <!-- Galeria -->
       <div class="card">
         <h3>📸 Galeria de Fotos e Vídeos</h3>
         <label>Onde publicar os próximos arquivos?</label>
@@ -904,7 +845,6 @@ export function registerPortalRoutes(app) {
         <div id="media-grid" class="media-grid"></div>
       </div>
 
-      <!-- Impulsionar -->
       <div class="card">
         <h3>🚀 Impulsionar Perfil (Topo da Vitrine)</h3>
         <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Ative seu destaque via Pix e apareça na primeira linha:</p>
@@ -1030,7 +970,6 @@ export function registerPortalRoutes(app) {
         ? '✅ Ativo | ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação';
 
-      // Preenche imagens da Prévia Ao Vivo
       if (creator.cover_url || creator.avatar_url) {
         document.getElementById('lp-cover-img').src = creator.cover_url || creator.avatar_url;
       }
@@ -1216,7 +1155,6 @@ export function registerPortalRoutes(app) {
 </body>
 </html>`);
   });
-
 
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
