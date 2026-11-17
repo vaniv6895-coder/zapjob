@@ -100,7 +100,7 @@
       }
     }
 
-    /* Capa + Perfil Estilo Fatal Model */
+    /* Capa + Perfil */
     .cover-area {
       position:relative;
       height:165px;
@@ -248,7 +248,7 @@
       white-space:pre-line;
     }
 
-    /* Card de Cachê & Contato (Coluna Direita no Desktop) */
+    /* Card de Cachê & Contato */
     .price-card { padding:18px 16px; }
     .price-header {
       display:flex;
@@ -320,7 +320,7 @@
       border-bottom-color:#e25352;
     }
 
-    /* Grade 3 colunas estilo Fatal Model */
+    /* Grade 3 colunas */
     .media-grid {
       display:grid;
       grid-template-columns:repeat(3,1fr);
@@ -471,26 +471,13 @@
       </div>
 
       <!-- Sobre Mim -->
-<div class="white-box section-pad">
-  <h2 class="section-title">Sobre mim</h2>
-  <p class="bio-text">{{BIO_TEXT}}</p>
-</div>
-
-<!-- Injeção dinâmica do áudio -->
-{{AUDIO_INJECTION}}
-
-      <!-- Bloco de Áudio Pré-gravado de Apresentação -->
-  <div id="audio-player-box" class="white-box section-pad" style="display:none; margin-top: 16px;">
-    <h2 class="section-title">🎙️ Ouça minha voz</h2>
-    <div style="display:flex; align-items:center; gap:12px; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e9ed;">
-      <button id="play-audio-btn" onclick="toggleAudio()" style="background:#e25352; color:#fff; border:none; width:44px; height:44px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">▶</button>
-      <div style="flex:1;">
-        <strong style="display:block; font-size:13px; color:#263238;">Saudação exclusiva</strong>
-        <span style="font-size:11px; color:#5d7a89;">Áudio verificado da modelo</span>
+      <div class="white-box section-pad">
+        <h2 class="section-title">Sobre mim</h2>
+        <p class="bio-text">{{BIO_TEXT}}</p>
       </div>
-      <audio id="creator-audio" src=""></audio>
-    </div>
-  </div>
+
+      <!-- Injeção dinâmica do áudio -->
+      {{AUDIO_INJECTION}}
 
       <!-- Galeria de Fotos e Vídeos -->
       <div class="white-box">
@@ -562,21 +549,6 @@
       navigator.clipboard.writeText(location.href);
       alert('Link do perfil copiado!');
     }
-
-    let audioObj = null;
-    function toggleAudio() {
-      const audioEl = document.getElementById('creator-audio');
-      const btn = document.getElementById('play-audio-btn');
-      if (!audioEl.src) return;
-      if (audioEl.paused) {
-        audioEl.play();
-        btn.innerText = '⏸';
-      } else {
-        audioEl.pause();
-        btn.innerText = '▶';
-      }
-    }
-
   </script>
 </body>
 </html>
