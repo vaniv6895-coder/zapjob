@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { pool } from './db.js';
 import axios from 'axios';
 import {
   registerCreator,
@@ -16,7 +17,6 @@ import {
 } from './portalDb.js';
 import { registerPortalProfileRoute } from './portalProfilePage.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
-import { pool } from './db.js';
 
 const HIGHLIGHT_PLANS = [
   { code: 'boost_1x', name: 'Subida ao Topo (1x)', badge: 'IMEDIATO ⚡', price: 9.9, desc: 'Joga seu perfil para o 1º lugar agora.' },
@@ -82,14 +82,9 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
   return { paymentId: res.data.id, qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64 || null };
 }
 
-
-
-  export function registerPortalRoutes(app) {
-
-
-  // <--- ESSA LINHA É OBRIGATÓRIA AQUI PARA REGISTRAR A ROTA DO ACOMPHANHANTE --->
+export function registerPortalRoutes(app) {
+  // Registra a página pública da acompanhante (/acompanhante/:slug) e rotas de mídia
   registerPortalProfileRoute(app);
-
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   app.post('/api/portal/register', async (req, reply) => {
@@ -263,7 +258,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
           ${recentVideosRes.rows
             .map(
               (v) => `
-            <a href="/reels?v=${v.id}" class="reel-card">
+            <a href="/reels?modelo=${v.slug}" class="reel-card">
               <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
               <div class="reel-play">▶</div>
               <div class="reel-info">
@@ -458,7 +453,10 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       <img id="st-img" src="" />
       <div class="story-bottom">
         <p id="st-city" style="color:#cbd5e1;font-size:12px;margin-bottom:10px"></p>
-        <a id="st-link" href="#" style="display:inline-block;background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;padding:10px 22px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">Ver Perfil Completo</a>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <a id="st-reels-link" href="#" style="display:inline-block;background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);color:#fff;padding:10px 16px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">🎬 Ver Reels</a>
+          <a id="st-link" href="#" style="display:inline-block;background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;padding:10px 18px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">Ver Perfil</a>
+        </div>
       </div>
     </div>
   </div>
@@ -518,7 +516,8 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       document.getElementById('st-name').innerText = s.name;
       document.getElementById('st-city').innerText = '📍 ' + s.city;
       document.getElementById('st-img').src = s.img;
-      document.getElementById('st-link').href = '/modelo/' + s.slug;
+      document.getElementById('st-link').href = '/acompanhante/' + s.slug;
+      document.getElementById('st-reels-link').href = '/reels?modelo=' + s.slug;
       document.getElementById('story-modal').style.display = 'flex';
     }
     function closeStory() {
@@ -529,328 +528,8 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 </html>`);
   });
 
-  // =======================================================================
-  // PÁGINA 1.5: VIP REELS (/reels)
-  // =======================================================================
-  app.get('/reels', async (req, reply) => {
-    const videosRes = await pool.query(`
-      SELECT m.id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.whatsapp
-      FROM creator_media m
-      JOIN creator_accounts c ON c.id = m.creator_id
-      WHERE m.media_type = 'video'
-        AND m.visibility IN ('public', 'preview')
-        AND c.active = TRUE AND c.verified = TRUE
-      ORDER BY m.created_at DESC
-      LIMIT 40
-    `);
-
-    const slidesHtml =
-      videosRes.rows.length === 0
-        ? `<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px">
-            <p style="font-size:18px;margin-bottom:14px">Nenhum vídeo publicado nos Reels ainda 🎬</p>
-            <a href="/vitrine" style="background:#ec4899;color:#fff;padding:12px 20px;border-radius:99px;text-decoration:none;font-weight:700">Voltar para a Vitrine</a>
-           </div>`
-        : videosRes.rows
-            .map(
-              (v) => `
-              <section class="reel-slide">
-                <video src="${v.public_url}" loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>
-                <div class="reel-overlay">
-                  <div>
-                    <a href="/modelo/${v.slug}" style="color:#fff;font-size:18px;font-weight:800;text-decoration:none">${v.stage_name} ✅</a>
-                    <p style="font-size:13px;color:#e2e8f0;margin:4px 0 12px">📍 ${v.city} - ${v.state}</p>
-                    <div style="display:flex;gap:8px">
-                      <a href="/modelo/${v.slug}" style="background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;font-weight:700;text-decoration:none">Ver Perfil</a>
-                      <a href="/r/wa/${v.slug}" target="_blank" style="background:#22c55e;color:#052e16;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:800;text-decoration:none">💬 WhatsApp</a>
-                    </div>
-                  </div>
-                </div>
-              </section>`
-            )
-            .join('');
-
-    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VIP Reels — Vídeos Curtos</title>
-  <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:#000; color:#fff; font-family:-apple-system,sans-serif; overflow:hidden; }
-    .top-bar { position:fixed; top:14px; left:14px; right:14px; z-index:20; display:flex; justify-content:space-between; align-items:center; }
-    .back-pill { background:rgba(0,0,0,0.6);backdrop-filter:blur(8px); color:#fff; padding:8px 14px; border-radius:99px; text-decoration:none; font-size:13px; font-weight:700; }
-    .feed { height:100dvh; overflow-y:scroll; scroll-snap-type:y mandatory; scrollbar-width:none; }
-    .feed::-webkit-scrollbar { display:none; }
-    .reel-slide { position:relative; height:100dvh; width:100%; scroll-snap-align:start; display:flex; justify-content:center; background:#000; }
-    .reel-slide video { height:100%; width:100%; max-width:480px; object-fit:cover; }
-    .reel-overlay { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; padding:40px 18px 28px; background:linear-gradient(transparent,rgba(0,0,0,0.9)); }
-  </style>
-</head>
-<body>
-  <div class="top-bar">
-    <a href="/vitrine" class="back-pill">← Vitrine</a>
-    <span style="font-weight:800;font-size:14px;background:linear-gradient(90deg,#ec4899,#db2777);padding:5px 12px;border-radius:99px">🎬 VIP REELS</span>
-  </div>
-  <div class="feed" id="feed">${slidesHtml}</div>
-  <script>
-    const videos = document.querySelectorAll('video');
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) e.target.play().catch(() => {});
-        else e.target.pause();
-      });
-    }, { threshold: 0.65 });
-    videos.forEach(v => obs.observe(v));
-  </script>
-</body>
-</html>`);
-  });
-
-  // =======================================================================
-  // PÁGINA 2: PERFIL INDIVIDUAL DA MODELO (/modelo/:slug) — LAYOUT PREMIUM
-  // =======================================================================
-  app.get('/modelo/:slug', async (req, reply) => {
-    const creator = await getCreatorBySlug(req.params.slug);
-    if (!creator) {
-      return reply
-        .status(404)
-        .type('text/html; charset=utf-8')
-        .send('<body style="background:#090d16;color:#fff;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#ec4899">Voltar para a Vitrine</a></body>');
-    }
-
-    await trackProfileEvent(creator.id, 'view');
-
-    const mediaList = await listCreatorMedia(creator.id, false);
-    const photosCount = mediaList.filter((m) => m.media_type === 'image').length;
-    const videosCount = mediaList.filter((m) => m.media_type === 'video').length;
-
-    const coverUrl = creator.cover_url || creator.avatar_url || 'https://placehold.co/900x360/111827/ec4899?text=PORTAL+VIP';
-    const avatarUrl = creator.avatar_url || creator.cover_url || 'https://placehold.co/300x300/1f2937/ec4899?text=VIP';
-
-    const isDiamond = creator.tier === 'diamond' && creator.featured_until && new Date(creator.featured_until) > new Date();
-    const isVip = creator.tier === 'vip' && creator.featured_until && new Date(creator.featured_until) > new Date();
-
-    const tierBadge = isDiamond
-      ? `<span class="tier-pill tier-diamond">💎 LUXO DIAMANTE</span>`
-      : isVip
-      ? `<span class="tier-pill tier-vip">⭐ DESTAQUE VIP</span>`
-      : `<span class="tier-pill tier-online">🟢 ONLINE AGORA</span>`;
-
-    const rateCardHtml = creator.hourly_rate
-      ? `<div class="rate-box">
-          <span class="rate-label">Valor do Atendimento (1h)</span>
-          <strong class="rate-value">R$ ${Number(creator.hourly_rate).toFixed(2).replace('.', ',')}</strong>
-         </div>`
-      : `<div class="rate-box">
-          <span class="rate-label">Valor do Atendimento</span>
-          <strong class="rate-value" style="font-size:15px;color:#cbd5e1">A combinar no WhatsApp</strong>
-         </div>`;
-
-    const galleryHtml =
-      mediaList.length === 0
-        ? `<div class="empty-gallery">Nenhuma foto ou vídeo publicado na galeria ainda.</div>`
-        : mediaList
-            .map((m, idx) =>
-              m.media_type === 'video'
-                ? `<div class="media-card" data-type="video" onclick="openLightbox(${idx})">
-                    <video src="${m.public_url}#t=0.5" muted playsinline preload="metadata"></video>
-                    <span class="play-badge">▶ Vídeo</span>
-                   </div>`
-                : `<div class="media-card" data-type="image" onclick="openLightbox(${idx})">
-                    <img src="${m.public_url}" alt="${creator.stage_name}" loading="lazy" />
-                   </div>`
-            )
-            .join('');
-
-    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conheça ${creator.stage_name} em ${creator.city} - ${creator.state} | Portal VIP</title>
-  <meta property="og:title" content="Conheça ${creator.stage_name} em ${creator.city} - ${creator.state}" />
-  <meta property="og:description" content="${(creator.bio || 'Perfil verificado no Portal VIP.').slice(0, 140)}" />
-  <meta property="og:image" content="${avatarUrl}" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:#090d16; color:#f8fafc; font-family:'Montserrat',sans-serif; padding-bottom:84px; }
-
-    .topbar { background:#111827; border-bottom:1px solid #1f2937; padding:12px 16px; position:sticky; top:0; z-index:40; }
-    .topbar-inner { max-width:720px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; }
-    .back-link { color:#cbd5e1; text-decoration:none; font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; }
-    .brand { font-size:16px; font-weight:900; background:linear-gradient(90deg,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; }
-
-    .container { max-width:720px; margin:0 auto; }
-
-    .cover-wrap { position:relative; height:190px; background:#1e293b; overflow:hidden; }
-    @media(min-width:640px){ .cover-wrap { height:250px; border-radius:0 0 20px 20px; } }
-    .cover-img { width:100%; height:100%; object-fit:cover; filter:brightness(0.78); }
-    .cover-grad { position:absolute; inset:0; background:linear-gradient(180deg,transparent 35%,#090d16 100%); }
-
-    .profile-head { padding:0 16px; margin-top:-54px; position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; text-align:center; }
-    .avatar-ring { width:112px; height:112px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#ec4899,#8b5cf6); box-shadow:0 10px 25px rgba(0,0,0,0.5); position:relative; }
-    .avatar-ring img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid #090d16; display:block; }
-    .online-dot { position:absolute; bottom:6px; right:6px; width:16px; height:16px; border-radius:50%; background:#22c55e; border:3px solid #090d16; }
-
-    .tier-pill { display:inline-block; font-size:10px; font-weight:800; padding:4px 12px; border-radius:99px; margin-top:10px; letter-spacing:0.4px; }
-    .tier-diamond { background:linear-gradient(90deg,#ec4899,#8b5cf6); color:#fff; }
-    .tier-vip { background:#eab308; color:#000; }
-    .tier-online { background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
-
-    .stage-title { font-size:24px; font-weight:800; color:#fff; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:6px; }
-    .loc-text { font-size:13px; color:#94a3b8; font-weight:600; margin-top:4px; }
-
-    .stats-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:18px 16px 0; background:#111827; border:1px solid #1f2937; border-radius:16px; padding:12px 8px; text-align:center; }
-    .stat-item strong { display:block; font-size:17px; font-weight:800; color:#fff; }
-    .stat-item span { font-size:11px; color:#94a3b8; font-weight:600; }
-
-    .rate-box { margin:12px 16px 0; background:linear-gradient(90deg,rgba(236,72,153,0.12),rgba(139,92,246,0.12)); border:1px solid rgba(236,72,153,0.35); border-radius:14px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; }
-    .rate-label { font-size:12px; font-weight:700; color:#cbd5e1; }
-    .rate-value { font-size:20px; font-weight:900; color:#ec4899; }
-
-    .bio-card { margin:12px 16px 0; background:#111827; border:1px solid #1f2937; border-radius:16px; padding:16px; }
-    .bio-card h3 { font-size:13px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.5px; }
-    .bio-card p { font-size:14px; color:#e2e8f0; line-height:1.55; white-space:pre-line; }
-
-    .gallery-head { margin:22px 16px 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-    .gallery-head h2 { font-size:16px; font-weight:800; color:#fff; }
-    .filter-tabs { display:flex; gap:6px; }
-    .ftab { background:#111827; border:1px solid #334155; color:#94a3b8; padding:6px 12px; border-radius:99px; font-size:11px; font-weight:700; cursor:pointer; }
-    .ftab.active { background:#ec4899; border-color:#ec4899; color:#fff; }
-
-    .gallery-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:0 16px; }
-    @media(min-width:640px){ .gallery-grid { gap:10px; } }
-    .media-card { position:relative; aspect-ratio:3/4; background:#111827; border-radius:8px; overflow:hidden; cursor:pointer; }
-    .media-card img, .media-card video { width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.25s; }
-    .media-card:hover img, .media-card:hover video { transform:scale(1.04); }
-    .play-badge { position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:99px; }
-    .empty-gallery { grid-column:1/-1; background:#111827; border:1px solid #1f2937; border-radius:14px; padding:32px; text-align:center; color:#94a3b8; font-size:13px; }
-
-    .sticky-cta { position:fixed; bottom:0; left:0; right:0; background:rgba(9,13,22,0.92); backdrop-filter:blur(10px); border-top:1px solid #1f2937; padding:12px 16px; z-index:45; }
-    .sticky-inner { max-width:720px; margin:0 auto; display:flex; gap:10px; }
-    .wa-cta { flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(90deg,#22c55e,#16a34a); color:#fff; padding:14px; border-radius:12px; font-weight:800; font-size:15px; text-decoration:none; box-shadow:0 4px 16px rgba(34,197,94,0.3); }
-    .share-btn { background:#1f2937; border:1px solid #374151; color:#fff; padding:0 16px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; }
-
-    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999; display:none; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
-    .lightbox-close { position:absolute; top:16px; right:16px; background:#1f2937; color:#fff; border:none; width:38px; height:38px; border-radius:50%; font-size:18px; cursor:pointer; }
-    .lightbox-content img, .lightbox-content video { max-width:100%; max-height:82dvh; border-radius:12px; }
-  </style>
-</head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a href="/vitrine" class="back-link">← Voltar para a Vitrine</a>
-      <a href="/vitrine" class="brand">💎 PORTAL VIP</a>
-    </div>
-  </header>
-
-  <main class="container">
-    <div class="cover-wrap">
-      <img src="${coverUrl}" alt="Capa de ${creator.stage_name}" class="cover-img" />
-      <div class="cover-grad"></div>
-    </div>
-
-    <div class="profile-head">
-      <div class="avatar-ring">
-        <img src="${avatarUrl}" alt="${creator.stage_name}" />
-        <span class="online-dot" title="Online agora"></span>
-      </div>
-      ${tierBadge}
-      <h1 class="stage-title">
-        ${creator.stage_name}
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-      </h1>
-      <div class="loc-text">📍 ${creator.city} - ${creator.state}</div>
-    </div>
-
-    <div class="stats-bar">
-      <div class="stat-item">
-        <strong>${photosCount}</strong>
-        <span>📷 Fotos</span>
-      </div>
-      <div class="stat-item">
-        <strong>${videosCount}</strong>
-        <span>🎬 Vídeos</span>
-      </div>
-      <div class="stat-item">
-        <strong style="color:#4ade80">100%</strong>
-        <span>✅ Verificada</span>
-      </div>
-    </div>
-
-    ${rateCardHtml}
-
-    <div class="bio-card">
-      <h3>Sobre mim</h3>
-      <p>${creator.bio || 'Atendimento exclusivo com discrição e total segurança. Entre em contato pelo WhatsApp para mais informações e horários.'}</p>
-    </div>
-
-    <div class="gallery-head">
-      <h2>Galeria de Mídias (${mediaList.length})</h2>
-      <div class="filter-tabs">
-        <button class="ftab active" onclick="filterMedia('all', this)">Tudo</button>
-        <button class="ftab" onclick="filterMedia('image', this)">Fotos (${photosCount})</button>
-        <button class="ftab" onclick="filterMedia('video', this)">Vídeos (${videosCount})</button>
-      </div>
-    </div>
-
-    <div class="gallery-grid" id="gallery-grid">
-      ${galleryHtml}
-    </div>
-  </main>
-
-  <div class="sticky-cta">
-    <div class="sticky-inner">
-      <a href="/r/wa/${creator.slug}" target="_blank" class="wa-cta">💬 Chamar no WhatsApp</a>
-      <button class="share-btn" onclick="shareProfile()">🔗</button>
-    </div>
-  </div>
-
-  <div id="lightbox" class="lightbox" onclick="if(event.target===this) closeLightbox()">
-    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-    <div id="lightbox-content" class="lightbox-content"></div>
-  </div>
-
-  <script>
-    const mediaItems = ${JSON.stringify(mediaList.map((m) => ({ type: m.media_type, url: m.public_url })))};
-
-    function filterMedia(type, btn) {
-      document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('.media-card').forEach(card => {
-        card.style.display = (type === 'all' || card.dataset.type === type) ? 'block' : 'none';
-      });
-    }
-
-    function openLightbox(idx) {
-      const item = mediaItems[idx];
-      if (!item) return;
-      const box = document.getElementById('lightbox-content');
-      box.innerHTML = item.type === 'video'
-        ? \`<video src="\${item.url}" controls autoplay playsinline></video>\`
-        : \`<img src="\${item.url}" />\`;
-      document.getElementById('lightbox').style.display = 'flex';
-    }
-
-    function closeLightbox() {
-      document.getElementById('lightbox-content').innerHTML = '';
-      document.getElementById('lightbox').style.display = 'none';
-    }
-
-    function shareProfile() {
-      navigator.clipboard.writeText(location.href);
-      alert('Link do perfil copiado!');
-    }
-  </script>
-</body>
-</html>`);
-  });
-
-  // =======================================================================
-  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — TEMA ESCURO MODERNO COMPLETO
+ // =======================================================================
+  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — COM PRÉVIA AO VIVO E EDIÇÃO DE CAPA
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
     const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
@@ -867,22 +546,22 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:#090d16; color:#f8fafc; font-family:'Montserrat',sans-serif; padding:16px; min-height:100vh; }
-    .wrap { max-width:540px; margin:0 auto; padding-bottom:40px; }
+    .wrap { max-width:580px; margin:0 auto; padding-bottom:48px; }
 
-    .top-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding:0 4px; }
+    .top-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding:0 4px; }
     .brand { font-size:20px; font-weight:900; background:linear-gradient(90deg,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; }
     .logout-btn { background:#1f2937; border:1px solid #374151; color:#94a3b8; padding:7px 14px; border-radius:99px; font-size:12px; font-weight:600; cursor:pointer; }
     .logout-btn:hover { background:#374151; color:#fff; }
 
     .card { background:#111827; border:1px solid #1f2937; border-radius:18px; padding:20px; margin-bottom:16px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); }
     h2, h3 { font-size:16px; font-weight:700; color:#fff; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-    
+
     label { display:block; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
     input, textarea, select { width:100%; padding:12px 14px; border-radius:12px; border:1px solid #334155; background:#0b101d; color:#fff; margin-bottom:14px; font-family:inherit; font-size:14px; outline:none; transition:0.2s; }
     input:focus, textarea:focus, select:focus { border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,0.15); }
-    
+
     .btn { width:100%; padding:14px; border-radius:12px; border:none; background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; font-family:inherit; font-weight:800; font-size:14px; cursor:pointer; transition:0.2s; box-shadow:0 4px 12px rgba(236,72,153,0.25); }
-    .btn:hover { opacity:0.9; transform:translateY(-1px); }
+    .btn:hover { opacity:0.92; transform:translateY(-1px); }
     .btn-dark { background:#1f2937; border:1px solid #374151; box-shadow:none; }
     .btn-dark:hover { background:#374151; }
     .btn-green { background:linear-gradient(90deg,#22c55e,#16a34a); box-shadow:0 4px 12px rgba(34,197,94,0.25); }
@@ -890,6 +569,41 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     .tabs { display:flex; gap:8px; margin-bottom:16px; background:#0b101d; padding:4px; border-radius:14px; border:1px solid #1f2937; }
     .tab { flex:1; padding:10px; border-radius:10px; border:none; background:transparent; color:#94a3b8; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; transition:0.2s; }
     .tab.active { background:#1f2937; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+
+    /* Barra de Alternância Edição vs Prévia */
+    .mode-switcher { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+    .mode-pills { display:flex; background:#0b101d; border:1px solid #1f2937; border-radius:99px; padding:3px; }
+    .mode-pill { border:none; background:transparent; color:#94a3b8; font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:99px; cursor:pointer; }
+    .mode-pill.active { background:#ec4899; color:#fff; }
+
+    /* Cartão de Prévia Ao Vivo (Como o Cliente Vê) */
+    .live-preview-card { background:#ffffff; color:#263238; border-radius:16px; overflow:hidden; border:2px solid #ec4899; box-shadow:0 12px 30px rgba(0,0,0,0.45); margin-bottom:16px; }
+    .lp-cover { position:relative; height:150px; background:#1e293b; }
+    .lp-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+    .lp-cover-grad { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.45)); }
+    .edit-cover-btn { position:absolute; top:12px; right:12px; z-index:5; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); color:#fff; border:1px solid rgba(255,255,255,0.25); padding:7px 13px; border-radius:99px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .edit-cover-btn:hover { background:#ec4899; border-color:#ec4899; }
+
+    .lp-body { padding:0 16px 18px; position:relative; }
+    .lp-top-row { display:flex; justify-content:space-between; align-items:flex-end; margin-top:-44px; margin-bottom:12px; }
+    .lp-avatar-wrap { position:relative; width:88px; height:88px; }
+    .lp-avatar-wrap img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:4px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,0.18); background:#fff; }
+    .edit-avatar-btn { position:absolute; bottom:0; right:-4px; background:#ec4899; color:#fff; border:2px solid #fff; width:30px; height:30px; border-radius:50%; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+
+    .lp-price-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; text-align:right; }
+    .lp-price-box span { display:block; font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; }
+    .lp-price-box strong { font-size:17px; color:#263238; font-weight:800; }
+
+    .lp-name { font-size:19px; font-weight:800; color:#263238; display:flex; align-items:center; gap:6px; }
+    .lp-city { font-size:12px; color:#5d7a89; font-weight:600; margin-top:2px; }
+    .lp-bio { font-size:12px; color:#455a64; line-height:1.5; margin-top:10px; background:#f4f6f7; padding:10px 12px; border-radius:10px; }
+    .lp-fake-cta { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .lp-btn-wa { background:#389e47; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
+    .lp-btn-vip { background:#b73347; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
+
+    /* Oculta botões de edição rápida quando estiver no modo "Como os Clientes Veem" */
+    .client-view-mode .edit-cover-btn,
+    .client-view-mode .edit-avatar-btn { display:none !important; }
 
     .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
     .kpi-box { background:#0b101d; border:1px solid #1f2937; border-radius:14px; padding:14px 8px; text-align:center; }
@@ -900,6 +614,9 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     .media-item { position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; background:#000; border:1px solid #1f2937; }
     .media-item img, .media-item video { width:100%; height:100%; object-fit:cover; }
     .del-btn { position:absolute; top:6px; right:6px; background:rgba(220,38,38,0.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-weight:bold; }
+    .media-set-bar { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.78); display:flex; gap:2px; padding:4px; }
+    .media-set-btn { flex:1; background:rgba(255,255,255,0.16); color:#fff; border:none; border-radius:4px; font-size:9px; font-weight:700; padding:4px 2px; cursor:pointer; }
+    .media-set-btn:hover { background:#ec4899; }
 
     .plan-box { border:1px solid #1f2937; border-radius:14px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; background:#0b101d; transition:0.2s; }
     .plan-box:hover { border-color:#374151; }
@@ -971,40 +688,63 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     </div>
 
     <div id="dash-box" style="display:none">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px">
-          <div>
-            <h2 id="welcome-title" style="margin-bottom:6px;font-size:18px;">Olá!</h2>
-            <p id="status-badge" style="font-size:12px;color:#fbbf24;font-weight:700"></p>
-          </div>
-          <a id="profile-link" href="#" target="_blank" style="background:rgba(236,72,153,0.15);color:#ec4899;border:1px solid rgba(236,72,153,0.3);padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">Ver Meu Perfil ↗</a>
+      <!-- Barra de Controle: Modo Edição vs Como os Clientes Veem -->
+      <div class="mode-switcher">
+        <div class="mode-pills">
+          <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar Perfil</button>
+          <button id="btn-mode-client" class="mode-pill" onclick="setPreviewMode('client')">👁️ Como Clientes Veem</button>
+        </div>
+        <a id="profile-link" href="#" target="_blank" style="background:rgba(236,72,153,0.15);color:#ec4899;border:1px solid rgba(236,72,153,0.3);padding:7px 12px;border-radius:99px;font-size:11px;font-weight:700;text-decoration:none;">Abrir Página Pública ↗</a>
+      </div>
+
+      <!-- Prévia Ao Vivo do Perfil (Atualiza em Tempo Real) -->
+      <div id="live-preview-card" class="live-preview-card">
+        <div class="lp-cover">
+          <img id="lp-cover-img" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA" alt="Capa" />
+          <div class="lp-cover-grad"></div>
+          <button type="button" class="edit-cover-btn" onclick="document.getElementById('cover-file-input').click()">
+            📷 Alterar Capa
+          </button>
+          <input type="file" id="cover-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('cover', this.files[0])" />
         </div>
 
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1f2937;">
-          <span style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.5px">📊 PERFORMANCE (ÚLTIMOS 30 DIAS)</span>
-          <div class="kpi-grid">
-            <div class="kpi-box">
-              <div class="kpi-num" id="kpi-views">0</div>
-              <div class="kpi-label">👁️ Visitas</div>
+        <div class="lp-body">
+          <div class="lp-top-row">
+            <div class="lp-avatar-wrap">
+              <img id="lp-avatar-img" src="https://placehold.co/300x300/1e293b/ec4899?text=VIP" alt="Avatar" />
+              <button type="button" class="edit-avatar-btn" title="Trocar foto de perfil" onclick="document.getElementById('avatar-file-input').click()">
+                📷
+              </button>
+              <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('avatar', this.files[0])" />
             </div>
-            <div class="kpi-box">
-              <div class="kpi-num" style="color:#4ade80" id="kpi-contacts">0</div>
-              <div class="kpi-label">💬 WhatsApp</div>
+
+            <div class="lp-price-box">
+              <span>Cachê (1 hora)</span>
+              <strong id="lp-price-display">Consultar</strong>
             </div>
-            <div class="kpi-box">
-              <div class="kpi-num" style="color:#ec4899" id="kpi-rate">0%</div>
-              <div class="kpi-label">🔥 Conv.</div>
-            </div>
+          </div>
+
+          <div class="lp-name">
+            <span id="lp-name-display">Seu Nome</span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+          <div class="lp-city" id="lp-city-display">📍 Cidade - UF</div>
+          <div class="lp-bio" id="lp-bio-display">Sua descrição aparecerá aqui para os clientes...</div>
+
+          <div class="lp-fake-cta">
+            <div class="lp-btn-wa">💬 Chamar no WhatsApp</div>
+            <div class="lp-btn-vip">🔥 Conteúdo VIP</div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <h3>💰 Valor do Serviço & Perfil</h3>
+      <!-- Formulário de Edição (Ocultado quando ativa "Como Clientes Veem") -->
+      <div id="edit-form-card" class="card">
+        <h3>✏️ Editar Valores e Informações</h3>
         <div style="display:flex;gap:10px">
           <div style="flex:1">
             <label>Valor da Hora (R$)</label>
-            <input id="p-rate" type="number" step="10" placeholder="Ex: 250" />
+            <input id="p-rate" type="number" step="10" placeholder="Ex: 300" oninput="syncLivePreview()" />
           </div>
           <div style="flex:1.4">
             <label>WhatsApp (com DDD)</label>
@@ -1014,21 +754,57 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
         <div style="display:flex;gap:10px">
           <div style="flex:2">
             <label>Nome Artístico</label>
-            <input id="p-name" />
+            <input id="p-name" oninput="syncLivePreview()" />
           </div>
           <div style="flex:1.2">
             <label>Cidade</label>
-            <input id="p-city" />
+            <input id="p-city" oninput="syncLivePreview()" />
           </div>
         </div>
         <label>Descrição do Atendimento</label>
-        <textarea id="p-bio" rows="2" placeholder="Descreva seu atendimento, horários e diferenciais..."></textarea>
-        <button class="btn btn-dark" onclick="saveProfile()">💾 Salvar Alterações</button>
+        <textarea id="p-bio" rows="3" placeholder="Descreva seu atendimento, horários e diferenciais..." oninput="syncLivePreview()"></textarea>
+        <button class="btn" onclick="saveProfile()">💾 Salvar Alterações do Perfil</button>
       </div>
 
+      <!-- Métricas -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.5px">📊 PERFORMANCE (30 DIAS)</span>
+          <span id="status-badge" style="font-size:11px;color:#fbbf24;font-weight:700"></span>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-box">
+            <div class="kpi-num" id="kpi-views">0</div>
+            <div class="kpi-label">👁️ Visitas</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-num" style="color:#4ade80" id="kpi-contacts">0</div>
+            <div class="kpi-label">💬 WhatsApp</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-num" style="color:#ec4899" id="kpi-rate">0%</div>
+            <div class="kpi-label">🔥 Conv.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Galeria -->
+      <div class="card">
+        <h3>📸 Galeria de Fotos e Vídeos</h3>
+        <label>Onde publicar os próximos arquivos?</label>
+        <select id="vis-select">
+          <option value="public">Público (Vitrine, Perfil e Reels)</option>
+          <option value="subscriber">Exclusivo VIP (Venda Visualização Única)</option>
+        </select>
+        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
+        <p id="upload-status" style="font-size:12px;color:#4ade80;font-weight:700;margin-top:6px"></p>
+        <div id="media-grid" class="media-grid"></div>
+      </div>
+
+      <!-- Impulsionar -->
       <div class="card">
         <h3>🚀 Impulsionar Perfil (Topo da Vitrine)</h3>
-        <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Ative seu destaque de forma instantânea via Pix e receba muito mais acessos:</p>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Ative seu destaque via Pix e apareça na primeira linha:</p>
         <div id="plans-list"></div>
 
         <div id="pix-area" style="display:none;text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #1f2937">
@@ -1038,23 +814,43 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
           <button class="btn btn-green" onclick="copyPix()" style="margin-top:8px">📋 Copiar Código Pix</button>
         </div>
       </div>
-
-      <div class="card">
-        <h3>📸 Galeria de Fotos e Vídeos</h3>
-        <label>Visibilidade dos arquivos</label>
-        <select id="vis-select">
-          <option value="public">Público (Aparece na Vitrine e Reels)</option>
-          <option value="subscriber">Exclusivo VIP (Só Assinantes)</option>
-        </select>
-        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
-        <p id="upload-status" style="font-size:12px;color:#4ade80;font-weight:700;margin-top:6px"></p>
-        <div id="media-grid" class="media-grid"></div>
-      </div>
     </div>
   </div>
 
   <script>
     let token = localStorage.getItem('portal_token') || '';
+    let currentStateUF = 'MT';
+
+    function setPreviewMode(mode) {
+      const card = document.getElementById('live-preview-card');
+      const editForm = document.getElementById('edit-form-card');
+      const btnEdit = document.getElementById('btn-mode-edit');
+      const btnClient = document.getElementById('btn-mode-client');
+
+      if (mode === 'client') {
+        card.classList.add('client-view-mode');
+        editForm.style.display = 'none';
+        btnClient.classList.add('active');
+        btnEdit.classList.remove('active');
+      } else {
+        card.classList.remove('client-view-mode');
+        editForm.style.display = 'block';
+        btnEdit.classList.add('active');
+        btnClient.classList.remove('active');
+      }
+    }
+
+    function syncLivePreview() {
+      const name = document.getElementById('p-name').value.trim() || 'Seu Nome Artístico';
+      const city = document.getElementById('p-city').value.trim() || 'Sua Cidade';
+      const rate = document.getElementById('p-rate').value;
+      const bio = document.getElementById('p-bio').value.trim() || 'Atendimento exclusivo com total discrição e segurança.';
+
+      document.getElementById('lp-name-display').innerText = name;
+      document.getElementById('lp-city-display').innerText = '📍 ' + city + ' - ' + currentStateUF;
+      document.getElementById('lp-bio-display').innerText = bio;
+      document.getElementById('lp-price-display').innerText = rate ? 'R$ ' + Number(rate).toFixed(0) : 'Consultar';
+    }
 
     async function handleGoogleCredential(response) {
       const res = await fetch('/api/portal/google-auth', {
@@ -1121,14 +917,23 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       if (!res.ok) return logout();
       const { creator, stats, plans } = await res.json();
 
+      currentStateUF = creator.state || 'MT';
+
       document.getElementById('auth-box').style.display = 'none';
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
-      document.getElementById('welcome-title').innerText = creator.stage_name;
       document.getElementById('profile-link').href = '/acompanhante/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
-        ? '✅ Perfil Ativo na Vitrine | ' + creator.tier.toUpperCase()
-        : '⏳ Aguardando aprovação do administrador';
+        ? '✅ Ativo | ' + creator.tier.toUpperCase()
+        : '⏳ Aguardando aprovação';
+
+      // Preenche imagens da Prévia Ao Vivo
+      if (creator.cover_url || creator.avatar_url) {
+        document.getElementById('lp-cover-img').src = creator.cover_url || creator.avatar_url;
+      }
+      if (creator.avatar_url || creator.cover_url) {
+        document.getElementById('lp-avatar-img').src = creator.avatar_url || creator.cover_url;
+      }
 
       const views = Number(stats?.views_30d || 0);
       const contacts = Number(stats?.contacts_30d || 0);
@@ -1142,6 +947,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       document.getElementById('p-name').value = creator.stage_name || '';
       document.getElementById('p-city').value = creator.city || '';
       document.getElementById('p-bio').value = creator.bio || '';
+      syncLivePreview();
 
       document.getElementById('plans-list').innerHTML = plans.map(p => \`
         <div class="plan-box">
@@ -1158,6 +964,50 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       loadMedia();
     }
 
+    async function uploadSingleProfilePhoto(target, file) {
+      if (!file) return;
+      const presign = await fetch('/api/creator/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public' }),
+      }).then(r => r.json());
+
+      if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
+
+      await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+
+      const payload = target === 'cover' ? { cover_url: presign.publicUrl } : { avatar_url: presign.publicUrl };
+      await fetch('/api/portal/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload),
+      });
+
+      if (target === 'cover') {
+        document.getElementById('lp-cover-img').src = presign.publicUrl;
+        alert('✅ Foto de capa atualizada!');
+      } else {
+        document.getElementById('lp-avatar-img').src = presign.publicUrl;
+        alert('✅ Foto principal do perfil atualizada!');
+      }
+    }
+
+    async function setExistingAs(target, url) {
+      const payload = target === 'cover' ? { cover_url: url } : { avatar_url: url };
+      await fetch('/api/portal/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload),
+      });
+      if (target === 'cover') {
+        document.getElementById('lp-cover-img').src = url;
+        alert('✅ Definida como foto de capa!');
+      } else {
+        document.getElementById('lp-avatar-img').src = url;
+        alert('✅ Definida como foto principal!');
+      }
+    }
+
     async function saveProfile() {
       const rateVal = document.getElementById('p-rate').value;
       const res = await fetch('/api/portal/me', {
@@ -1172,7 +1022,10 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
         }),
       });
       const data = await res.json();
-      if (data.ok) alert('✅ Perfil e valores atualizados com sucesso!');
+      if (data.ok) {
+        syncLivePreview();
+        alert('✅ Alterações salvas com sucesso!');
+      }
     }
 
     async function loadMedia() {
@@ -1182,6 +1035,11 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
         <div class="media-item">
           \${m.media_type === 'video' ? \`<video src="\${m.public_url}"></video>\` : \`<img src="\${m.public_url}" />\`}
           <button class="del-btn" onclick="delMedia(\${m.id})">✕</button>
+          \${m.media_type === 'image' ? \`
+            <div class="media-set-bar">
+              <button class="media-set-btn" onclick="setExistingAs('cover', '\${m.public_url}')">Capa</button>
+              <button class="media-set-btn" onclick="setExistingAs('avatar', '\${m.public_url}')">Perfil</button>
+            </div>\` : ''}
         </div>
       \`).join('');
     }
@@ -1216,14 +1074,6 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
             publicUrl: presign.publicUrl,
           }),
         });
-
-        if (presign.mediaType === 'image' && visibility === 'public') {
-          await fetch('/api/portal/me', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ cover_url: presign.publicUrl, avatar_url: presign.publicUrl }),
-          });
-        }
       }
 
       status.innerText = '✅ Upload concluído com sucesso!';
@@ -1263,6 +1113,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 </body>
 </html>`);
   });
+  
 
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)

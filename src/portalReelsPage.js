@@ -4,11 +4,12 @@ export function registerPortalReelsRoute(app) {
   app.get('/reels', async (req, reply) => {
     const startSlug = req.query.modelo ? String(req.query.modelo) : null;
 
-    // Busca vídeos publicados pelas modelos ativas no banco
+    // Busca vídeos publicados pelas modelos ativas na tabela creator_accounts
     const { rows } = await pool.query(`
       SELECT 
         m.id AS media_id,
         m.public_url AS video_url,
+        m.caption,
         c.id AS creator_id,
         c.stage_name,
         c.slug,
@@ -18,9 +19,11 @@ export function registerPortalReelsRoute(app) {
         c.bio,
         c.tier
       FROM creator_media m
-      JOIN creators c ON c.id = m.creator_id
+      JOIN creator_accounts c ON c.id = m.creator_id
       WHERE m.media_type IN ('video', 'verification')
-      ORDER BY m.id DESC
+        AND m.visibility IN ('public', 'preview')
+        AND c.active = TRUE
+      ORDER BY m.created_at DESC
       LIMIT 40
     `);
 
@@ -138,7 +141,7 @@ export function registerPortalReelsRoute(app) {
             </a>
             <span class="city-pill">📍 ${r.city} - ${r.state}</span>
           </div>
-          <p class="reel-caption">${r.bio || 'Conteúdo exclusivo e atendimento VIP.'}</p>
+          <p class="reel-caption">${r.caption || r.bio || 'Conteúdo exclusivo e atendimento VIP.'}</p>
           <div class="reel-cta-row">
             <a href="/acompanhante/${r.slug}" class="btn-reel-profile">Ver Perfil</a>
             <a href="/vip/${r.slug}" class="btn-reel-vip">🔒 Conteúdo Exclusivo (1x)</a>
