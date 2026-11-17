@@ -64,6 +64,57 @@ export async function createMercadoPagoPix({ channel, userId, priceBr, hours = 2
   }
 }
 
+export async function createVipPpvPix({ unlockId, priceBr, description = 'Conteudo Exclusivo VIP' }) {
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!token) return null;
+
+  const amount = parseBrlAmount(priceBr);
+  const externalRef = `vip_ppv:${unlockId}`;
+  const idempotencyKey = `vip_ppv_${unlockId}_${Math.floor(Date.now() / 60000)}`;
+  const webhookBase =
+    process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app';
+
+  try {
+    const res = await axios.post(
+      `${MP_API}/v1/payments`,
+      {
+        transaction_amount: amount,
+        description: description.slice(0, 60),
+        payment_method_id: 'pix',
+        external_reference: externalRef,
+        notification_url: `${webhookBase.replace(/\/$/, '')}/webhook/mercadopago`,
+        payer: {
+          email: `vip_cliente_${unlockId}@portalvip.com`,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': idempotencyKey,
+        },
+      }
+    );
+
+    const txData = res.data?.point_of_interaction?.transaction_data;
+    if (txData?.qr_code) {
+      return {
+        paymentId: res.data.id,
+        qrCode: txData.qr_code,
+        qrCodeBase64: txData.qr_code_base64 || null,
+        amount,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error(
+      '[MercadoPago] Erro ao gerar Pix VIP PPV:',
+      err?.response?.data || err.message
+    );
+    return null;
+  }
+}
+
 export async function getMercadoPagoPayment(paymentId) {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token || !paymentId) return null;
