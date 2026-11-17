@@ -64,13 +64,13 @@ export async function createMercadoPagoPix({ channel, userId, priceBr, hours = 2
   }
 }
 
-export async function createVipPpvPix({ unlockId, priceBr, description = 'Conteudo Exclusivo VIP' }) {
+export async function createVipPpvPix({ unlockId, priceBr, description = 'Conteudo Exclusivo VIP', customExternalRef }) {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) return null;
 
   const amount = parseBrlAmount(priceBr);
-  const externalRef = `vip_ppv:${unlockId}`;
-  const idempotencyKey = `vip_ppv_${unlockId}_${Math.floor(Date.now() / 60000)}`;
+  const externalRef = customExternalRef || `vip_ppv:${unlockId}`;
+  const idempotencyKey = `${externalRef.replace(':', '_')}_${Math.floor(Date.now() / 60000)}`;
   const webhookBase =
     process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app';
 

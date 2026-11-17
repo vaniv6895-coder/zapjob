@@ -179,7 +179,8 @@ app.get('/fluxo', async (req, reply) => {
 registerPanelRoutes(app);
 registerCheckoutRoutes(app);
 registerPortalRoutes(app);
-registerVipFeedRoutes(app);
+ 
+
 registerPortalReelsRoute(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
@@ -375,14 +376,18 @@ app.post('/webhook/mercadopago', async (req, reply) => {
     const extRef = String(payment.external_reference || '');
 
     // Caso A: Pagamento de Conteúdo VIP Visualização Única (external_reference = "vip_ppv:unlockId")
-    if (extRef.startsWith('vip_ppv:')) {
-      const unlockId = Number(extRef.split(':')[1]);
-      if (unlockId) {
-        await pool.query(`UPDATE ppv_unlocks SET paid = TRUE WHERE id = $1`, [unlockId]);
-        app.log.info(`[VIP PPV] ✅ Visualização única #${unlockId} liberada para o dispositivo comprador`);
+    if (extRef.startsWith('vip_sub:')) {
+      const subId = Number(extRef.split(':')[1]);
+      if (subId) {
+        await pool.query(
+          `UPDATE vip_subscriptions SET paid = TRUE, expires_at = NOW() + INTERVAL '30 days' WHERE id = $1`,
+          [subId]
+        );
+        app.log.info(`[VIP SUB] ✅ Assinatura #${subId} ativada por 30 dias`);
       }
       return;
     }
+
 
     // Caso B: Pagamento de destaque do Portal (external_reference = "portal:orderId")
     if (extRef.startsWith('portal:')) {

@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import { pool } from './db.js';
+import { registerVipFeedRoutes } from './vipFeedRoutes.js';
+
 import axios from 'axios';
 import {
   registerCreator,
@@ -83,6 +85,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
+  registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
@@ -581,7 +584,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — COM PRÉVIA AO VIVO E EDIÇÃO DE CAPA
+  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — STUDIO PRO + CLUBE VIP
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
     const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
@@ -591,95 +594,278 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel da Criadora — Portal VIP</title>
+  <title>Creator Studio — Portal VIP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   ${googleClientId ? '<script src="https://accounts.google.com/gsi/client" async defer></script>' : ''}
   <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:#090d16; color:#f8fafc; font-family:'Montserrat',sans-serif; padding:16px; min-height:100vh; }
-    .wrap { max-width:580px; margin:0 auto; padding-bottom:48px; }
+    :root {
+      --bg-main: #070a12;
+      --bg-card: #0f1523;
+      --bg-input: #090d16;
+      --border: #1e293b;
+      --accent: #ec4899;
+      --accent-2: #8b5cf6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --green: #10b981;
+    }
 
-    .top-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding:0 4px; }
-    .brand { font-size:20px; font-weight:900; background:linear-gradient(90deg,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; }
-    .logout-btn { background:#1f2937; border:1px solid #374151; color:#94a3b8; padding:7px 14px; border-radius:99px; font-size:12px; font-weight:600; cursor:pointer; }
-    .logout-btn:hover { background:#374151; color:#fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at top center, #131b31 0%, var(--bg-main) 55%);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 620px; margin: 0 auto; padding-bottom: 64px; }
 
-    .card { background:#111827; border:1px solid #1f2937; border-radius:18px; padding:20px; margin-bottom:16px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); }
-    h2, h3 { font-size:16px; font-weight:700; color:#fff; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+    /* Top Bar */
+    .top-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding: 8px 4px;
+    }
+    .brand {
+      font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #f472b6, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+    }
+    .brand-tag {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      background: rgba(236, 72, 153, 0.15); color: #f472b6;
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      padding: 3px 8px; border-radius: 99px; -webkit-text-fill-color: #f472b6;
+    }
+    .logout-btn {
+      background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border);
+      color: var(--text-muted); padding: 8px 14px; border-radius: 99px;
+      font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .logout-btn:hover { background: #1e293b; color: #fff; }
 
-    label { display:block; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
-    input, textarea, select { width:100%; padding:12px 14px; border-radius:12px; border:1px solid #334155; background:#0b101d; color:#fff; margin-bottom:14px; font-family:inherit; font-size:14px; outline:none; transition:0.2s; }
-    input:focus, textarea:focus, select:focus { border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,0.15); }
+    /* Cards & Inputs */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 22px; margin-bottom: 18px;
+      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+    }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; gap: 10px;
+    }
+    h2, h3 { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .subtitle { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
 
-    .btn { width:100%; padding:14px; border-radius:12px; border:none; background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; font-family:inherit; font-weight:800; font-size:14px; cursor:pointer; transition:0.2s; box-shadow:0 4px 12px rgba(236,72,153,0.25); }
-    .btn:hover { opacity:0.92; transform:translateY(-1px); }
-    .btn-dark { background:#1f2937; border:1px solid #374151; box-shadow:none; }
-    .btn-dark:hover { background:#374151; }
-    .btn-green { background:linear-gradient(90deg,#22c55e,#16a34a); box-shadow:0 4px 12px rgba(34,197,94,0.25); }
+    label {
+      display: block; font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;
+    }
+    input, textarea, select {
+      width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg-input);
+      color: #fff; margin-bottom: 14px; font-family: inherit; font-size: 14px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+    }
 
-    .tabs { display:flex; gap:8px; margin-bottom:16px; background:#0b101d; padding:4px; border-radius:14px; border:1px solid #1f2937; }
-    .tab { flex:1; padding:10px; border-radius:10px; border:none; background:transparent; color:#94a3b8; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; transition:0.2s; }
-    .tab.active { background:#1f2937; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+    .btn {
+      width: 100%; padding: 14px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
+      cursor: pointer; transition: 0.2s; box-shadow: 0 6px 18px rgba(236, 72, 153, 0.28);
+    }
+    .btn:hover { opacity: 0.94; transform: translateY(-1px); }
+    .btn-green {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+    }
 
-    .mode-switcher { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-    .mode-pills { display:flex; background:#0b101d; border:1px solid #1f2937; border-radius:99px; padding:3px; }
-    .mode-pill { border:none; background:transparent; color:#94a3b8; font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:99px; cursor:pointer; }
-    .mode-pill.active { background:#ec4899; color:#fff; }
+    /* Auth Tabs */
+    .tabs {
+      display: flex; gap: 6px; margin-bottom: 18px; background: var(--bg-input);
+      padding: 5px; border-radius: 14px; border: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1; padding: 10px; border-radius: 10px; border: none;
+      background: transparent; color: var(--text-muted); font-family: inherit;
+      font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s;
+    }
+    .tab.active { background: #1e293b; color: #fff; }
 
-    .live-preview-card { background:#ffffff; color:#263238; border-radius:16px; overflow:hidden; border:2px solid #ec4899; box-shadow:0 12px 30px rgba(0,0,0,0.45); margin-bottom:16px; }
-    .lp-cover { position:relative; height:150px; background:#1e293b; }
-    .lp-cover img { width:100%; height:100%; object-fit:cover; display:block; }
-    .lp-cover-grad { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.45)); }
-    .edit-cover-btn { position:absolute; top:12px; right:12px; z-index:5; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); color:#fff; border:1px solid rgba(255,255,255,0.25); padding:7px 13px; border-radius:99px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
-    .edit-cover-btn:hover { background:#ec4899; border-color:#ec4899; }
+    /* Studio Navigation Pills */
+    .studio-nav {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      padding: 6px; border-radius: 16px; margin-bottom: 18px;
+      position: sticky; top: 10px; z-index: 30;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .s-nav-btn {
+      border: none; background: transparent; color: var(--text-muted);
+      font-family: inherit; font-size: 11px; font-weight: 700;
+      padding: 10px 4px; border-radius: 11px; cursor: pointer; transition: 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .s-nav-btn span.ico { font-size: 16px; }
+    .s-nav-btn.active {
+      background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(139, 92, 246, 0.2));
+      color: #fff; border: 1px solid rgba(236, 72, 153, 0.35);
+    }
 
-    .lp-body { padding:0 16px 18px; position:relative; }
-    .lp-top-row { display:flex; justify-content:space-between; align-items:flex-end; margin-top:-44px; margin-bottom:12px; }
-    .lp-avatar-wrap { position:relative; width:88px; height:88px; }
-    .lp-avatar-wrap img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:4px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,0.18); background:#fff; }
-    .edit-avatar-btn { position:absolute; bottom:0; right:-4px; background:#ec4899; color:#fff; border:2px solid #fff; width:30px; height:30px; border-radius:50%; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+    /* Mode Switcher & Quick Links */
+    .mode-switcher {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .mode-pills {
+      display: flex; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 99px; padding: 3px;
+    }
+    .mode-pill {
+      border: none; background: transparent; color: var(--text-muted);
+      font-family: inherit; font-size: 11px; font-weight: 700;
+      padding: 7px 13px; border-radius: 99px; cursor: pointer; transition: 0.2s;
+    }
+    .mode-pill.active { background: var(--accent); color: #fff; }
+    .quick-ext-link {
+      background: rgba(255, 255, 255, 0.05); color: #e2e8f0;
+      border: 1px solid var(--border); padding: 7px 12px;
+      border-radius: 99px; font-size: 11px; font-weight: 700; text-decoration: none;
+      transition: 0.2s;
+    }
+    .quick-ext-link:hover { border-color: var(--accent); color: #fff; }
 
-    .lp-price-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; text-align:right; }
-    .lp-price-box span { display:block; font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; }
-    .lp-price-box strong { font-size:17px; color:#263238; font-weight:800; }
+    /* Live Preview Card */
+    .live-preview-card {
+      background: #ffffff; color: #1e293b; border-radius: 20px; overflow: hidden;
+      border: 2px solid rgba(236, 72, 153, 0.65);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5); margin-bottom: 18px;
+    }
+    .lp-cover { position: relative; height: 165px; background: #1e293b; }
+    .lp-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .lp-cover-grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.5)); }
+    .edit-cover-btn {
+      position: absolute; top: 12px; right: 12px; z-index: 5;
+      background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);
+      color: #fff; border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 7px 13px; border-radius: 99px; font-size: 11px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .edit-cover-btn:hover { background: var(--accent); border-color: var(--accent); }
 
-    .lp-name { font-size:19px; font-weight:800; color:#263238; display:flex; align-items:center; gap:6px; }
-    .lp-city { font-size:12px; color:#5d7a89; font-weight:600; margin-top:2px; }
-    .lp-bio { font-size:12px; color:#455a64; line-height:1.5; margin-top:10px; background:#f4f6f7; padding:10px 12px; border-radius:10px; }
-    .lp-fake-cta { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .lp-btn-wa { background:#389e47; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
-    .lp-btn-vip { background:#b73347; color:#fff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700; }
+    .lp-body { padding: 0 18px 20px; position: relative; }
+    .lp-top-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: -46px; margin-bottom: 12px; }
+    .lp-avatar-wrap { position: relative; width: 92px; height: 92px; }
+    .lp-avatar-wrap img {
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+      border: 4px solid #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22); background: #fff;
+    }
+    .edit-avatar-btn {
+      position: absolute; bottom: 0; right: -2px; background: var(--accent); color: #fff;
+      border: 2px solid #fff; width: 32px; height: 32px; border-radius: 50%;
+      font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    }
+    .lp-price-box {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 8px 14px; text-align: right;
+    }
+    .lp-price-box span { display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .lp-price-box strong { font-size: 18px; color: #0f172a; font-weight: 800; }
+
+    .lp-name { font-size: 20px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px; }
+    .lp-city { font-size: 12px; color: #64748b; font-weight: 600; margin-top: 2px; }
+    .lp-bio {
+      font-size: 12.5px; color: #334155; line-height: 1.55; margin-top: 12px;
+      background: #f1f5f9; padding: 11px 14px; border-radius: 12px;
+    }
+    .lp-fake-cta { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .lp-btn-wa { background: #16a34a; color: #fff; text-align: center; padding: 11px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+    .lp-btn-vip { background: linear-gradient(135deg, #e11d48, #db2777); color: #fff; text-align: center; padding: 11px; border-radius: 10px; font-size: 12px; font-weight: 700; }
 
     .client-view-mode .edit-cover-btn,
-    .client-view-mode .edit-avatar-btn { display:none !important; }
+    .client-view-mode .edit-avatar-btn { display: none !important; }
 
-    .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
-    .kpi-box { background:#0b101d; border:1px solid #1f2937; border-radius:14px; padding:14px 8px; text-align:center; }
-    .kpi-num { font-size:22px; font-weight:900; color:#fff; }
-    .kpi-label { font-size:10px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-top:4px; }
+    /* KPIs & Earnings Chart */
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .kpi-box {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 8px; text-align: center;
+    }
+    .kpi-num { font-size: 22px; font-weight: 800; color: #fff; }
+    .kpi-label { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-top: 4px; }
 
-    .media-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-    .media-item { position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; background:#000; border:1px solid #1f2937; }
-    .media-item img, .media-item video { width:100%; height:100%; object-fit:cover; }
-    .del-btn { position:absolute; top:6px; right:6px; background:rgba(220,38,38,0.9); color:#fff; border:none; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-weight:bold; }
-    .media-set-bar { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.78); display:flex; gap:2px; padding:4px; }
-    .media-set-btn { flex:1; background:rgba(255,255,255,0.16); color:#fff; border:none; border-radius:4px; font-size:9px; font-weight:700; padding:4px 2px; cursor:pointer; }
-    .media-set-btn:hover { background:#ec4899; }
+    .earn-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .earn-pill {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .earn-pill span { font-size: 10px; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px; }
+    .earn-pill strong { font-size: 16px; font-weight: 800; }
 
-    .plan-box { border:1px solid #1f2937; border-radius:14px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; background:#0b101d; transition:0.2s; }
-    .plan-box:hover { border-color:#374151; }
-    .plan-btn { background:#22c55e; color:#052e16; border:none; padding:10px 16px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; transition:0.2s; }
-    .plan-btn:hover { background:#16a34a; color:#fff; }
+    .chart-box {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+      height: 145px; padding: 16px 10px 8px; background: var(--bg-input);
+      border: 1px solid var(--border); border-radius: 16px;
+    }
+
+    /* Media & VIP Posts */
+    .media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+    .media-item {
+      position: relative; aspect-ratio: 1/1; border-radius: 12px;
+      overflow: hidden; background: #000; border: 1px solid var(--border);
+    }
+    .media-item img, .media-item video { width: 100%; height: 100%; object-fit: cover; }
+    .del-btn {
+      position: absolute; top: 6px; right: 6px; background: rgba(220, 38, 38, 0.9);
+      color: #fff; border: none; border-radius: 6px; padding: 4px 8px;
+      font-size: 11px; cursor: pointer; font-weight: 700;
+    }
+    .media-set-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(7, 10, 18, 0.82); backdrop-filter: blur(4px);
+      display: flex; gap: 4px; padding: 5px;
+    }
+    .media-set-btn {
+      flex: 1; background: rgba(255, 255, 255, 0.14); color: #fff; border: none;
+      border-radius: 5px; font-size: 10px; font-weight: 700; padding: 5px 2px; cursor: pointer;
+    }
+    .media-set-btn:hover { background: var(--accent); }
+
+    .vip-post-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px; margin-top: 10px;
+    }
+    .vip-post-thumb { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: #000; flex-shrink: 0; }
+
+    /* Highlight Plans */
+    .plan-box {
+      border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+      margin-bottom: 10px; display: flex; justify-content: space-between;
+      align-items: center; gap: 12px; background: var(--bg-input); transition: 0.2s;
+    }
+    .plan-box:hover { border-color: #334155; }
+    .plan-btn {
+      background: var(--green); color: #022c22; border: none; padding: 10px 16px;
+      border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer;
+      white-space: nowrap; transition: 0.2s;
+    }
+    .plan-btn:hover { background: #059669; color: #fff; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top-nav">
-      <a href="/vitrine" class="brand">💎 PORTAL VIP</a>
-      <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair da Conta</button>
+      <a href="/vitrine" class="brand">💎 PORTAL VIP <span class="brand-tag">Studio</span></a>
+      <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
     </div>
 
+    <!-- Tela de Login / Cadastro -->
     <div id="auth-box" class="card">
       ${
         googleClientId
@@ -699,7 +885,7 @@ export function registerPortalRoutes(app) {
                data-width="320">
           </div>
         </div>
-        <div style="text-align:center;font-size:11px;color:#64748b;margin:16px 0;font-weight:600">— OU ENTRE COM E-MAIL —</div>
+        <div style="text-align:center;font-size:11px;color:#64748b;margin:16px 0;font-weight:700">— OU ENTRE COM E-MAIL —</div>
       `
           : ''
       }
@@ -714,7 +900,7 @@ export function registerPortalRoutes(app) {
         <input id="l-email" type="email" placeholder="seu@email.com" />
         <label>Senha</label>
         <input id="l-pass" type="password" placeholder="Sua senha" />
-        <button class="btn" onclick="doLogin()">Acessar Painel</button>
+        <button class="btn" onclick="doLogin()">Acessar Creator Studio</button>
       </div>
 
       <div id="reg-form" style="display:none">
@@ -736,125 +922,223 @@ export function registerPortalRoutes(app) {
       </div>
     </div>
 
+    <!-- Painel Logado -->
     <div id="dash-box" style="display:none">
-      <div class="mode-switcher">
-        <div class="mode-pills">
-          <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar Perfil</button>
-          <button id="btn-mode-client" class="mode-pill" onclick="setPreviewMode('client')">👁️ Como Clientes Veem</button>
-        </div>
-        <a id="profile-link" href="#" target="_blank" style="background:rgba(236,72,153,0.15);color:#ec4899;border:1px solid rgba(236,72,153,0.3);padding:7px 12px;border-radius:99px;font-size:11px;font-weight:700;text-decoration:none;">Abrir Página Pública ↗</a>
-      </div>
+      <!-- Menu de Navegação Rápida por Abas -->
+      <nav class="studio-nav">
+        <button class="s-nav-btn active" id="nav-perfil" onclick="openStudioTab('perfil')">
+          <span class="ico">👤</span><span>Perfil</span>
+        </button>
+        <button class="s-nav-btn" id="nav-vip" onclick="openStudioTab('vip')">
+          <span class="ico">🔥</span><span>Clube VIP</span>
+        </button>
+        <button class="s-nav-btn" id="nav-galeria" onclick="openStudioTab('galeria')">
+          <span class="ico">📸</span><span>Galeria</span>
+        </button>
+        <button class="s-nav-btn" id="nav-impulsionar" onclick="openStudioTab('impulsionar')">
+          <span class="ico">🚀</span><span>Destaque</span>
+        </button>
+      </nav>
 
-      <div id="live-preview-card" class="live-preview-card">
-        <div class="lp-cover">
-          <img id="lp-cover-img" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA" alt="Capa" />
-          <div class="lp-cover-grad"></div>
-          <button type="button" class="edit-cover-btn" onclick="document.getElementById('cover-file-input').click()">
-            📷 Alterar Capa
-          </button>
-          <input type="file" id="cover-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('cover', this.files[0])" />
+      <!-- ABA 1: PERFIL & PRÉVIA AO VIVO -->
+      <div id="tab-perfil" class="studio-section">
+        <div class="mode-switcher">
+          <div class="mode-pills">
+            <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar</button>
+            <button id="btn-mode-client" class="mode-pill" onclick="setPreviewMode('client')">👁️ Visão Cliente</button>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
+            <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Perfil ↗</a>
+          </div>
         </div>
 
-        <div class="lp-body">
-          <div class="lp-top-row">
-            <div class="lp-avatar-wrap">
-              <img id="lp-avatar-img" src="https://placehold.co/300x300/1e293b/ec4899?text=VIP" alt="Avatar" />
-              <button type="button" class="edit-avatar-btn" title="Trocar foto de perfil" onclick="document.getElementById('avatar-file-input').click()">
-                📷
-              </button>
-              <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('avatar', this.files[0])" />
+        <div id="live-preview-card" class="live-preview-card">
+          <div class="lp-cover">
+            <img id="lp-cover-img" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA" alt="Capa" />
+            <div class="lp-cover-grad"></div>
+            <button type="button" class="edit-cover-btn" onclick="document.getElementById('cover-file-input').click()">
+              📷 Alterar Capa
+            </button>
+            <input type="file" id="cover-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('cover', this.files[0])" />
+          </div>
+
+          <div class="lp-body">
+            <div class="lp-top-row">
+              <div class="lp-avatar-wrap">
+                <img id="lp-avatar-img" src="https://placehold.co/300x300/1e293b/ec4899?text=VIP" alt="Avatar" />
+                <button type="button" class="edit-avatar-btn" title="Trocar foto de perfil" onclick="document.getElementById('avatar-file-input').click()">
+                  📷
+                </button>
+                <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('avatar', this.files[0])" />
+              </div>
+
+              <div class="lp-price-box">
+                <span>Cachê (1 hora)</span>
+                <strong id="lp-price-display">Consultar</strong>
+              </div>
             </div>
 
-            <div class="lp-price-box">
-              <span>Cachê (1 hora)</span>
-              <strong id="lp-price-display">Consultar</strong>
+            <div class="lp-name">
+              <span id="lp-name-display">Seu Nome</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </div>
+            <div class="lp-city" id="lp-city-display">📍 Cidade - UF</div>
+            <div class="lp-bio" id="lp-bio-display">Sua descrição aparecerá aqui para os clientes...</div>
+
+            <div class="lp-fake-cta">
+              <div class="lp-btn-wa">💬 Chamar no WhatsApp</div>
+              <div class="lp-btn-vip" id="lp-vip-btn-label">🔥 Clube VIP (R$ 49,90/mês)</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="edit-form-card" class="card">
+          <div class="card-header">
+            <h3>✏️ Valores e Informações</h3>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1">
+              <label>Cachê 1 Hora (R$)</label>
+              <input id="p-rate" type="number" step="10" placeholder="Ex: 300" oninput="syncLivePreview()" />
+            </div>
+            <div style="flex:1">
+              <label>Assinatura VIP (R$/mês)</label>
+              <input id="p-vip-price" type="number" step="5" placeholder="Ex: 49.90" oninput="syncLivePreview()" />
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1.4">
+              <label>Nome Artístico</label>
+              <input id="p-name" oninput="syncLivePreview()" />
+            </div>
+            <div style="flex:1">
+              <label>WhatsApp (DDD)</label>
+              <input id="p-wa" placeholder="65999999999" />
+            </div>
+          </div>
+          <label>Cidade</label>
+          <input id="p-city" oninput="syncLivePreview()" />
+          <label>Descrição do Atendimento</label>
+          <textarea id="p-bio" rows="3" placeholder="Descreva seu atendimento, horários e diferenciais..." oninput="syncLivePreview()"></textarea>
+          <button class="btn" onclick="saveProfile()">💾 Salvar Alterações do Perfil</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>📊 Alcance do Perfil (30 Dias)</h3>
+            <span id="status-badge" style="font-size:11px;color:#fbbf24;font-weight:700"></span>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-box">
+              <div class="kpi-num" id="kpi-views">0</div>
+              <div class="kpi-label">👁️ Visitas</div>
+            </div>
+            <div class="kpi-box">
+              <div class="kpi-num" style="color:#4ade80" id="kpi-contacts">0</div>
+              <div class="kpi-label">💬 WhatsApp</div>
+            </div>
+            <div class="kpi-box">
+              <div class="kpi-num" style="color:#ec4899" id="kpi-rate">0%</div>
+              <div class="kpi-label">🔥 Conversão</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 2: CLUBE VIP (GANHOS + PUBLICAR CONTEÚDO EXCLUSIVO) -->
+      <div id="tab-vip" class="studio-section" style="display:none;">
+        <!-- Gráfico de Ganhos -->
+        <div class="card">
+          <div class="card-header">
+            <h3>💸 Ganhos no Clube VIP</h3>
+            <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
+          </div>
+
+          <div class="earn-split">
+            <div class="earn-pill">
+              <span>👑 ASSINATURAS (<b id="vip-subs-count">0</b>)</span>
+              <strong id="vip-subs-earned" style="color:#ec4899;">R$ 0,00</strong>
+            </div>
+            <div class="earn-pill">
+              <span>🔥 AVULSOS 1X (<b id="vip-ppv-count">0</b>)</span>
+              <strong id="vip-ppv-earned" style="color:#38bdf8;">R$ 0,00</strong>
             </div>
           </div>
 
-          <div class="lp-name">
-            <span id="lp-name-display">Seu Nome</span>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-          </div>
-          <div class="lp-city" id="lp-city-display">📍 Cidade - UF</div>
-          <div class="lp-bio" id="lp-bio-display">Sua descrição aparecerá aqui para os clientes...</div>
+          <label style="margin-bottom:8px;">Faturamento dos últimos 7 dias</label>
+          <div id="vip-earnings-chart" class="chart-box"></div>
+        </div>
 
-          <div class="lp-fake-cta">
-            <div class="lp-btn-wa">💬 Chamar no WhatsApp</div>
-            <div class="lp-btn-vip">🔥 Conteúdo VIP</div>
+        <!-- Publicar Post Exclusivo -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🔥 Publicar Conteúdo Exclusivo</h3>
           </div>
+          <p class="subtitle">
+            Publique fotos ou vídeos protegidos contra print. Você pode liberar para assinantes mensais ou vender avulso com visualização única (1x).
+          </p>
+          <label>Legenda do Post</label>
+          <textarea id="vip-post-caption" rows="2" placeholder="Ex: Ensaio exclusivo gravado hoje à noite 🔥"></textarea>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1">
+              <label>Preço Avulso 1x (R$)</label>
+              <input id="vip-post-price" type="number" step="5" value="29.90" />
+            </div>
+            <div style="flex:1.4">
+              <label>Modo de Venda</label>
+              <select id="vip-post-mode">
+                <option value="both">Assinantes + Compra Avulsa (1x)</option>
+                <option value="ppv_only">Somente Compra Avulsa (1x)</option>
+              </select>
+            </div>
+          </div>
+          <label>Arquivo (Foto ou Vídeo)</label>
+          <input type="file" id="vip-post-file" accept="image/*,video/*" />
+          <button class="btn" onclick="publishVipPost()">🚀 Publicar no Clube VIP</button>
+          <p id="vip-post-status" style="font-size:12px;color:#10b981;font-weight:700;margin-top:8px;"></p>
+
+          <div id="vip-posts-list" style="margin-top:14px;"></div>
         </div>
       </div>
 
-      <div id="edit-form-card" class="card">
-        <h3>✏️ Editar Valores e Informações</h3>
-        <div style="display:flex;gap:10px">
-          <div style="flex:1">
-            <label>Valor da Hora (R$)</label>
-            <input id="p-rate" type="number" step="10" placeholder="Ex: 300" oninput="syncLivePreview()" />
+      <!-- ABA 3: GALERIA PÚBLICA & REELS -->
+      <div id="tab-galeria" class="studio-section" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <h3>📸 Galeria Pública & Reels</h3>
           </div>
-          <div style="flex:1.4">
-            <label>WhatsApp (com DDD)</label>
-            <input id="p-wa" placeholder="65999999999" />
-          </div>
-        </div>
-        <div style="display:flex;gap:10px">
-          <div style="flex:2">
-            <label>Nome Artístico</label>
-            <input id="p-name" oninput="syncLivePreview()" />
-          </div>
-          <div style="flex:1.2">
-            <label>Cidade</label>
-            <input id="p-city" oninput="syncLivePreview()" />
-          </div>
-        </div>
-        <label>Descrição do Atendimento</label>
-        <textarea id="p-bio" rows="3" placeholder="Descreva seu atendimento, horários e diferenciais..." oninput="syncLivePreview()"></textarea>
-        <button class="btn" onclick="saveProfile()">💾 Salvar Alterações do Perfil</button>
-      </div>
-
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.5px">📊 PERFORMANCE (30 DIAS)</span>
-          <span id="status-badge" style="font-size:11px;color:#fbbf24;font-weight:700"></span>
-        </div>
-        <div class="kpi-grid">
-          <div class="kpi-box">
-            <div class="kpi-num" id="kpi-views">0</div>
-            <div class="kpi-label">👁️ Visitas</div>
-          </div>
-          <div class="kpi-box">
-            <div class="kpi-num" style="color:#4ade80" id="kpi-contacts">0</div>
-            <div class="kpi-label">💬 WhatsApp</div>
-          </div>
-          <div class="kpi-box">
-            <div class="kpi-num" style="color:#ec4899" id="kpi-rate">0%</div>
-            <div class="kpi-label">🔥 Conv.</div>
-          </div>
+          <p class="subtitle">
+            As fotos e vídeos públicos aparecem na sua página, na vitrine e no feed de Reels para atrair novos clientes.
+          </p>
+          <label>Visibilidade</label>
+          <select id="vis-select">
+            <option value="public">Público (Vitrine, Perfil e Reels)</option>
+            <option value="preview">Prévia Borrada</option>
+          </select>
+          <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
+          <p id="upload-status" style="font-size:12px;color:#10b981;font-weight:700;margin-top:6px"></p>
+          <div id="media-grid" class="media-grid"></div>
         </div>
       </div>
 
-      <div class="card">
-        <h3>📸 Galeria de Fotos e Vídeos</h3>
-        <label>Onde publicar os próximos arquivos?</label>
-        <select id="vis-select">
-          <option value="public">Público (Vitrine, Perfil e Reels)</option>
-          <option value="subscriber">Exclusivo VIP (Venda Visualização Única)</option>
-        </select>
-        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="uploadFiles()" />
-        <p id="upload-status" style="font-size:12px;color:#4ade80;font-weight:700;margin-top:6px"></p>
-        <div id="media-grid" class="media-grid"></div>
-      </div>
+      <!-- ABA 4: IMPULSIONAR PERFIL -->
+      <div id="tab-impulsionar" class="studio-section" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <h3>🚀 Impulsionar Perfil na Vitrine</h3>
+          </div>
+          <p class="subtitle">
+            Destaque seu anúncio no topo da primeira página com liberação automática via Pix:
+          </p>
+          <div id="plans-list"></div>
 
-      <div class="card">
-        <h3>🚀 Impulsionar Perfil (Topo da Vitrine)</h3>
-        <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Ative seu destaque via Pix e apareça na primeira linha:</p>
-        <div id="plans-list"></div>
-
-        <div id="pix-area" style="display:none;text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #1f2937">
-          <p id="pix-plan-title" style="font-weight:700;margin-bottom:10px;color:#fff"></p>
-          <img id="pix-qr" style="width:190px;height:190px;background:#fff;padding:8px;border-radius:12px;margin:0 auto 12px;display:block" />
-          <textarea id="pix-code" rows="3" readonly style="font-size:11px;background:#05070d;color:#cbd5e1"></textarea>
-          <button class="btn btn-green" onclick="copyPix()" style="margin-top:8px">📋 Copiar Código Pix</button>
+          <div id="pix-area" style="display:none;text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <p id="pix-plan-title" style="font-weight:700;margin-bottom:10px;color:#fff"></p>
+            <img id="pix-qr" style="width:190px;height:190px;background:#fff;padding:8px;border-radius:12px;margin:0 auto 12px;display:block" />
+            <textarea id="pix-code" rows="3" readonly style="font-size:11px;background:#05070d;color:#cbd5e1"></textarea>
+            <button class="btn btn-green" onclick="copyPix()" style="margin-top:8px">📋 Copiar Código Pix</button>
+          </div>
         </div>
       </div>
     </div>
@@ -863,6 +1147,13 @@ export function registerPortalRoutes(app) {
   <script>
     let token = localStorage.getItem('portal_token') || '';
     let currentStateUF = 'MT';
+
+    function openStudioTab(tabName) {
+      document.querySelectorAll('.studio-section').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.s-nav-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('tab-' + tabName).style.display = 'block';
+      document.getElementById('nav-' + tabName).classList.add('active');
+    }
 
     function setPreviewMode(mode) {
       const card = document.getElementById('live-preview-card');
@@ -887,12 +1178,16 @@ export function registerPortalRoutes(app) {
       const name = document.getElementById('p-name').value.trim() || 'Seu Nome Artístico';
       const city = document.getElementById('p-city').value.trim() || 'Sua Cidade';
       const rate = document.getElementById('p-rate').value;
+      const vipPrice = document.getElementById('p-vip-price').value;
       const bio = document.getElementById('p-bio').value.trim() || 'Atendimento exclusivo com total discrição e segurança.';
 
       document.getElementById('lp-name-display').innerText = name;
       document.getElementById('lp-city-display').innerText = '📍 ' + city + ' - ' + currentStateUF;
       document.getElementById('lp-bio-display').innerText = bio;
       document.getElementById('lp-price-display').innerText = rate ? 'R$ ' + Number(rate).toFixed(0) : 'Consultar';
+      document.getElementById('lp-vip-btn-label').innerText = vipPrice
+        ? '🔥 Clube VIP (R$ ' + Number(vipPrice).toFixed(2).replace('.', ',') + '/mês)'
+        : '🔥 Clube VIP';
     }
 
     async function handleGoogleCredential(response) {
@@ -966,6 +1261,7 @@ export function registerPortalRoutes(app) {
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
       document.getElementById('profile-link').href = '/acompanhante/' + creator.slug;
+      document.getElementById('vip-club-link').href = '/vip/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
         ? '✅ Ativo | ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação';
@@ -985,6 +1281,7 @@ export function registerPortalRoutes(app) {
       document.getElementById('kpi-rate').innerText = conv + '%';
 
       document.getElementById('p-rate').value = creator.hourly_rate || '';
+      document.getElementById('p-vip-price').value = creator.vip_monthly_price || '49.90';
       document.getElementById('p-wa').value = creator.whatsapp || '';
       document.getElementById('p-name').value = creator.stage_name || '';
       document.getElementById('p-city').value = creator.city || '';
@@ -1004,6 +1301,36 @@ export function registerPortalRoutes(app) {
       \`).join('');
 
       loadMedia();
+      loadVipPosts();
+      loadVipEarnings();
+    }
+
+    async function loadVipEarnings() {
+      const res = await fetch('/api/vip/earnings', { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const fmt = (v) => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
+      document.getElementById('vip-total-earned').innerText = fmt(data.totalAll);
+      document.getElementById('vip-subs-earned').innerText = fmt(data.totalSubs);
+      document.getElementById('vip-subs-count').innerText = data.countSubs;
+      document.getElementById('vip-ppv-earned').innerText = fmt(data.totalPpv);
+      document.getElementById('vip-ppv-count').innerText = data.countPpv;
+
+      const daily = data.daily || [];
+      const maxVal = Math.max(...daily.map(d => d.total), 10);
+
+      document.getElementById('vip-earnings-chart').innerHTML = daily.map(d => {
+        const pct = Math.max(8, Math.round((d.total / maxVal) * 100));
+        return \`
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;gap:5px;" title="\${d.label}: \${fmt(d.total)}">
+            <span style="font-size:9px;color:#e2e8f0;font-weight:700;">\${d.total > 0 ? 'R$' + Math.round(d.total) : ''}</span>
+            <div style="width:100%;max-width:28px;height:\${pct}%;background:\${d.total > 0 ? 'linear-gradient(180deg,#ec4899,#8b5cf6)' : '#1e293b'};box-shadow:\${d.total > 0 ? '0 0 12px rgba(236,72,153,0.4)' : 'none'};border-radius:7px 7px 3px 3px;transition:height 0.4s;"></div>
+            <span style="font-size:9px;color:#64748b;font-weight:700;">\${d.label}</span>
+          </div>
+        \`;
+      }).join('');
     }
 
     async function uploadSingleProfilePhoto(target, file) {
@@ -1052,11 +1379,13 @@ export function registerPortalRoutes(app) {
 
     async function saveProfile() {
       const rateVal = document.getElementById('p-rate').value;
+      const vipPriceVal = document.getElementById('p-vip-price').value;
       const res = await fetch('/api/portal/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({
           hourly_rate: rateVal ? Number(rateVal) : null,
+          vip_monthly_price: vipPriceVal ? Number(vipPriceVal) : 49.90,
           whatsapp: document.getElementById('p-wa').value.replace(/\\D/g, ''),
           stage_name: document.getElementById('p-name').value.trim(),
           city: document.getElementById('p-city').value.trim(),
@@ -1068,6 +1397,74 @@ export function registerPortalRoutes(app) {
         syncLivePreview();
         alert('✅ Alterações salvas com sucesso!');
       }
+    }
+
+    async function publishVipPost() {
+      const file = document.getElementById('vip-post-file').files[0];
+      const caption = document.getElementById('vip-post-caption').value.trim();
+      const price = Number(document.getElementById('vip-post-price').value) || 29.90;
+      const mode = document.getElementById('vip-post-mode').value;
+      const status = document.getElementById('vip-post-status');
+
+      if (!file) return alert('Selecione uma foto ou vídeo exclusivo para publicar.');
+
+      status.innerText = 'Enviando mídia exclusiva...';
+      const presign = await fetch('/api/creator/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'subscriber' }),
+      }).then(r => r.json());
+
+      if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
+
+      await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+
+      const res = await fetch('/api/vip/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          caption,
+          mediaType: presign.mediaType,
+          mediaUrl: presign.publicUrl,
+          previewUrl: presign.publicUrl,
+          price,
+          singleView: true,
+          allowSubscription: mode === 'both'
+        }),
+      }).then(r => r.json());
+
+      if (res.ok) {
+        status.innerText = '✅ Post publicado no seu Clube VIP!';
+        document.getElementById('vip-post-caption').value = '';
+        document.getElementById('vip-post-file').value = '';
+        loadVipPosts();
+      } else {
+        alert(res.error || 'Erro ao publicar post VIP.');
+      }
+    }
+
+    async function loadVipPosts() {
+      const res = await fetch('/api/vip/my-posts', { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) return;
+      const { posts } = await res.json();
+      document.getElementById('vip-posts-list').innerHTML = (posts || []).map(p => \`
+        <div class="vip-post-row">
+          <div style="display:flex;align-items:center;gap:10px;overflow:hidden;">
+            \${p.media_type === 'video' ? \`<video src="\${p.media_url}" class="vip-post-thumb"></video>\` : \`<img src="\${p.media_url}" class="vip-post-thumb" />\`}
+            <div style="overflow:hidden;">
+              <strong style="display:block;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${p.caption || 'Conteúdo Exclusivo'}</strong>
+              <span style="font-size:11px;color:#ec4899;font-weight:700;">R$ \${Number(p.price).toFixed(2).replace('.', ',')} (1x) \${p.allow_subscription ? '• + Assinantes' : ''}</span>
+            </div>
+          </div>
+          <button onclick="delVipPost(\${p.id})" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;">Excluir</button>
+        </div>
+      \`).join('');
+    }
+
+    async function delVipPost(id) {
+      if (!confirm('Remover este post do Clube VIP?')) return;
+      await fetch('/api/vip/posts/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      loadVipPosts();
     }
 
     async function loadMedia() {
@@ -1155,6 +1552,7 @@ export function registerPortalRoutes(app) {
 </body>
 </html>`);
   });
+
 
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)

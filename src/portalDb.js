@@ -21,6 +21,7 @@ export async function initPortalDB() {
       cover_url TEXT,
       mp_access_token TEXT,
       subscription_price NUMERIC(10, 2) DEFAULT 29.90,
+      vip_monthly_price NUMERIC(10, 2) DEFAULT 49.90,
       verified BOOLEAN DEFAULT FALSE,
       active BOOLEAN DEFAULT FALSE,
       tier VARCHAR(20) DEFAULT 'free',
@@ -30,6 +31,7 @@ export async function initPortalDB() {
     );
 
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(10, 2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_monthly_price NUMERIC(10, 2) DEFAULT 49.90;
 
     CREATE INDEX IF NOT EXISTS idx_creators_home_ranking
       ON creator_accounts (city, active, verified, tier, featured_until DESC, last_boost_at DESC);
@@ -120,7 +122,7 @@ export async function registerCreator({ email, password, stageName, city, state,
   const res = await pool.query(
     `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, hourly_rate)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, verified, active, tier`,
+     RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, verified, active, tier`,
     [
       cleanEmail,
       passwordHash,
@@ -152,7 +154,7 @@ export async function authenticateCreator(email, password) {
 export async function getCreatorById(creatorId) {
   const res = await pool.query(
     `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
-            subscription_price, verified, active, tier, featured_until, last_boost_at, created_at
+            subscription_price, vip_monthly_price, verified, active, tier, featured_until, last_boost_at, created_at
      FROM creator_accounts
      WHERE id = $1`,
     [Number(creatorId)]
@@ -163,7 +165,7 @@ export async function getCreatorById(creatorId) {
 export async function getCreatorBySlug(slug) {
   const res = await pool.query(
     `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
-            subscription_price, verified, active, tier, featured_until, last_boost_at
+            subscription_price, vip_monthly_price, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE slug = $1 AND active = TRUE AND verified = TRUE`,
     [String(slug).trim().toLowerCase()]
@@ -183,6 +185,7 @@ export async function updateCreatorProfile(creatorId, fields) {
     'cover_url',
     'mp_access_token',
     'subscription_price',
+    'vip_monthly_price',
   ];
 
   const sets = [];
@@ -273,7 +276,7 @@ export async function getHomeRanking({ city = null, state = null, limit = 60 } =
 
   const res = await pool.query(
     `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
-            subscription_price, tier, featured_until, last_boost_at,
+            subscription_price, vip_monthly_price, tier, featured_until, last_boost_at,
             (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured
      FROM creator_accounts
      WHERE ${conditions.join(' AND ')}
@@ -420,7 +423,7 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
   const cleanEmail = String(email).trim().toLowerCase();
 
   const existing = await pool.query(
-    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
+    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, bio, avatar_url, cover_url,
             verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE email = $1
@@ -440,7 +443,7 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
       email, password_hash, slug, stage_name, city, state, avatar_url, cover_url
     )
     VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', $5, $5)
-    RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
+    RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, bio, avatar_url, cover_url,
               verified, active, tier, featured_until, last_boost_at`,
     [cleanEmail, randomPass, slug, String(name || 'Modelo VIP').trim(), picture || null]
   );
