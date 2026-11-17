@@ -175,6 +175,9 @@ export function registerPortalRoutes(app) {
     return reply.redirect(`https://wa.me/55${cleanPhone}?text=${msg}`);
   });
 
+  // =======================================================================
+  // PÁGINA 1: VITRINE COMPLETA (/vitrine)
+  // =======================================================================
   app.get('/vitrine', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
     const filter = String(req.query.filter || 'all');
@@ -597,29 +600,58 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 2: PERFIL INDIVIDUAL DA MODELO (/modelo/:slug)
+  // PÁGINA 2: PERFIL INDIVIDUAL DA MODELO (/modelo/:slug) — LAYOUT PREMIUM
   // =======================================================================
   app.get('/modelo/:slug', async (req, reply) => {
     const creator = await getCreatorBySlug(req.params.slug);
     if (!creator) {
-      return reply.status(404).type('text/html; charset=utf-8').send('<body style="background:#090d16;color:#fff;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#ec4899">Voltar para a Vitrine</a></body>');
+      return reply
+        .status(404)
+        .type('text/html; charset=utf-8')
+        .send('<body style="background:#090d16;color:#fff;font-family:sans-serif;text-align:center;padding:50px"><h2>Perfil não encontrado ou aguardando verificação.</h2><a href="/vitrine" style="color:#ec4899">Voltar para a Vitrine</a></body>');
     }
 
     await trackProfileEvent(creator.id, 'view');
 
     const mediaList = await listCreatorMedia(creator.id, false);
-    const rateHtml = creator.hourly_rate
-      ? `<div style="display:inline-block;background:rgba(236,72,153,0.15);color:#ec4899;font-weight:800;font-size:15px;padding:8px 14px;border-radius:10px;margin-bottom:12px">Cachê: R$ ${Number(creator.hourly_rate).toFixed(2).replace('.', ',')} / hora</div>`
-      : '';
+    const photosCount = mediaList.filter((m) => m.media_type === 'image').length;
+    const videosCount = mediaList.filter((m) => m.media_type === 'video').length;
+
+    const coverUrl = creator.cover_url || creator.avatar_url || 'https://placehold.co/900x360/111827/ec4899?text=PORTAL+VIP';
+    const avatarUrl = creator.avatar_url || creator.cover_url || 'https://placehold.co/300x300/1f2937/ec4899?text=VIP';
+
+    const isDiamond = creator.tier === 'diamond' && creator.featured_until && new Date(creator.featured_until) > new Date();
+    const isVip = creator.tier === 'vip' && creator.featured_until && new Date(creator.featured_until) > new Date();
+
+    const tierBadge = isDiamond
+      ? `<span class="tier-pill tier-diamond">💎 LUXO DIAMANTE</span>`
+      : isVip
+      ? `<span class="tier-pill tier-vip">⭐ DESTAQUE VIP</span>`
+      : `<span class="tier-pill tier-online">🟢 ONLINE AGORA</span>`;
+
+    const rateCardHtml = creator.hourly_rate
+      ? `<div class="rate-box">
+          <span class="rate-label">Valor do Atendimento (1h)</span>
+          <strong class="rate-value">R$ ${Number(creator.hourly_rate).toFixed(2).replace('.', ',')}</strong>
+         </div>`
+      : `<div class="rate-box">
+          <span class="rate-label">Valor do Atendimento</span>
+          <strong class="rate-value" style="font-size:15px;color:#cbd5e1">A combinar no WhatsApp</strong>
+         </div>`;
 
     const galleryHtml =
       mediaList.length === 0
-        ? `<p style="color:#94a3b8;text-align:center;padding:24px;grid-column:1/-1">Nenhuma foto ou vídeo publicado na galeria ainda.</p>`
+        ? `<div class="empty-gallery">Nenhuma foto ou vídeo publicado na galeria ainda.</div>`
         : mediaList
-            .map((m) =>
+            .map((m, idx) =>
               m.media_type === 'video'
-                ? `<video src="${m.public_url}" controls playsinline style="width:100%;border-radius:14px;background:#000;max-height:420px"></video>`
-                : `<img src="${m.public_url}" style="width:100%;border-radius:14px;object-fit:cover;aspect-ratio:3/4" loading="lazy" />`
+                ? `<div class="media-card" data-type="video" onclick="openLightbox(${idx})">
+                    <video src="${m.public_url}#t=0.5" muted playsinline preload="metadata"></video>
+                    <span class="play-badge">▶ Vídeo</span>
+                   </div>`
+                : `<div class="media-card" data-type="image" onclick="openLightbox(${idx})">
+                    <img src="${m.public_url}" alt="${creator.stage_name}" loading="lazy" />
+                   </div>`
             )
             .join('');
 
@@ -628,29 +660,183 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${creator.stage_name} — Portal VIP</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <title>Conheça ${creator.stage_name} em ${creator.city} - ${creator.state} | Portal VIP</title>
+  <meta property="og:title" content="Conheça ${creator.stage_name} em ${creator.city} - ${creator.state}" />
+  <meta property="og:description" content="${(creator.bio || 'Perfil verificado no Portal VIP.').slice(0, 140)}" />
+  <meta property="og:image" content="${avatarUrl}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { background:#090d16; color:#f8fafc; font-family:'Montserrat',sans-serif; margin:0; padding:16px; }
-    .wrap { max-width:560px; margin:0 auto; }
-    .top-card { background:#111827; border-radius:18px; padding:24px; border:1px solid #1f2937; margin-bottom:18px; box-shadow:0 10px 25px rgba(0,0,0,0.3); }
-    .wa-btn { display:block; text-align:center; background:#22c55e; color:#052e16; padding:14px; border-radius:12px; font-weight:800; text-decoration:none; font-size:15px; margin-top:16px; }
-    .gallery { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:#090d16; color:#f8fafc; font-family:'Montserrat',sans-serif; padding-bottom:84px; }
+
+    .topbar { background:#111827; border-bottom:1px solid #1f2937; padding:12px 16px; position:sticky; top:0; z-index:40; }
+    .topbar-inner { max-width:720px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; }
+    .back-link { color:#cbd5e1; text-decoration:none; font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; }
+    .brand { font-size:16px; font-weight:900; background:linear-gradient(90deg,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; }
+
+    .container { max-width:720px; margin:0 auto; }
+
+    .cover-wrap { position:relative; height:190px; background:#1e293b; overflow:hidden; }
+    @media(min-width:640px){ .cover-wrap { height:250px; border-radius:0 0 20px 20px; } }
+    .cover-img { width:100%; height:100%; object-fit:cover; filter:brightness(0.78); }
+    .cover-grad { position:absolute; inset:0; background:linear-gradient(180deg,transparent 35%,#090d16 100%); }
+
+    .profile-head { padding:0 16px; margin-top:-54px; position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; text-align:center; }
+    .avatar-ring { width:112px; height:112px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#ec4899,#8b5cf6); box-shadow:0 10px 25px rgba(0,0,0,0.5); position:relative; }
+    .avatar-ring img { width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid #090d16; display:block; }
+    .online-dot { position:absolute; bottom:6px; right:6px; width:16px; height:16px; border-radius:50%; background:#22c55e; border:3px solid #090d16; }
+
+    .tier-pill { display:inline-block; font-size:10px; font-weight:800; padding:4px 12px; border-radius:99px; margin-top:10px; letter-spacing:0.4px; }
+    .tier-diamond { background:linear-gradient(90deg,#ec4899,#8b5cf6); color:#fff; }
+    .tier-vip { background:#eab308; color:#000; }
+    .tier-online { background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
+
+    .stage-title { font-size:24px; font-weight:800; color:#fff; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .loc-text { font-size:13px; color:#94a3b8; font-weight:600; margin-top:4px; }
+
+    .stats-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:18px 16px 0; background:#111827; border:1px solid #1f2937; border-radius:16px; padding:12px 8px; text-align:center; }
+    .stat-item strong { display:block; font-size:17px; font-weight:800; color:#fff; }
+    .stat-item span { font-size:11px; color:#94a3b8; font-weight:600; }
+
+    .rate-box { margin:12px 16px 0; background:linear-gradient(90deg,rgba(236,72,153,0.12),rgba(139,92,246,0.12)); border:1px solid rgba(236,72,153,0.35); border-radius:14px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; }
+    .rate-label { font-size:12px; font-weight:700; color:#cbd5e1; }
+    .rate-value { font-size:20px; font-weight:900; color:#ec4899; }
+
+    .bio-card { margin:12px 16px 0; background:#111827; border:1px solid #1f2937; border-radius:16px; padding:16px; }
+    .bio-card h3 { font-size:13px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.5px; }
+    .bio-card p { font-size:14px; color:#e2e8f0; line-height:1.55; white-space:pre-line; }
+
+    .gallery-head { margin:22px 16px 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+    .gallery-head h2 { font-size:16px; font-weight:800; color:#fff; }
+    .filter-tabs { display:flex; gap:6px; }
+    .ftab { background:#111827; border:1px solid #334155; color:#94a3b8; padding:6px 12px; border-radius:99px; font-size:11px; font-weight:700; cursor:pointer; }
+    .ftab.active { background:#ec4899; border-color:#ec4899; color:#fff; }
+
+    .gallery-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:0 16px; }
+    @media(min-width:640px){ .gallery-grid { gap:10px; } }
+    .media-card { position:relative; aspect-ratio:3/4; background:#111827; border-radius:8px; overflow:hidden; cursor:pointer; }
+    .media-card img, .media-card video { width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.25s; }
+    .media-card:hover img, .media-card:hover video { transform:scale(1.04); }
+    .play-badge { position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.75); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:99px; }
+    .empty-gallery { grid-column:1/-1; background:#111827; border:1px solid #1f2937; border-radius:14px; padding:32px; text-align:center; color:#94a3b8; font-size:13px; }
+
+    .sticky-cta { position:fixed; bottom:0; left:0; right:0; background:rgba(9,13,22,0.92); backdrop-filter:blur(10px); border-top:1px solid #1f2937; padding:12px 16px; z-index:45; }
+    .sticky-inner { max-width:720px; margin:0 auto; display:flex; gap:10px; }
+    .wa-cta { flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(90deg,#22c55e,#16a34a); color:#fff; padding:14px; border-radius:12px; font-weight:800; font-size:15px; text-decoration:none; box-shadow:0 4px 16px rgba(34,197,94,0.3); }
+    .share-btn { background:#1f2937; border:1px solid #374151; color:#fff; padding:0 16px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; }
+
+    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999; display:none; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
+    .lightbox-close { position:absolute; top:16px; right:16px; background:#1f2937; color:#fff; border:none; width:38px; height:38px; border-radius:50%; font-size:18px; cursor:pointer; }
+    .lightbox-content img, .lightbox-content video { max-width:100%; max-height:82dvh; border-radius:12px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <a href="/vitrine" style="color:#94a3b8;text-decoration:none;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px">← Voltar para a Vitrine</a>
-    <div class="top-card">
-      <h1 style="margin:0 0 6px;font-size:24px;color:#fff">${creator.stage_name} ✅</h1>
-      <div style="color:#ec4899;font-size:14px;font-weight:700;margin-bottom:10px">📍 ${creator.city} - ${creator.state}</div>
-      ${rateHtml}
-      <p style="color:#94a3b8;font-size:14px;line-height:1.5">${creator.bio || 'Perfil verificado no Portal VIP.'}</p>
-      <a href="/r/wa/${creator.slug}" target="_blank" class="wa-btn">💬 Chamar no WhatsApp Agora</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/vitrine" class="back-link">← Voltar para a Vitrine</a>
+      <a href="/vitrine" class="brand">💎 PORTAL VIP</a>
     </div>
-    <h3 style="margin-bottom:12px;font-size:16px;color:#fff">Galeria de Fotos e Vídeos (${mediaList.length})</h3>
-    <div class="gallery">${galleryHtml}</div>
+  </header>
+
+  <main class="container">
+    <div class="cover-wrap">
+      <img src="${coverUrl}" alt="Capa de ${creator.stage_name}" class="cover-img" />
+      <div class="cover-grad"></div>
+    </div>
+
+    <div class="profile-head">
+      <div class="avatar-ring">
+        <img src="${avatarUrl}" alt="${creator.stage_name}" />
+        <span class="online-dot" title="Online agora"></span>
+      </div>
+      ${tierBadge}
+      <h1 class="stage-title">
+        ${creator.stage_name}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </h1>
+      <div class="loc-text">📍 ${creator.city} - ${creator.state}</div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <strong>${photosCount}</strong>
+        <span>📷 Fotos</span>
+      </div>
+      <div class="stat-item">
+        <strong>${videosCount}</strong>
+        <span>🎬 Vídeos</span>
+      </div>
+      <div class="stat-item">
+        <strong style="color:#4ade80">100%</strong>
+        <span>✅ Verificada</span>
+      </div>
+    </div>
+
+    ${rateCardHtml}
+
+    <div class="bio-card">
+      <h3>Sobre mim</h3>
+      <p>${creator.bio || 'Atendimento exclusivo com discrição e total segurança. Entre em contato pelo WhatsApp para mais informações e horários.'}</p>
+    </div>
+
+    <div class="gallery-head">
+      <h2>Galeria de Mídias (${mediaList.length})</h2>
+      <div class="filter-tabs">
+        <button class="ftab active" onclick="filterMedia('all', this)">Tudo</button>
+        <button class="ftab" onclick="filterMedia('image', this)">Fotos (${photosCount})</button>
+        <button class="ftab" onclick="filterMedia('video', this)">Vídeos (${videosCount})</button>
+      </div>
+    </div>
+
+    <div class="gallery-grid" id="gallery-grid">
+      ${galleryHtml}
+    </div>
+  </main>
+
+  <div class="sticky-cta">
+    <div class="sticky-inner">
+      <a href="/r/wa/${creator.slug}" target="_blank" class="wa-cta">💬 Chamar no WhatsApp</a>
+      <button class="share-btn" onclick="shareProfile()">🔗</button>
+    </div>
   </div>
+
+  <div id="lightbox" class="lightbox" onclick="if(event.target===this) closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <div id="lightbox-content" class="lightbox-content"></div>
+  </div>
+
+  <script>
+    const mediaItems = ${JSON.stringify(mediaList.map((m) => ({ type: m.media_type, url: m.public_url })))};
+
+    function filterMedia(type, btn) {
+      document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.media-card').forEach(card => {
+        card.style.display = (type === 'all' || card.dataset.type === type) ? 'block' : 'none';
+      });
+    }
+
+    function openLightbox(idx) {
+      const item = mediaItems[idx];
+      if (!item) return;
+      const box = document.getElementById('lightbox-content');
+      box.innerHTML = item.type === 'video'
+        ? \`<video src="\${item.url}" controls autoplay playsinline></video>\`
+        : \`<img src="\${item.url}" />\`;
+      document.getElementById('lightbox').style.display = 'flex';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox-content').innerHTML = '';
+      document.getElementById('lightbox').style.display = 'none';
+    }
+
+    function shareProfile() {
+      navigator.clipboard.writeText(location.href);
+      alert('Link do perfil copiado!');
+    }
+  </script>
 </body>
 </html>`);
   });
@@ -720,7 +906,6 @@ export function registerPortalRoutes(app) {
       <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair da Conta</button>
     </div>
 
-    <!-- TELA DE AUTENTICAÇÃO -->
     <div id="auth-box" class="card">
       ${
         googleClientId
@@ -777,9 +962,7 @@ export function registerPortalRoutes(app) {
       </div>
     </div>
 
-    <!-- PAINEL DA CRIADORA LOGADA -->
     <div id="dash-box" style="display:none">
-      <!-- 1. STATUS E PERFORMANCE -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:start;gap:10px">
           <div>
@@ -808,7 +991,6 @@ export function registerPortalRoutes(app) {
         </div>
       </div>
 
-      <!-- 2. EDITAR PERFIL & CACHÊ -->
       <div class="card">
         <h3>💰 Valor do Serviço & Perfil</h3>
         <div style="display:flex;gap:10px">
@@ -836,7 +1018,6 @@ export function registerPortalRoutes(app) {
         <button class="btn btn-dark" onclick="saveProfile()">💾 Salvar Alterações</button>
       </div>
 
-      <!-- 3. COMPRAR DESTAQUE PIX -->
       <div class="card">
         <h3>🚀 Impulsionar Perfil (Topo da Vitrine)</h3>
         <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Ative seu destaque de forma instantânea via Pix e receba muito mais acessos:</p>
@@ -850,7 +1031,6 @@ export function registerPortalRoutes(app) {
         </div>
       </div>
 
-      <!-- 4. UPLOAD DE MÍDIA R2 -->
       <div class="card">
         <h3>📸 Galeria de Fotos e Vídeos</h3>
         <label>Visibilidade dos arquivos</label>
