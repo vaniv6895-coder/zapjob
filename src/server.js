@@ -2,9 +2,11 @@ import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fs from 'fs';
 import { registerPortalRoutes } from './portalRoutes.js';
+import { ensureVipTables, registerVipFeedRoutes } from './vipFeedRoutes.js';
 import path from 'path';
 import dotenv from 'dotenv';
 import {
+  pool,
   initDB,
   saveMessage,
   isAiPaused,
@@ -84,6 +86,17 @@ function agendarRespostaIA({ channel, userId, textContent, mediaBuffer, mediaMim
 
 app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
+// Serve os scripts de proteção anti-print e marcação de celular (device-id)
+app.get('/vip-shield.js', async (req, reply) => {
+  const code = fs.readFileSync(path.resolve('src/vip-shield.js'), 'utf8');
+  return reply.type('application/javascript; charset=utf-8').send(code);
+});
+
+app.get('/device-id.js', async (req, reply) => {
+  const code = fs.readFileSync(path.resolve('src/device-id.js'), 'utf8');
+  return reply.type('application/javascript; charset=utf-8').send(code);
+});
+
 // Página inicial neutra (para aprovação de domínio na Meta)
 app.get('/', async (req, reply) => {
   return reply.status(200).type('text/html; charset=utf-8').send(`<!DOCTYPE html>
@@ -161,10 +174,11 @@ app.get('/fluxo', async (req, reply) => {
   return reply.status(404).send('Arquivo index.html não encontrado na raiz.');
 });
 
-// Registra o Painel CRM (/painel) e o Checkout Próprio (/checkout e /checkout-admin)
+// Registra o Painel CRM (/painel), Checkout Próprio, Portal e Área VIP
 registerPanelRoutes(app);
 registerCheckoutRoutes(app);
 registerPortalRoutes(app);
+registerVipFeedRoutes(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
 app.get('/webhook', async (req, reply) => {
@@ -334,7 +348,7 @@ app.post('/webhook/telegram', async (req, reply) => {
   }
 });
 
-// 3. Webhook Mercado Pago (Liberação automática de Pix — Bot + Portal)
+// 3. Webhook Mercado Pago (Liberação automática de Pix — Bot + Portal + VIP PPV)
 app.post('/webhook/mercadopago', async (req, reply) => {
   reply.status(200).send('OK');
 
@@ -358,7 +372,17 @@ app.post('/webhook/mercadopago', async (req, reply) => {
 
     const extRef = String(payment.external_reference || '');
 
-    // Caso A: Pagamento de destaque do Portal (external_reference = "portal:orderId")
+    // Caso A: Pagamento de Conteúdo VIP Visualização Única (external_reference = "vip_ppv:unlockId")
+    if (extRef.startsWith('vip_ppv:')) {
+      const unlockId = Number(extRef.split(':')[1]);
+      if (unlockId) {
+        await pool.query(`UPDATE ppv_unlocks SET paid = TRUE WHERE id = $1`, [unlockId]);
+        app.log.info(`[VIP PPV] ✅ Visualização única #${unlockId} liberada para o dispositivo comprador`);
+      }
+      return;
+    }
+
+    // Caso B: Pagamento de destaque do Portal (external_reference = "portal:orderId")
     if (extRef.startsWith('portal:')) {
       const orderId = Number(extRef.split(':')[1]);
       if (orderId) {
@@ -370,7 +394,7 @@ app.post('/webhook/mercadopago', async (req, reply) => {
       return;
     }
 
-    // Caso B: Pagamento de passe do Chat Bot (external_reference = "channel:userId:hours")
+    // Caso C: Pagamento de passe do Chat Bot (external_reference = "channel:userId:hours")
     const [channel, userId, hoursRaw] = extRef.split(':');
     const hours = Number(hoursRaw) || 24;
 
@@ -398,6 +422,7 @@ app.post('/webhook/mercadopago', async (req, reply) => {
 const start = async () => {
   await initDB();
   await initPortalDB();
+  await ensureVipTables();
 
   // Robô de Renovação Automática: verifica a cada 5 min se algum plano venceu e dispara lembrete com o checkout
   setInterval(async () => {
