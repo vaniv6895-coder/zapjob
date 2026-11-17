@@ -306,7 +306,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 
               return `
               <article class="${cardClass}">
-                <a href="/modelo/${p.slug}" class="card-media">
+                <a href="/acompanhante/${p.slug}" class="card-media">
                   ${badgeHtml}
                   <div class="media-counters">
                     ${p.total_media > 0 ? `<span>📷 ${p.total_media}</span>` : ''}
@@ -328,7 +328,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
                   </div>
                   <p class="card-bio">${p.bio ? p.bio.slice(0, 70) + (p.bio.length > 70 ? '...' : '') : 'Atendimento exclusivo, fotos e vídeos verificados.'}</p>
                   <div class="card-actions">
-                    <a href="/modelo/${p.slug}" class="btn-outline">Ver Perfil</a>
+                    <a href="/acompanhante/${p.slug}" class="btn-outline">Ver Perfil</a>
                     <a href="/r/wa/${p.slug}" target="_blank" class="btn-wa">💬 WhatsApp</a>
                   </div>
                 </div>
@@ -1125,7 +1125,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
       document.getElementById('welcome-title').innerText = creator.stage_name;
-      document.getElementById('profile-link').href = '/modelo/' + creator.slug;
+      document.getElementById('profile-link').href = '/acompanhante/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
         ? '✅ Perfil Ativo na Vitrine | ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação do administrador';
