@@ -85,7 +85,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 
 
   export function registerPortalRoutes(app) {
-  registerPortalMediaRoutes(app, requireCreatorAuth);
+
 
   // <--- ESSA LINHA É OBRIGATÓRIA AQUI PARA REGISTRAR A ROTA DO ACOMPHANHANTE --->
   registerPortalProfileRoute(app);
