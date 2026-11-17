@@ -1,4 +1,6 @@
 import { pool } from './db.js';
+import fs from 'fs';
+import path from 'path';
 import { getCreatorBySlug } from './portalDb.js';
 import { createVipPpvPix, getMercadoPagoPayment } from './mercadopago.js';
 
@@ -438,6 +440,8 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   });
 
   app.get('/vip/:slug', async (req, reply) => {
-    return reply.sendFile('clube-vip.html');
+    const filePath = path.join(process.cwd(), 'public', 'clube-vip.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
   });
 }
