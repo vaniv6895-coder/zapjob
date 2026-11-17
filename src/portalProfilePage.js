@@ -17,8 +17,14 @@ export function registerPortalProfileRoute(app) {
     await trackProfileEvent(creator.id, 'view');
 
     const mediaList = await listCreatorMedia(creator.id, false);
+    
+    // Filtros por tipo de mídia
     const photosCount = mediaList.filter((m) => m.media_type === 'image').length;
     const videosCount = mediaList.filter((m) => m.media_type === 'video').length;
+    
+    // Captura áudio e vídeo de verificação enviados pela criadora
+    const audioItem = mediaList.find((m) => m.media_type === 'audio');
+    const verificationItem = mediaList.find((m) => m.media_type === 'verification');
 
     const coverUrl = creator.cover_url || creator.avatar_url || 'https://placehold.co/960x360/263238/e25352?text=PORTAL+VIP';
     const avatarUrl = creator.avatar_url || creator.cover_url || 'https://placehold.co/300x300/263238/e25352?text=VIP';
@@ -31,6 +37,40 @@ export function registerPortalProfileRoute(app) {
       : isVip
       ? '<span class="tier-badge tier-vip">⭐ DESTAQUE VIP</span>'
       : '<span class="tier-badge tier-online">● ONLINE AGORA</span>';
+
+    // Selo de vídeo de verificação (se houver)
+    const verificationBadgeHtml = verificationItem
+      ? `<a href="${verificationItem.public_url}" target="_blank" class="verified-badge" style="text-decoration:none; cursor:pointer;">✅ Vídeo de Verificação Verificado</a>`
+      : '<div class="verified-badge">✓ Mídia de comparação verificada</div>';
+
+    // Snippet do Player de Áudio (só injeta se a modelo tiver enviado áudio)
+    const audioInjectionHtml = audioItem
+      ? `<div id="audio-player-box" class="white-box section-pad" style="margin-top: 16px; padding: 18px 16px;">
+           <h2 class="section-title">🎙️ Ouça minha voz</h2>
+           <div style="display:flex; align-items:center; gap:12px; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e9ed;">
+             <button id="play-audio-btn" onclick="toggleAudio()" style="background:#e25352; color:#fff; border:none; width:44px; height:44px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">▶</button>
+             <div style="flex:1;">
+               <strong style="display:block; font-size:13px; color:#263238;">Saudação exclusiva</strong>
+               <span style="font-size:11px; color:#5d7a89;">Áudio verificado da modelo</span>
+             </div>
+             <audio id="creator-audio" src="${audioItem.public_url}"></audio>
+           </div>
+         </div>
+         <script>
+           function toggleAudio() {
+             const audioEl = document.getElementById('creator-audio');
+             const btn = document.getElementById('play-audio-btn');
+             if (!audioEl.src) return;
+             if (audioEl.paused) {
+               audioEl.play();
+               btn.innerText = '⏸';
+             } else {
+               audioEl.pause();
+               btn.innerText = '▶';
+             }
+           }
+         </script>`
+      : '';
 
     const rateCardHtml = creator.hourly_rate
       ? `<div class="price-header">
@@ -46,6 +86,7 @@ export function registerPortalProfileRoute(app) {
       mediaList.length === 0
         ? '<div class="empty-msg">Nenhuma foto ou vídeo publicado na galeria ainda.</div>'
         : mediaList
+            .filter((m) => m.media_type === 'image' || m.media_type === 'video')
             .map((m, idx) =>
               m.media_type === 'video'
                 ? `<div class="media-tile" data-type="video" onclick="openLightbox(${idx})">
@@ -71,6 +112,8 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{COVER_URL\}\}/g, coverUrl)
       .replace(/\{\{AVATAR_URL\}\}/g, avatarUrl)
       .replace(/\{\{TIER_BADGE\}\}/g, tierBadge)
+      .replace(/\{\{VERIFICATION_BADGE\}\}/g, verificationBadgeHtml)
+      .replace(/\{\{AUDIO_INJECTION\}\}/g, audioInjectionHtml)
       .replace(/\{\{PHOTOS_COUNT\}\}/g, String(photosCount))
       .replace(/\{\{VIDEOS_COUNT\}\}/g, String(videosCount))
       .replace(/\{\{TOTAL_MEDIA\}\}/g, String(mediaList.length))

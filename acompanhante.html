@@ -447,7 +447,7 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
           </h1>
 
-          <div class="verified-badge">✓ Mídia de comparação verificada</div>
+          {{VERIFICATION_BADGE}}
 
           <div class="location-line">
             📍 Acompanhante em <strong>{{CITY}} - {{STATE}}</strong>
@@ -475,6 +475,19 @@
         <h2 class="section-title">Sobre mim</h2>
         <p class="bio-text">{{BIO_TEXT}}</p>
       </div>
+
+      <!-- Bloco de Áudio Pré-gravado de Apresentação -->
+  <div id="audio-player-box" class="white-box section-pad" style="display:none; margin-top: 16px;">
+    <h2 class="section-title">🎙️ Ouça minha voz</h2>
+    <div style="display:flex; align-items:center; gap:12px; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e9ed;">
+      <button id="play-audio-btn" onclick="toggleAudio()" style="background:#e25352; color:#fff; border:none; width:44px; height:44px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">▶</button>
+      <div style="flex:1;">
+        <strong style="display:block; font-size:13px; color:#263238;">Saudação exclusiva</strong>
+        <span style="font-size:11px; color:#5d7a89;">Áudio verificado da modelo</span>
+      </div>
+      <audio id="creator-audio" src=""></audio>
+    </div>
+  </div>
 
       <!-- Galeria de Fotos e Vídeos -->
       <div class="white-box">
@@ -546,6 +559,21 @@
       navigator.clipboard.writeText(location.href);
       alert('Link do perfil copiado!');
     }
+
+    let audioObj = null;
+    function toggleAudio() {
+      const audioEl = document.getElementById('creator-audio');
+      const btn = document.getElementById('play-audio-btn');
+      if (!audioEl.src) return;
+      if (audioEl.paused) {
+        audioEl.play();
+        btn.innerText = '⏸';
+      } else {
+        audioEl.pause();
+        btn.innerText = '▶';
+      }
+    }
+
   </script>
 </body>
 </html>
