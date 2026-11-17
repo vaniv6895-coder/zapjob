@@ -5,7 +5,7 @@ import { getCreatorBySlug, listCreatorMedia, trackProfileEvent } from './portalD
 const TEMPLATE_PATH = path.resolve('acompanhante.html');
 
 export function registerPortalProfileRoute(app) {
- app.get('/acompanhante/:slug', async (req, reply) => {
+  app.get('/acompanhante/:slug', async (req, reply) => {
     const creator = await getCreatorBySlug(req.params.slug);
     if (!creator) {
       return reply
