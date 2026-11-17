@@ -215,7 +215,7 @@ export function registerPortalRoutes(app) {
       name: s.stage_name,
       city: `${s.city}-${s.state}`,
       slug: s.slug,
-      img: s.avatar_url || s.cover_url || 'https://placehold.co/400x600/1e293b/e25352?text=VIP',
+      img: s.avatar_url || s.cover_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
       isDiamond: s.is_featured && s.tier === 'diamond',
     }));
 
@@ -656,7 +656,7 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — TEMA ESCURO MODERNO
+  // PÁGINA 3: PAINEL DA CRIADORA (/minha-conta) — TEMA ESCURO MODERNO COMPLETO
   // =======================================================================
   app.get('/minha-conta', async (req, reply) => {
     const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
@@ -1075,3 +1075,110 @@ export function registerPortalRoutes(app) {
 </body>
 </html>`);
   });
+
+  // =======================================================================
+  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
+  // =======================================================================
+  app.get('/portal-admin', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    const pwd = req.query.pwd || '';
+    if (pwd !== PANEL_PASSWORD) {
+      return reply.status(401).type('text/html; charset=utf-8').send(`
+        <body style="background:#090d16;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
+          <form method="GET" style="background:#111827;padding:24px;border-radius:14px;border:1px solid #1f2937">
+            <h3 style="color:#fff;margin-bottom:10px">Admin do Portal</h3>
+            <input type="password" name="pwd" placeholder="Senha do painel" style="padding:10px;border-radius:8px;border:1px solid #334155;background:#0b101d;color:#fff;width:100%;margin-bottom:10px" />
+            <button style="padding:10px 16px;border-radius:8px;background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;border:none;font-weight:bold;width:100%;cursor:pointer">Entrar</button>
+          </form>
+        </body>
+      `);
+    }
+
+    const res = await pool.query(`SELECT id, stage_name, email, city, state, whatsapp, tier, verified, active, created_at FROM creator_accounts ORDER BY created_at DESC LIMIT 100`);
+    const rows = res.rows
+      .map(
+        (c) => `
+      <div style="background:#111827;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <strong style="color:#fff">#${c.id} ${c.stage_name}</strong> (${c.city}-${c.state})<br/>
+          <small style="color:#94a3b8">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small>
+        </div>
+        <button onclick="toggle(${c.id}, ${!c.verified})" style="padding:8px 12px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;background:${c.verified ? '#22c55e' : '#f59e0b'};color:#000">
+          ${c.verified ? '✅ Aprovada' : '⏳ Aprovar'}
+        </button>
+      </div>`
+      )
+      .join('');
+
+    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Admin Portal</title></head>
+<body style="background:#090d16;color:#f8fafc;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+    <h2 style="color:#fff">🛡️ Admin do Portal</h2>
+    <div style="display:flex;gap:6px">
+      <button onclick="seedDemo()" style="background:#1f2937;color:#fff;border:1px solid #374151;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">+ Demos</button>
+      <button onclick="clearDemo()" style="background:#dc2626;color:#fff;border:none;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">Limpar Demos</button>
+    </div>
+  </div>
+  <p style="color:#94a3b8;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
+  ${rows}
+  <script>
+    async function toggle(id, status) {
+      await fetch('/api/portal/admin/approve?pwd=${encodeURIComponent(pwd)}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: id, verified: status, active: status }),
+      });
+      location.reload();
+    }
+    async function seedDemo() {
+      await fetch('/api/portal/admin/seed?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
+      location.reload();
+    }
+    async function clearDemo() {
+      await fetch('/api/portal/admin/clear-demo?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
+      location.reload();
+    }
+  </script>
+</body>
+</html>`);
+  });
+
+  app.post('/api/portal/admin/approve', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+    const { creatorId, verified, active } = req.body || {};
+    await setCreatorApproval(creatorId, { verified, active });
+    return reply.send({ ok: true });
+  });
+
+  app.post('/api/portal/admin/seed', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+
+    const demos = [
+      { name: 'Valentina Luxo', city: 'Cuiabá', state: 'MT', tier: 'diamond', rate: 300, img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80' },
+      { name: 'Isabela Ferraz', city: 'Várzea Grande', state: 'MT', tier: 'diamond', rate: 250, img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=80' },
+      { name: 'Camila Moraes', city: 'Cuiabá', state: 'MT', tier: 'vip', rate: 200, img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&q=80' },
+      { name: 'Larissa Ribeiro', city: 'São Paulo', state: 'SP', tier: 'free', rate: 180, img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80' },
+    ];
+
+    for (const d of demos) {
+      const slug = d.name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 999);
+      await pool.query(
+        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url, verified, active, tier, featured_until)
+         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, TRUE, TRUE, $8, NOW() + INTERVAL '30 days')`,
+        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.rate, d.img, d.tier]
+      );
+    }
+    return reply.send({ ok: true });
+  });
+
+  app.post('/api/portal/admin/clear-demo', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+    await pool.query(`DELETE FROM creator_accounts WHERE email LIKE '%@demo.com'`);
+    return reply.send({ ok: true });
+  });
+}
