@@ -4,6 +4,7 @@ import fs from 'fs';
 import { registerPortalRoutes } from './portalRoutes.js';
 import { ensureVipTables, registerVipFeedRoutes } from './vipFeedRoutes.js';
 import path from 'path';
+import { registerPortalReelsRoute } from './portalReelsPage.js';
 import dotenv from 'dotenv';
 import {
   pool,
@@ -179,6 +180,7 @@ registerPanelRoutes(app);
 registerCheckoutRoutes(app);
 registerPortalRoutes(app);
 registerVipFeedRoutes(app);
+registerPortalReelsRoute(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
 app.get('/webhook', async (req, reply) => {
