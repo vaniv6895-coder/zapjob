@@ -14,6 +14,7 @@ import {
   getCreatorStats30d,
   findOrCreateGoogleCreator,
 } from './portalDb.js';
+import { registerPortalProfileRoute } from './portalProfilePage.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
 import { pool } from './db.js';
 

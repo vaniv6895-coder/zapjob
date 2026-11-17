@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conheça {{STAGE_NAME}} Acompanhante em {{CITY}} - {{STATE}}</title>
+  <meta property="og:title" content="Conheça {{STAGE_NAME}} em {{CITY}} - {{STATE}}" />
+  <meta property="og:description" content="{{BIO_META}}" />
+  <meta property="og:image" content="{{AVATAR_URL}}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      background:#eceff1;
+      color:#263238;
+      font-family:'Montserrat',sans-serif;
+      padding-bottom:84px;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* Barra Superior Branca */
+    .navbar {
+      background:#fff;
+      box-shadow:0 1px 4px rgba(0,0,0,0.08);
+      position:sticky;
+      top:0;
+      z-index:50;
+      height:58px;
+      display:flex;
+      align-items:center;
+      padding:0 16px;
+    }
+    .navbar-inner {
+      max-width:980px;
+      width:100%;
+      margin:0 auto;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .back-btn {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      color:#263238;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:600;
+      padding:6px 10px;
+      border-radius:6px;
+    }
+    .back-btn:hover { background:#f2f4f7; }
+    .brand {
+      font-size:19px;
+      font-weight:800;
+      color:#263238;
+      text-decoration:none;
+      letter-spacing:-0.4px;
+    }
+    .brand span { color:#e25352; }
+    .announce-pill {
+      background:#e25352;
+      color:#fff;
+      font-size:12px;
+      font-weight:700;
+      padding:7px 14px;
+      border-radius:99px;
+      text-decoration:none;
+    }
+
+    /* Container Principal */
+    .main-wrap {
+      max-width:980px;
+      margin:0 auto;
+    }
+    @media(min-width:768px){
+      .main-wrap {
+        padding:20px 16px;
+        display:grid;
+        grid-template-columns:1fr 340px;
+        gap:20px;
+        align-items:start;
+      }
+    }
+
+    /* Card Branco Base */
+    .white-box {
+      background:#fff;
+      border-bottom:1px solid #e2e9ed;
+      margin-bottom:10px;
+    }
+    @media(min-width:768px){
+      .white-box {
+        border:1px solid #e2e9ed;
+        border-radius:12px;
+        overflow:hidden;
+        margin-bottom:16px;
+        box-shadow:0 2px 8px rgba(0,0,0,0.03);
+      }
+    }
+
+    /* Capa + Perfil Estilo Fatal Model */
+    .cover-area {
+      position:relative;
+      height:165px;
+      background:#263238;
+      overflow:hidden;
+    }
+    @media(min-width:768px){ .cover-area { height:220px; } }
+    .cover-area img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .cover-overlay {
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.5) 100%);
+    }
+
+    .profile-header {
+      padding:0 16px 18px;
+      position:relative;
+    }
+    .avatar-row {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      margin-top:-48px;
+      margin-bottom:12px;
+    }
+    .avatar-box {
+      position:relative;
+      width:96px;
+      height:96px;
+      border-radius:50%;
+      border:4px solid #fff;
+      background:#fff;
+      box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    }
+    @media(min-width:768px){
+      .avatar-box { width:116px; height:116px; margin-top:-12px; }
+    }
+    .avatar-box img {
+      width:100%;
+      height:100%;
+      border-radius:50%;
+      object-fit:cover;
+      display:block;
+    }
+    .status-dot {
+      position:absolute;
+      bottom:4px;
+      right:4px;
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      background:#43a047;
+      border:2.5px solid #fff;
+    }
+
+    .tier-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      font-size:11px;
+      font-weight:700;
+      padding:5px 11px;
+      border-radius:99px;
+    }
+    .tier-diamond { background:#fdeeee; color:#e25352; border:1px solid #ee9898; }
+    .tier-vip { background:#fffbe1; color:#855f00; border:1px solid #f9a825; }
+    .tier-online { background:#edf6ed; color:#258130; border:1px solid #c9e8ca; }
+
+    .name-line {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size:22px;
+      font-weight:700;
+      color:#263238;
+      line-height:1.2;
+    }
+    .verified-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      background:#e3f2fd;
+      color:#1284ed;
+      font-size:11px;
+      font-weight:700;
+      padding:3px 8px;
+      border-radius:6px;
+      margin-top:6px;
+    }
+    .location-line {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      color:#5d7a89;
+      font-size:13px;
+      font-weight:500;
+      margin-top:8px;
+    }
+
+    /* Contadores horizontais */
+    .counters-strip {
+      display:flex;
+      border-top:1px solid #eceff1;
+      margin-top:14px;
+      padding-top:14px;
+    }
+    .counter-col {
+      flex:1;
+      text-align:center;
+      border-right:1px solid #eceff1;
+    }
+    .counter-col:last-child { border-right:none; }
+    .counter-col strong {
+      display:block;
+      font-size:16px;
+      font-weight:700;
+      color:#263238;
+    }
+    .counter-col span {
+      font-size:11px;
+      color:#5d7a89;
+      font-weight:500;
+    }
+
+    /* Seções internas */
+    .section-pad { padding:18px 16px; }
+    .section-title {
+      font-size:16px;
+      font-weight:700;
+      color:#263238;
+      margin-bottom:10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .bio-text {
+      font-size:14px;
+      color:#455a64;
+      line-height:1.6;
+      white-space:pre-line;
+    }
+
+    /* Card de Cachê & Contato (Coluna Direita no Desktop) */
+    .price-card { padding:18px 16px; }
+    .price-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding-bottom:14px;
+      border-bottom:1px solid #eceff1;
+      margin-bottom:14px;
+    }
+    .price-label { font-size:13px; color:#5d7a89; font-weight:600; }
+    .price-val { font-size:22px; font-weight:800; color:#263238; }
+
+    .btn-wa-big {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      width:100%;
+      padding:14px;
+      border-radius:8px;
+      background:#43a047;
+      color:#fff;
+      font-size:15px;
+      font-weight:700;
+      text-decoration:none;
+      transition:0.2s;
+    }
+    .btn-wa-big:hover { background:#39883c; }
+
+    .btn-share-outline {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      width:100%;
+      padding:11px;
+      margin-top:10px;
+      border-radius:8px;
+      border:1px solid #cad4d8;
+      background:#fff;
+      color:#263238;
+      font-family:inherit;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .btn-share-outline:hover { background:#f8fafc; }
+
+    /* Abas da Galeria */
+    .gallery-tabs {
+      display:flex;
+      border-bottom:1px solid #e2e9ed;
+      background:#fff;
+    }
+    .gtab {
+      flex:1;
+      padding:13px 8px;
+      border:none;
+      background:transparent;
+      font-family:inherit;
+      font-size:13px;
+      font-weight:600;
+      color:#5d7a89;
+      border-bottom:3px solid transparent;
+      cursor:pointer;
+    }
+    .gtab.active {
+      color:#e25352;
+      border-bottom-color:#e25352;
+    }
+
+    /* Grade 3 colunas estilo Fatal Model */
+    .media-grid {
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:3px;
+      padding:3px;
+      background:#fff;
+    }
+    @media(min-width:640px){
+      .media-grid { gap:8px; padding:12px; }
+    }
+    .media-tile {
+      position:relative;
+      aspect-ratio:1/1;
+      background:#f2f4f7;
+      overflow:hidden;
+      cursor:pointer;
+    }
+    @media(min-width:640px){ .media-tile { border-radius:8px; } }
+    .media-tile img, .media-tile video {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      transition:transform 0.25s;
+    }
+    .media-tile:hover img, .media-tile:hover video { transform:scale(1.04); }
+    .video-tag {
+      position:absolute;
+      bottom:6px;
+      left:6px;
+      background:rgba(0,0,0,0.72);
+      color:#fff;
+      font-size:10px;
+      font-weight:700;
+      padding:3px 7px;
+      border-radius:4px;
+    }
+    .empty-msg {
+      grid-column:1/-1;
+      padding:36px 16px;
+      text-align:center;
+      color:#5d7a89;
+      font-size:13px;
+    }
+
+    /* Barra Fixa Inferior no Celular */
+    .mobile-bottom-bar {
+      position:fixed;
+      bottom:0;
+      left:0;
+      right:0;
+      background:#fff;
+      border-top:1px solid #e2e9ed;
+      padding:10px 16px;
+      display:flex;
+      gap:10px;
+      z-index:45;
+      box-shadow:0 -2px 10px rgba(0,0,0,0.06);
+    }
+    @media(min-width:768px){ .mobile-bottom-bar { display:none; } }
+
+    /* Lightbox */
+    .lightbox {
+      position:fixed;
+      inset:0;
+      background:rgba(1,7,31,0.94);
+      z-index:9999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    }
+    .lb-close {
+      position:absolute;
+      top:16px;
+      right:16px;
+      width:40px;
+      height:40px;
+      border-radius:50%;
+      border:none;
+      background:rgba(255,255,255,0.18);
+      color:#fff;
+      font-size:20px;
+      cursor:pointer;
+    }
+    .lb-body img, .lb-body video {
+      max-width:100%;
+      max-height:85dvh;
+      border-radius:8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="/vitrine" class="back-btn">← Voltar</a>
+      <a href="/vitrine" class="brand">PORTAL<span>VIP</span></a>
+      <a href="/minha-conta" class="announce-pill">+ Anunciar</a>
+    </div>
+  </header>
+
+  <div class="main-wrap">
+    <!-- COLUNA ESQUERDA: CAPA, DADOS E GALERIA -->
+    <div>
+      <div class="white-box">
+        <div class="cover-area">
+          <img src="{{COVER_URL}}" alt="Capa de {{STAGE_NAME}}" />
+          <div class="cover-overlay"></div>
+        </div>
+
+        <div class="profile-header">
+          <div class="avatar-row">
+            <div class="avatar-box">
+              <img src="{{AVATAR_URL}}" alt="{{STAGE_NAME}}" />
+              <span class="status-dot" title="Online agora"></span>
+            </div>
+            {{TIER_BADGE}}
+          </div>
+
+          <h1 class="name-line">
+            {{STAGE_NAME}}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </h1>
+
+          <div class="verified-badge">✓ Mídia de comparação verificada</div>
+
+          <div class="location-line">
+            📍 Acompanhante em <strong>{{CITY}} - {{STATE}}</strong>
+          </div>
+
+          <div class="counters-strip">
+            <div class="counter-col">
+              <strong>{{PHOTOS_COUNT}}</strong>
+              <span>Fotos</span>
+            </div>
+            <div class="counter-col">
+              <strong>{{VIDEOS_COUNT}}</strong>
+              <span>Vídeos</span>
+            </div>
+            <div class="counter-col">
+              <strong style="color:#43a047">Ativa</strong>
+              <span>Status</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sobre Mim -->
+      <div class="white-box section-pad">
+        <h2 class="section-title">Sobre mim</h2>
+        <p class="bio-text">{{BIO_TEXT}}</p>
+      </div>
+
+      <!-- Galeria de Fotos e Vídeos -->
+      <div class="white-box">
+        <div class="gallery-tabs">
+          <button class="gtab active" onclick="filterGallery('all', this)">Todos ({{TOTAL_MEDIA}})</button>
+          <button class="gtab" onclick="filterGallery('image', this)">Fotos ({{PHOTOS_COUNT}})</button>
+          <button class="gtab" onclick="filterGallery('video', this)">Vídeos ({{VIDEOS_COUNT}})</button>
+        </div>
+        <div class="media-grid" id="media-grid">
+          {{GALLERY_HTML}}
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUNA DIREITA: CACHÊ E CONTATO DIRETO -->
+    <aside>
+      <div class="white-box price-card">
+        {{RATE_CARD_HTML}}
+        <a href="/r/wa/{{SLUG}}" target="_blank" class="btn-wa-big">
+          💬 Ver Telefone / WhatsApp
+        </a>
+        <button class="btn-share-outline" onclick="copyProfileLink()">
+          🔗 Compartilhar Perfil
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Barra Fixa Mobile -->
+  <div class="mobile-bottom-bar">
+    <a href="/r/wa/{{SLUG}}" target="_blank" class="btn-wa-big">
+      💬 Chamar no WhatsApp
+    </a>
+  </div>
+
+  <!-- Lightbox Tela Cheia -->
+  <div id="lightbox" class="lightbox" onclick="if(event.target===this) closeLightbox()">
+    <button class="lb-close" onclick="closeLightbox()">✕</button>
+    <div id="lb-body" class="lb-body"></div>
+  </div>
+
+  <script>
+    const mediaItems = {{MEDIA_JSON}};
+
+    function filterGallery(type, btn) {
+      document.querySelectorAll('.gtab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.media-tile').forEach(tile => {
+        tile.style.display = (type === 'all' || tile.dataset.type === type) ? 'block' : 'none';
+      });
+    }
+
+    function openLightbox(idx) {
+      const item = mediaItems[idx];
+      if (!item) return;
+      const body = document.getElementById('lb-body');
+      body.innerHTML = item.type === 'video'
+        ? `<video src="${item.url}" controls autoplay playsinline></video>`
+        : `<img src="${item.url}" />`;
+      document.getElementById('lightbox').style.display = 'flex';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lb-body').innerHTML = '';
+      document.getElementById('lightbox').style.display = 'none';
+    }
+
+    function copyProfileLink() {
+      navigator.clipboard.writeText(location.href);
+      alert('Link do perfil copiado!');
+    }
+  </script>
+</body>
+</html>
