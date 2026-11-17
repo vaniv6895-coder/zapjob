@@ -16,13 +16,44 @@ export function registerPortalProfileRoute(app) {
 
     await trackProfileEvent(creator.id, 'view');
 
-    const mediaList = await listCreatorMedia(creator.id, false);
-    
-    // Filtros por tipo de mídia
-    const photosCount = mediaList.filter((m) => m.media_type === 'image').length;
-    const videosCount = mediaList.filter((m) => m.media_type === 'video').length;
-    
-    // Captura áudio e vídeo de verificação enviados pela criadora
+    let mediaList = await listCreatorMedia(creator.id, false);
+
+    // Fallback de demonstração para perfis fictícios/vazios (mostra fotos, vídeo, verificação e áudio)
+    if (mediaList.length === 0) {
+      mediaList = [
+        {
+          media_type: 'image',
+          public_url: creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=80'
+        },
+        {
+          media_type: 'image',
+          public_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80'
+        },
+        {
+          media_type: 'image',
+          public_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80'
+        },
+        {
+          media_type: 'video',
+          public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+        },
+        {
+          media_type: 'verification',
+          public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4'
+        },
+        {
+          media_type: 'audio',
+          public_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+        }
+      ];
+    }
+
+    // Separa apenas fotos e vídeos para a galeria e Lightbox (mantendo os índices alinhados)
+    const visualMediaList = mediaList.filter((m) => m.media_type === 'image' || m.media_type === 'video');
+    const photosCount = visualMediaList.filter((m) => m.media_type === 'image').length;
+    const videosCount = visualMediaList.filter((m) => m.media_type === 'video').length;
+
+    // Captura áudio e vídeo de verificação
     const audioItem = mediaList.find((m) => m.media_type === 'audio');
     const verificationItem = mediaList.find((m) => m.media_type === 'verification');
 
@@ -43,7 +74,7 @@ export function registerPortalProfileRoute(app) {
       ? `<a href="${verificationItem.public_url}" target="_blank" class="verified-badge" style="text-decoration:none; cursor:pointer;">✅ Vídeo de Verificação Verificado</a>`
       : '<div class="verified-badge">✓ Mídia de comparação verificada</div>';
 
-    // Snippet do Player de Áudio (só injeta se a modelo tiver enviado áudio)
+    // Snippet do Player de Áudio
     const audioInjectionHtml = audioItem
       ? `<div id="audio-player-box" class="white-box section-pad" style="margin-top: 16px; padding: 18px 16px;">
            <h2 class="section-title">🎙️ Ouça minha voz</h2>
@@ -53,14 +84,14 @@ export function registerPortalProfileRoute(app) {
                <strong style="display:block; font-size:13px; color:#263238;">Saudação exclusiva</strong>
                <span style="font-size:11px; color:#5d7a89;">Áudio verificado da modelo</span>
              </div>
-             <audio id="creator-audio" src="${audioItem.public_url}"></audio>
+             <audio id="creator-audio" src="${audioItem.public_url}" onended="document.getElementById('play-audio-btn').innerText='▶'"></audio>
            </div>
          </div>
          <script>
            function toggleAudio() {
              const audioEl = document.getElementById('creator-audio');
              const btn = document.getElementById('play-audio-btn');
-             if (!audioEl.src) return;
+             if (!audioEl || !audioEl.src) return;
              if (audioEl.paused) {
                audioEl.play();
                btn.innerText = '⏸';
@@ -83,10 +114,9 @@ export function registerPortalProfileRoute(app) {
          </div>`;
 
     const galleryHtml =
-      mediaList.length === 0
+      visualMediaList.length === 0
         ? '<div class="empty-msg">Nenhuma foto ou vídeo publicado na galeria ainda.</div>'
-        : mediaList
-            .filter((m) => m.media_type === 'image' || m.media_type === 'video')
+        : visualMediaList
             .map((m, idx) =>
               m.media_type === 'video'
                 ? `<div class="media-tile" data-type="video" onclick="openLightbox(${idx})">
@@ -100,7 +130,7 @@ export function registerPortalProfileRoute(app) {
             .join('');
 
     const bioText = creator.bio || 'Atendimento exclusivo com total discrição e segurança. Entre em contato pelo WhatsApp para agendar seu horário.';
-    const mediaJson = JSON.stringify(mediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
+    const mediaJson = JSON.stringify(visualMediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
 
     let html = fs.readFileSync(TEMPLATE_PATH, 'utf8');
 
@@ -116,7 +146,7 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{AUDIO_INJECTION\}\}/g, audioInjectionHtml)
       .replace(/\{\{PHOTOS_COUNT\}\}/g, String(photosCount))
       .replace(/\{\{VIDEOS_COUNT\}\}/g, String(videosCount))
-      .replace(/\{\{TOTAL_MEDIA\}\}/g, String(mediaList.length))
+      .replace(/\{\{TOTAL_MEDIA\}\}/g, String(visualMediaList.length))
       .replace(/\{\{RATE_CARD_HTML\}\}/g, rateCardHtml)
       .replace(/\{\{BIO_TEXT\}\}/g, bioText)
       .replace(/\{\{BIO_META\}\}/g, bioText.slice(0, 140))
