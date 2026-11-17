@@ -82,7 +82,14 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
   return { paymentId: res.data.id, qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64 || null };
 }
 
-export function registerPortalRoutes(app) {
+
+
+  export function registerPortalRoutes(app) {
+  registerPortalMediaRoutes(app, requireCreatorAuth);
+
+  // <--- ESSA LINHA É OBRIGATÓRIA AQUI PARA REGISTRAR A ROTA DO ACOMPHANHANTE --->
+  registerPortalProfileRoute(app);
+
   registerPortalMediaRoutes(app, requireCreatorAuth);
 
   app.post('/api/portal/register', async (req, reply) => {
