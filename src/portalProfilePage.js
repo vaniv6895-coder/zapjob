@@ -62,27 +62,23 @@ export function registerPortalProfileRoute(app) {
     const mediaJson = JSON.stringify(mediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
 
     let html = fs.readFileSync(TEMPLATE_PATH, 'utf8');
-    const replacements = {
-      '{{STAGE_NAME}}': creator.stage_name,
-      '{{CITY}}': creator.city,
-      '{{STATE}}': creator.state,
-      '{{SLUG}}': creator.slug,
-      '{{COVER_URL}}': coverUrl,
-      '{{AVATAR_URL}}': avatarUrl,
-      '{{TIER_BADGE}}': tierBadge,
-      '{{PHOTOS_COUNT}}': String(photosCount),
-      '{{VIDEOS_COUNT}}': String(videosCount),
-      '{{TOTAL_MEDIA}}': String(mediaList.length),
-      '{{RATE_CARD_HTML}}': rateCardHtml,
-      '{{BIO_TEXT}}': bioText,
-      '{{BIO_META}}': bioText.slice(0, 140),
-      '{{GALLERY_HTML}}': galleryHtml,
-      '{{MEDIA_JSON}}': mediaJson,
-    };
 
-    for (const [key, val] of Object.entries(replacements)) {
-      html = html.split(key).join(val);
-    }
+    html = html
+      .replace(/\{\{STAGE_NAME\}\}/g, creator.stage_name || '')
+      .replace(/\{\{CITY\}\}/g, creator.city || '')
+      .replace(/\{\{STATE\}\}/g, creator.state || '')
+      .replace(/\{\{SLUG\}\}/g, creator.slug || '')
+      .replace(/\{\{COVER_URL\}\}/g, coverUrl)
+      .replace(/\{\{AVATAR_URL\}\}/g, avatarUrl)
+      .replace(/\{\{TIER_BADGE\}\}/g, tierBadge)
+      .replace(/\{\{PHOTOS_COUNT\}\}/g, String(photosCount))
+      .replace(/\{\{VIDEOS_COUNT\}\}/g, String(videosCount))
+      .replace(/\{\{TOTAL_MEDIA\}\}/g, String(mediaList.length))
+      .replace(/\{\{RATE_CARD_HTML\}\}/g, rateCardHtml)
+      .replace(/\{\{BIO_TEXT\}\}/g, bioText)
+      .replace(/\{\{BIO_META\}\}/g, bioText.slice(0, 140))
+      .replace(/\{\{GALLERY_HTML\}\}/g, galleryHtml)
+      .replace(/\{\{MEDIA_JSON\}\}/g, mediaJson);
 
     return reply.type('text/html; charset=utf-8').send(html);
   });
