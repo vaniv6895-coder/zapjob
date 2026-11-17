@@ -49,15 +49,12 @@ export async function ensureVipTables() {
 
 export function registerVipFeedRoutes(app, requireCreatorAuth) {
   // =========================================================================
-  // 1. CRIADORA: Publicar novo post no Feed VIP (/api/vip/posts)
+  // 1. CRIADORA: Métricas, Ganhos e Publicação no Feed VIP
   // =========================================================================
   if (requireCreatorAuth) {
-
-    // Métricas Financeiras e Gráfico de Ganhos do Clube VIP
     app.get('/api/vip/earnings', { preHandler: requireCreatorAuth }, async (req, reply) => {
       const creatorId = req.creator.id;
 
-      // 1. Soma ganhos de Assinaturas Mensais pagas
       const subsRes = await pool.query(
         `SELECT 
            COALESCE(SUM(price), 0)::numeric AS total_subs,
@@ -67,7 +64,6 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         [creatorId]
       );
 
-      // 2. Soma ganhos de Posts Avulsos (PPV Visualização Única) pagos
       const ppvRes = await pool.query(
         `SELECT 
            COALESCE(SUM(u.price), 0)::numeric AS total_ppv,
@@ -78,7 +74,6 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         [creatorId]
       );
 
-      // 3. Faturamento diário dos últimos 7 dias (Assinaturas + PPV)
       const dailyRes = await pool.query(
         `WITH days AS (
            SELECT generate_series(
@@ -122,14 +117,11 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         countPpv: ppvRes.rows[0]?.count_ppv || 0,
         daily: dailyRes.rows.map((r) => ({
           label: r.label,
-          total: Number(r.total || 0)
-        }))
+          total: Number(r.total || 0),
+        })),
       });
     });
 
-
-
-    
     app.post('/api/vip/posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
       const { caption, mediaType, mediaUrl, previewUrl, price, singleView, allowSubscription } = req.body || {};
       if (!mediaUrl) {
@@ -152,7 +144,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
           previewUrl || mediaUrl,
           finalPrice,
           isSingle,
-          allowSub
+          allowSub,
         ]
       );
 
@@ -170,7 +162,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     app.delete('/api/vip/posts/:id', { preHandler: requireCreatorAuth }, async (req, reply) => {
       await pool.query(`DELETE FROM vip_posts WHERE id = $1 AND creator_id = $2`, [
         Number(req.params.id),
-        req.creator.id
+        req.creator.id,
       ]);
       return reply.send({ ok: true });
     });
@@ -206,7 +198,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       unlockId: subId,
       priceBr: monthlyPrice,
       description: `Assinatura 30d - ${cRows[0].stage_name}`,
-      customExternalRef: `vip_sub:${subId}`
+      customExternalRef: `vip_sub:${subId}`,
     });
 
     if (!pix) {
@@ -221,7 +213,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       qrCode: pix.qrCode,
       qrCodeBase64: pix.qrCodeBase64,
       amount: pix.amount,
-      boundDevice: deviceHash.slice(0, 8).toUpperCase()
+      boundDevice: deviceHash.slice(0, 8).toUpperCase(),
     });
   });
 
@@ -249,7 +241,6 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     return reply.send({ paid: false });
   });
 
-  // Verifica se o aparelho atual possui assinatura ativa para a criadora e devolve posts liberados
   app.post('/api/vip/check-access', async (req, reply) => {
     const { creatorId, deviceHash } = req.body || {};
     if (!creatorId || !deviceHash) return reply.send({ subscribed: false, posts: [] });
@@ -278,7 +269,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       subscribed: true,
       buyerLabel: subRows[0].buyer_identifier,
       expiresAt: subRows[0].expires_at,
-      posts
+      posts,
     });
   });
 
@@ -307,7 +298,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       unlockId,
       priceBr: finalPrice,
       description: `Conteudo VIP #${postId} (1x)`,
-      customExternalRef: `vip_ppv:${unlockId}`
+      customExternalRef: `vip_ppv:${unlockId}`,
     });
 
     if (!pix) {
@@ -323,7 +314,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       qrCode: pix.qrCode,
       qrCodeBase64: pix.qrCodeBase64,
       amount: pix.amount,
-      boundDevice: deviceHash.slice(0, 8).toUpperCase()
+      boundDevice: deviceHash.slice(0, 8).toUpperCase(),
     });
   });
 
@@ -367,12 +358,12 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     if (!unlock.paid) return reply.status(402).send({ error: 'Pagamento Pix ainda não confirmado.' });
     if (unlock.device_hash !== deviceHash) {
       return reply.status(403).send({
-        error: 'Acesso bloqueado: este conteúdo está vinculado exclusivamente ao celular que realizou a compra.'
+        error: 'Acesso bloqueado: este conteúdo está vinculado exclusivamente ao celular que realizou a compra.',
       });
     }
     if (unlock.single_view !== false && unlock.viewed) {
       return reply.status(410).send({
-        error: 'Este conteúdo de visualização única já foi aberto e expirou.'
+        error: 'Este conteúdo de visualização única já foi aberto e expirou.',
       });
     }
 
@@ -387,25 +378,37 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       ok: true,
       mediaUrl: unlock.media_url || fallbackUrl,
       mediaType: unlock.media_type || (Number(postId) === 102 ? 'video' : 'image'),
-      buyerLabel: unlock.buyer_identifier
+      buyerLabel: unlock.buyer_identifier,
     });
   });
 
   // =========================================================================
-  // 4. PÁGINA EXCLUSIVA ESTILO ONLYFANS (/vip/:slug)
+  // 4. API DE DADOS E ENTREGA DO HTML EXTERNO (public/clube-vip.html)
   // =========================================================================
-  app.get('/vip/:slug', async (req, reply) => {
-    const creator = await getCreatorBySlug(req.params.slug);
-    if (!creator) {
-      return reply.status(404).send('Criadora não encontrada.');
-    }
+  app.get('/api/vip/profile/:slug', async (req, reply) => {
+    const slug = String(req.params.slug || '').trim().toLowerCase();
 
-    const monthlyPrice = Number(creator.vip_monthly_price) || 49.90;
+    const creator =
+      slug === 'demo'
+        ? {
+            id: 0,
+            slug: 'demo',
+            stage_name: 'Valentina Luxo',
+            city: 'Cuiabá',
+            state: 'MT',
+            avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=85',
+            cover_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85',
+            bio: 'Conteúdo exclusivo sem censura, ensaios íntimos e vídeos gravados diariamente só para assinantes VIP 🔥😈',
+            vip_monthly_price: 49.90,
+          }
+        : await getCreatorBySlug(slug);
 
-    const { rows: dbPosts } = await pool.query(
-      `SELECT * FROM vip_posts WHERE creator_id = $1 ORDER BY id DESC`,
-      [creator.id]
-    );
+    if (!creator) return reply.status(404).send({ error: 'Criadora não encontrada' });
+
+    const { rows: dbPosts } =
+      creator.id > 0
+        ? await pool.query(`SELECT * FROM vip_posts WHERE creator_id = $1 ORDER BY id DESC`, [creator.id])
+        : { rows: [] };
 
     const posts =
       dbPosts.length > 0
@@ -413,253 +416,28 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         : [
             {
               id: 101,
-              caption: 'Ensaio exclusivo sem censura no quarto 🔥 (Incluso na assinatura ou visualização única)',
+              caption: 'Ensaio completo no quarto sem censura 🔥✨ (Incluso na assinatura ou desbloqueio avulso 1x)',
               media_type: 'image',
-              preview_url: creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=60',
+              preview_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=700&q=70',
               price: 29.90,
-              allow_subscription: true
+              allow_subscription: true,
+              likes: 342,
             },
             {
               id: 102,
-              caption: 'Vídeo íntimo gravado hoje à noite 😈 Só abre 1 vez no avulso ou ilimitado para assinantes!',
+              caption: 'Vídeo íntimo exclusivo gravado hoje à noite 😈 Só abre 1 vez no avulso ou ilimitado para assinantes!',
               media_type: 'video',
-              preview_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=60',
+              preview_url: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=700&q=70',
               price: 49.90,
-              allow_subscription: true
-            }
+              allow_subscription: true,
+              likes: 518,
+            },
           ];
 
-    const postsHtml = posts
-      .map(
-        (p) => `
-      <article id="vip-post-card-${p.id}" style="background:#fff;border:1px solid #e2e9ed;border-radius:14px;overflow:hidden;margin-bottom:18px;">
-        <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;">
-          <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;" />
-          <div>
-            <strong style="display:block;font-size:14px;color:#263238;">${creator.stage_name}</strong>
-            <span style="font-size:11px;color:#e25352;font-weight:700;">
-              ${p.allow_subscription !== false ? '👑 Assinantes ou 🔥 Visualização Única' : '🔥 Exclusivo PPV (Visualização Única)'}
-            </span>
-          </div>
-        </div>
-        <p style="padding:0 16px 12px;font-size:13px;color:#455a64;">${p.caption || ''}</p>
-        <div id="vip-media-slot-${p.id}" style="position:relative;aspect-ratio:4/5;background:#111;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-          <img src="${p.preview_url || creator.avatar_url}" style="width:100%;height:100%;object-fit:cover;filter:blur(26px) brightness(0.65);transform:scale(1.1);" />
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;">
-            <div style="font-size:38px;margin-bottom:8px;">🔒</div>
-            <strong style="font-size:16px;margin-bottom:4px;">Conteúdo Exclusivo VIP</strong>
-            <span style="font-size:12px;color:#cbd5e1;max-width:260px;margin-bottom:16px;">
-              Desbloqueie avulso (1x) ou assine o perfil mensal para liberar todo o feed.
-            </span>
-            <button id="ppv-btn-${p.id}" onclick="comprarPostUnico(${p.id}, ${Number(p.price).toFixed(2)})" style="background:#e25352;color:#fff;border:none;padding:12px 20px;border-radius:99px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(226,83,82,0.4);">
-              🔥 Desbloquear 1x (R$ ${Number(p.price).toFixed(2).replace('.', ',')})
-            </button>
-          </div>
-        </div>
-      </article>`
-      )
-      .join('');
+    return reply.send({ ok: true, creator, posts });
+  });
 
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clube VIP - ${creator.stage_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    .pix-modal { position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:9999; display:none; align-items:center; justify-content:center; padding:16px; }
-    .pix-modal.open { display:flex; }
-    .pix-box { background:#fff; border-radius:16px; padding:24px; max-width:380px; width:100%; text-align:center; box-shadow:0 12px 32px rgba(0,0,0,0.35); }
-    .pix-code-input { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; margin:12px 0; background:#f8fafc; }
-  </style>
-</head>
-<body style="margin:0;background:#eceff1;font-family:'Montserrat',sans-serif;color:#263238;">
-  <header style="background:#fff;padding:14px 16px;border-bottom:1px solid #e2e9ed;position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;">
-    <a href="/acompanhante/${creator.slug}" style="text-decoration:none;color:#263238;font-weight:700;font-size:13px;">← Perfil</a>
-    <strong style="font-size:15px;">CLUBE <span style="color:#e25352;">VIP</span></strong>
-    <span id="dev-badge" style="font-size:10px;background:#f1f5f9;padding:4px 8px;border-radius:6px;color:#64748b;">Aparelho Protegido</span>
-  </header>
-
-  <main style="max-width:540px;margin:16px auto;padding:0 14px 40px;">
-    <!-- Banner de Assinatura Mensal Estilo OnlyFans -->
-    <section id="sub-banner" style="background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 8px 24px rgba(15,23,42,0.2);">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-        <img src="${creator.avatar_url || 'https://placehold.co/100x100'}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #e25352;" />
-        <div>
-          <strong style="font-size:16px;display:block;">${creator.stage_name}</strong>
-          <span style="font-size:12px;color:#94a3b8;">Acesso ilimitado por 30 dias neste aparelho</span>
-        </div>
-      </div>
-      <button id="btn-subscribe-month" onclick="assinarMensal()" style="width:100%;padding:13px;border:none;border-radius:99px;background:linear-gradient(90deg,#e25352,#ec4899);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">
-        👑 Assinar VIP (30 Dias) — R$ ${monthlyPrice.toFixed(2).replace('.', ',')}
-      </button>
-    </section>
-
-    ${postsHtml}
-  </main>
-
-  <!-- Modal Checkout Pix -->
-  <div id="pix-modal" class="pix-modal">
-    <div class="pix-box">
-      <div style="font-size:28px;margin-bottom:6px;">💠</div>
-      <h3 id="pix-modal-title" style="margin:0 0 6px;font-size:17px;">Pagamento Pix Instantâneo</h3>
-      <p id="pix-device-note" style="font-size:11px;color:#64748b;margin-bottom:12px;"></p>
-      <img id="pix-qr-img" src="" style="width:200px;height:200px;border:1px solid #e2e8f0;border-radius:10px;display:none;margin:0 auto;" />
-      <input id="pix-copy-text" class="pix-code-input" readonly />
-      <button onclick="copiarPix()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#389e47;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
-        📋 Copiar Código Pix
-      </button>
-      <div style="margin-top:12px;font-size:12px;font-weight:700;color:#e25352;">
-        ⏳ Aguardando confirmação automática...
-      </div>
-      <button onclick="fecharPixModal()" style="margin-top:12px;background:transparent;border:none;color:#64748b;font-size:12px;cursor:pointer;">
-        Cancelar
-      </button>
-    </div>
-  </div>
-
-  <script src="/vip-shield.js"></script>
-  <script src="/device-id.js"></script>
-  <script>
-    const CREATOR_ID = ${creator.id};
-    let statusPoll = null;
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      const hash = await window.getDeviceHash();
-      document.getElementById('dev-badge').innerText = 'ID: ' + hash.slice(0, 6).toUpperCase();
-      await verificarAssinaturaAtiva(hash);
-    });
-
-    async function verificarAssinaturaAtiva(deviceHash) {
-      const res = await fetch('/api/vip/check-access', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: CREATOR_ID, deviceHash })
-      });
-      const data = await res.json();
-      if (!data.subscribed) return;
-
-      const subBtn = document.getElementById('btn-subscribe-month');
-      subBtn.style.background = '#389e47';
-      subBtn.innerText = '✅ Assinatura VIP Ativa neste Aparelho';
-      subBtn.disabled = true;
-
-      // Desbloqueia automaticamente todos os posts incluídos na assinatura com VIP Shield
-      (data.posts || []).forEach(p => {
-        const slot = document.getElementById('vip-media-slot-' + p.id);
-        if (!slot) return;
-        slot.className = 'vip-protected-wrap';
-        slot.innerHTML = p.media_type === 'video'
-          ? \`<video src="\${p.media_url}" controls playsinline style="width:100%;height:100%;object-fit:cover;"></video>\`
-          : \`<img src="\${p.media_url}" data-vip-canvas="1" style="width:100%;height:100%;object-fit:cover;" />\`;
-      });
-
-      if (typeof window.applyVipShield === 'function') {
-        window.applyVipShield(data.buyerLabel + ' • DEV:' + deviceHash.slice(0, 8).toUpperCase());
-      }
-    }
-
-    function fecharPixModal() {
-      clearInterval(statusPoll);
-      document.getElementById('pix-modal').classList.remove('open');
-    }
-
-    function copiarPix() {
-      const inp = document.getElementById('pix-copy-text');
-      inp.select();
-      navigator.clipboard.writeText(inp.value);
-      alert('Código Pix Copia e Cola copiado!');
-    }
-
-    function abrirModalPix(data, title) {
-      document.getElementById('pix-modal-title').innerText = title;
-      document.getElementById('pix-device-note').innerText =
-        'Vinculado exclusivamente a este celular (ID: ' + data.boundDevice + ')';
-      document.getElementById('pix-copy-text').value = data.qrCode;
-
-      const qrImg = document.getElementById('pix-qr-img');
-      if (data.qrCodeBase64) {
-        qrImg.src = 'data:image/png;base64,' + data.qrCodeBase64;
-        qrImg.style.display = 'block';
-      } else {
-        qrImg.style.display = 'none';
-      }
-      document.getElementById('pix-modal').classList.add('open');
-    }
-
-    async function assinarMensal() {
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar sua assinatura de 30 dias:');
-      if (!buyer) return;
-
-      const deviceHash = await window.getDeviceHash();
-      const res = await fetch('/api/vip/subscribe-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: CREATOR_ID, buyerIdentifier: buyer, deviceHash })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
-
-      abrirModalPix(data, 'Assinatura Mensal VIP (30 dias)');
-
-      clearInterval(statusPoll);
-      statusPoll = setInterval(async () => {
-        const st = await fetch('/api/vip/sub-status/' + data.subId).then(r => r.json());
-        if (st.paid) {
-          clearInterval(statusPoll);
-          document.getElementById('pix-modal').classList.remove('open');
-          await verificarAssinaturaAtiva(deviceHash);
-        }
-      }, 3000);
-    }
-
-    async function comprarPostUnico(postId, price) {
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para carimbar sua compra:');
-      if (!buyer) return;
-
-      const btn = document.getElementById('ppv-btn-' + postId);
-      const oldText = btn.innerText;
-      btn.innerText = 'Gerando Pix...';
-      btn.disabled = true;
-
-      try {
-        const deviceHash = await window.getDeviceHash();
-        const res = await fetch('/api/vip/unlock-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId, price, buyerIdentifier: buyer, deviceHash })
-        });
-        const data = await res.json();
-
-        btn.innerText = oldText;
-        btn.disabled = false;
-
-        if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
-
-        abrirModalPix(data, 'Desbloquear Visualização Única (1x)');
-
-        clearInterval(statusPoll);
-        statusPoll = setInterval(async () => {
-          const st = await fetch('/api/vip/unlock-status/' + data.unlockId).then(r => r.json());
-          if (st.paid) {
-            clearInterval(statusPoll);
-            document.getElementById('pix-modal').classList.remove('open');
-            btn.style.background = '#389e47';
-            btn.innerText = '🔥 Abrir Visualização Única Agora';
-            btn.onclick = () => window.openSingleViewPost(postId, data.unlockId);
-          }
-        }, 3000);
-      } catch (e) {
-        btn.innerText = oldText;
-        btn.disabled = false;
-        alert('Erro de conexão ao gerar Pix.');
-      }
-    }
-  </script>
-</body>
-</html>`;
-
-    return reply.type('text/html; charset=utf-8').send(html);
+  app.get('/vip/:slug', async (req, reply) => {
+    return reply.sendFile('clube-vip.html');
   });
 }
