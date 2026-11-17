@@ -245,32 +245,80 @@ export function registerPortalRoutes(app) {
           )
           .join('')}
       </div>`;
+    
 
-    const reelsStripHtml =
-      recentVideosRes.rows.length > 0
-        ? `
-      <div class="reels-section">
+      const demoReels = [
+      {
+        id: 1,
+        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4',
+        caption: 'Bastidores do ensaio de hoje à noite 🔥vem conferir...',
+        stage_name: 'Isabela Ferraz',
+        slug: 'isabela-ferraz',
+        city: 'Várzea Grande',
+        state: 'MT',
+        views: '14,2 mil'
+      },
+      {
+        id: 2,
+        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-woman-posing-for-camera-in-studio-34420-large.mp4',
+        caption: 'Look novo esperando por você no meu VIP 💎',
+        stage_name: 'Valentina Luxo',
+        slug: 'valentina-luxo',
+        city: 'Cuiabá',
+        state: 'MT',
+        views: '11,8 mil'
+      },
+      {
+        id: 3,
+        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-smiling-and-looking-at-camera-34416-large.mp4',
+        caption: 'Quem aí gosta de surpresa? Chama no Whats 💬🔥',
+        stage_name: 'Camila Moraes',
+        slug: 'camila-moraes',
+        city: 'Cuiabá',
+        state: 'MT',
+        views: '9,4 mil'
+      },
+      {
+        id: 4,
+        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-portrait-of-a-fashion-woman-with-silver-makeup-39875-large.mp4',
+        caption: 'Acabei de postar vídeo inédito de visualização única 😈',
+        stage_name: 'Larissa Ribeiro',
+        slug: 'larissa-ribeiro',
+        city: 'São Paulo',
+        state: 'SP',
+        views: '8,1 mil'
+      }
+    ];
+
+    const hotReelsList = recentVideosRes.rows.length > 0 ? recentVideosRes.rows : demoReels;
+
+    const hotReelsCarouselHtml = `
+      <section class="hot-reels-section">
         <div class="reels-header">
-          <h3>🔥 Reels & Vídeos Recentes</h3>
-          <a href="/reels">Ver todos em tela cheia →</a>
+          <div>
+            <h3>🔥 Mais bombando do momento</h3>
+            <p class="reels-sub">Toque em um vídeo para abrir o feed vertical em tela cheia</p>
+          </div>
+          <a href="/reels">Ver todos →</a>
         </div>
         <div class="reels-row">
-          ${recentVideosRes.rows
+          ${hotReelsList
             .map(
-              (v) => `
+              (v, idx) => `
             <a href="/reels?modelo=${v.slug}" class="reel-card">
-              <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
+              <video src="${v.public_url}#t=0.5" muted playsinline loop onmouseover="this.play()" onmouseout="this.pause()" preload="metadata"></video>
+              <div class="reel-fire-badge">🔥 #${idx + 1} Bombando</div>
               <div class="reel-play">▶</div>
               <div class="reel-info">
                 <strong>${v.stage_name}</strong>
-                <span>${v.city}-${v.state}</span>
+                <p class="reel-desc">${v.caption || 'Vídeo exclusivo sem censura 🔥'}</p>
+                <span>📍 ${v.city}-${v.state} • 👁️ ${v.views || (12 - idx) + ',5 mil'}</span>
               </div>
             </a>`
             )
             .join('')}
         </div>
-      </div>`
-        : '';
+      </section>`;
 
     let filteredProfiles = profiles;
     if (filter === 'diamond') filteredProfiles = profiles.filter((p) => p.is_featured && p.tier === 'diamond');
@@ -340,6 +388,30 @@ export function registerPortalRoutes(app) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+
+
+  /* Carrossel Horizontal Reels Bombando (Abaixo da grade) */
+    .hot-reels-section { margin: 28px 0 12px; padding-top: 22px; border-top: 1px solid #1f2937; }
+    .reels-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:10px; }
+    .reels-header h3 { font-size:18px; font-weight:800; color:#fff; }
+    .reels-sub { font-size:12px; color:#94a3b8; margin-top:3px; }
+    .reels-header a { font-size:12px; font-weight:700; color:#ec4899; text-decoration:none; white-space:nowrap; }
+    .reels-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+    .reels-row::-webkit-scrollbar { display:none; }
+    .reel-card { position:relative; width:168px; height:285px; border-radius:16px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #ec4899; scroll-snap-align:start; box-shadow:0 8px 20px rgba(236,72,153,0.18); transition:transform 0.2s; }
+    .reel-card:hover { transform:translateY(-3px); }
+    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; display:block; }
+    .reel-fire-badge { position:absolute; top:10px; left:10px; background:linear-gradient(90deg,#f97316,#ec4899); color:#fff; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+    .reel-play { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(236,72,153,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:28px 10px 10px; background:linear-gradient(transparent,rgba(5,8,15,0.96)); color:#fff; }
+    .reel-info strong { display:block; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reel-desc { font-size:11px; color:#e2e8f0; line-height:1.35; margin:4px 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .reel-info span { display:block; font-size:10px; color:#94a3b8; font-weight:600; }
+
+
+
+
+
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'Montserrat',sans-serif; background:#090d16; color:#f8fafc; overflow-x:hidden; }
 
@@ -499,6 +571,37 @@ export function registerPortalRoutes(app) {
 
     <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
     <div class="grid">${cardsHtml}</div>
+
+    <main class="container">
+    ${storiesHtml}
+
+    <div class="lux-banner">
+      <div>
+        <div class="lux-title">👑 Destaque Luxo & Diamante</div>
+        <p class="lux-desc">Os perfis de maior destaque e exclusividade no topo da primeira página.</p>
+      </div>
+      <a href="/vitrine?filter=diamond${baseQuery}" class="lux-btn">Ver Perfis Diamante</a>
+    </div>
+
+    <form class="search-row" method="GET" action="/vitrine">
+      <input type="text" name="city" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande, São Paulo...)" value="${city || ''}" />
+      <button type="submit">Buscar</button>
+    </form>
+
+    <div class="pills">
+      <a href="/vitrine?filter=all${baseQuery}" class="pill ${filter === 'all' ? 'active' : ''}">Todos (${profiles.length})</a>
+      <a href="/vitrine?filter=diamond${baseQuery}" class="pill ${filter === 'diamond' ? 'active' : ''}">💎 Topo Diamante</a>
+      <a href="/vitrine?filter=vip${baseQuery}" class="pill ${filter === 'vip' ? 'active' : ''}">⭐ Destaques VIP</a>
+      <a href="/vitrine?filter=video${baseQuery}" class="pill ${filter === 'video' ? 'active' : ''}">🎬 Com Vídeos</a>
+    </div>
+
+    <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
+    <div class="grid">${cardsHtml}</div>
+
+    <!-- Carrossel Horizontal de Reels Bombando (exatamente onde você marcou) -->
+    ${hotReelsCarouselHtml}
+  </main>
+  
   </main>
 
   <script>
@@ -1113,7 +1216,7 @@ export function registerPortalRoutes(app) {
 </body>
 </html>`);
   });
-  
+
 
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
