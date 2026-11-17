@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getCreatorBySlug, listCreatorMedia, trackProfileEvent } from './portalDb.js';
 
-const TEMPLATE_PATH = path.resolve('acompanhate.html');
+const TEMPLATE_PATH = path.resolve('acompanhante.html');
 
 export function registerPortalProfileRoute(app) {
   app.get('/modelo/:slug', async (req, reply) => {
