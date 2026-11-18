@@ -3,101 +3,329 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clube VIP — Conteúdo Exclusivo</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <title>Clube VIP 😈 — Conteúdo Proibido & Exclusivo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #070a12; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body {
+      background: radial-gradient(circle at top, #180b1e 0%, #06080f 55%);
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
 
     /* Header */
     .topbar {
-      background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(10px);
-      padding: 14px 16px; border-bottom: 1px solid #1f2937;
-      position: sticky; top: 0; z-index: 40;
-      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 13px 16px;
+      border-bottom: 1px solid rgba(236, 72, 153, 0.25);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .topbar a { text-decoration: none; color: #cbd5e1; font-weight: 700; font-size: 13px; }
-    .dev-badge { font-size: 10px; background: #1e293b; padding: 4px 9px; border-radius: 99px; color: #94a3b8; font-weight: 700; }
+    .topbar a:hover { color: #fff; }
+    .dev-badge {
+      font-size: 10px;
+      background: rgba(236, 72, 153, 0.14);
+      border: 1px solid rgba(236, 72, 153, 0.35);
+      padding: 4px 10px;
+      border-radius: 99px;
+      color: #f472b6;
+      font-weight: 800;
+    }
 
-    /* Container & Capa */
-    .container { max-width: 540px; margin: 0 auto; padding-bottom: 48px; }
-    .cover-wrap { position: relative; height: 170px; background: #1e293b; }
-    .cover-wrap img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.75); }
-    .cover-grad { position: absolute; inset: 0; background: linear-gradient(180deg, transparent, #070a12); }
+    /* Container & Capa com Vídeo Embaçado */
+    .container { max-width: 540px; margin: 0 auto; padding-bottom: 56px; }
+    .cover-wrap {
+      position: relative;
+      height: 205px;
+      background: #0f172a;
+      overflow: hidden;
+    }
+    .cover-wrap video,
+    .cover-wrap img.cover-fallback {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(11px) brightness(0.6) saturate(1.3);
+      transform: scale(1.15);
+      display: block;
+    }
+    .cover-grad {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(6, 8, 15, 0.15) 0%, rgba(6, 8, 15, 0.96) 100%);
+      pointer-events: none;
+    }
+    .cover-hot-pill {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(236, 72, 153, 0.5);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 5px 11px;
+      border-radius: 99px;
+      z-index: 5;
+    }
 
     /* Perfil */
-    .profile-head { padding: 0 16px 18px; margin-top: -50px; position: relative; z-index: 10; }
-    .avatar-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
-    .avatar-img { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid #ec4899; background: #111; }
-    .stats-pill { display: flex; gap: 14px; background: #111827; border: 1px solid #1f2937; padding: 8px 14px; border-radius: 12px; font-size: 12px; }
-    .stage-name { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
-    .verified-dot { background: #1284ed; color: #fff; font-size: 10px; width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
-    .sub-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-    .bio-text { font-size: 13px; color: #cbd5e1; line-height: 1.45; margin-top: 8px; }
+    .profile-head { padding: 0 16px 18px; margin-top: -58px; position: relative; z-index: 10; }
+    .avatar-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; }
+    .avatar-ring {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, #ec4899, #f43f5e, #8b5cf6);
+      box-shadow: 0 0 24px rgba(236, 72, 153, 0.45);
+    }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #06080f;
+      background: #111;
+      display: block;
+    }
+    .live-badge {
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(90deg, #e11d48, #ec4899);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 99px;
+      border: 2px solid #06080f;
+      white-space: nowrap;
+      letter-spacing: 0.4px;
+    }
+    .stats-pill {
+      display: flex;
+      gap: 14px;
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(236, 72, 153, 0.25);
+      padding: 9px 14px;
+      border-radius: 14px;
+      font-size: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+    .stage-name { font-size: 21px; font-weight: 900; display: flex; align-items: center; gap: 6px; }
+    .verified-dot {
+      background: #1284ed;
+      color: #fff;
+      font-size: 10px;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sub-meta { font-size: 12px; color: #94a3b8; margin-top: 3px; font-weight: 600; }
+    .bio-text { font-size: 13px; color: #e2e8f0; line-height: 1.5; margin-top: 10px; }
 
-    /* Card Assinatura */
-    .sub-card { background: linear-gradient(135deg, #1e1b4b, #31102f); border: 1px solid rgba(236, 72, 153, 0.45); border-radius: 16px; padding: 16px; margin-top: 16px; }
-    .sub-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .sub-btn { width: 100%; padding: 14px; border: none; border-radius: 99px; background: linear-gradient(90deg, #ec4899, #8b5cf6); color: #fff; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 20px rgba(236, 72, 153, 0.35); }
+    /* Card Assinatura VIP */
+    .sub-card {
+      background: linear-gradient(135deg, #270c26 0%, #1c1033 100%);
+      border: 1.5px solid rgba(236, 72, 153, 0.6);
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 16px;
+      box-shadow: 0 10px 30px rgba(236, 72, 153, 0.2);
+    }
+    .sub-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sub-btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #f43f5e, #ec4899, #8b5cf6);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(236, 72, 153, 0.45);
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .sub-btn:hover { transform: translateY(-1px); opacity: 0.95; }
 
     /* Posts Feed */
     .feed-list { padding: 0 14px; }
-    .post-card { background: #111827; border: 1px solid #1f2937; border-radius: 18px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); }
+    .post-card {
+      background: #0f1523;
+      border: 1px solid #1e293b;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 22px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
     .post-head { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
     .post-author { display: flex; align-items: center; gap: 10px; }
-    .post-author img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #ec4899; }
-    .post-caption { padding: 0 16px 14px; font-size: 13.5px; color: #e2e8f0; line-height: 1.45; }
-    .media-slot { position: relative; aspect-ratio: 4/5; background: #090d16; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .blur-bg { width: 100%; height: 100%; object-fit: cover; filter: blur(28px) brightness(0.55); transform: scale(1.12); }
-    .lock-overlay { position: absolute; inset: 0; background: radial-gradient(circle, rgba(15, 23, 42, 0.35), rgba(9, 13, 22, 0.85)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
-    .lock-icon { width: 58px; height: 58px; border-radius: 50%; background: rgba(236, 72, 153, 0.18); border: 1px solid rgba(236, 72, 153, 0.45); display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 10px; }
-    .ppv-btn { background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff; border: none; padding: 13px 22px; border-radius: 99px; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4); }
-    .post-foot { padding: 12px 16px; display: flex; justify-content: space-between; border-top: 1px solid #1f2937; font-size: 12px; color: #94a3b8; }
+    .post-author img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #ec4899;
+    }
+    .post-caption { padding: 0 16px 14px; font-size: 13.5px; color: #f1f5f9; line-height: 1.5; }
+    .media-slot {
+      position: relative;
+      aspect-ratio: 4/5;
+      background: #070a12;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .blur-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(26px) brightness(0.55) saturate(1.2);
+      transform: scale(1.14);
+    }
+    .lock-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, rgba(24, 11, 30, 0.35), rgba(6, 8, 15, 0.88));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .lock-icon {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(236, 72, 153, 0.25));
+      border: 1.5px solid rgba(236, 72, 153, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 12px;
+      box-shadow: 0 0 20px rgba(236, 72, 153, 0.3);
+    }
+    .ppv-btn {
+      background: linear-gradient(135deg, #f43f5e, #ec4899, #8b5cf6);
+      color: #fff;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 99px;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 22px rgba(236, 72, 153, 0.48);
+      transition: transform 0.15s;
+    }
+    .ppv-btn:hover { transform: scale(1.03); }
+    .post-foot {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #1e293b;
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
 
     /* Modal Pix */
-    .pix-modal { position: fixed; inset: 0; background: rgba(7, 10, 18, 0.88); backdrop-filter: blur(8px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 16px; }
+    .pix-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 8, 15, 0.9);
+      backdrop-filter: blur(10px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
     .pix-modal.open { display: flex; }
-    .pix-box { background: #111827; border: 1px solid #334155; color: #fff; border-radius: 20px; padding: 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6); }
-    .pix-code-input { width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 10px; font-size: 11px; margin: 12px 0; background: #090d16; color: #cbd5e1; }
+    .pix-box {
+      background: #111827;
+      border: 1px solid rgba(236, 72, 153, 0.45);
+      color: #fff;
+      border-radius: 22px;
+      padding: 24px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+    .pix-code-input {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      font-size: 11px;
+      margin: 12px 0;
+      background: #070a12;
+      color: #cbd5e1;
+    }
   </style>
 </head>
 <body>
 
   <header class="topbar">
     <a href="/vitrine">← Vitrine</a>
-    <strong style="font-size:15px;letter-spacing:0.5px;">CLUBE <span style="color:#ec4899;">VIP</span></strong>
+    <strong style="font-size:15px;letter-spacing:0.6px;">🔥 CLUBE <span style="color:#ec4899;">VIP</span> 😈</strong>
     <span id="dev-badge" class="dev-badge">ID: ...</span>
   </header>
 
   <main class="container">
-    <div class="cover-wrap">
-      <img id="vip-cover" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85" alt="Capa" />
+    <!-- Capa com Vídeo Embaçado em Loop -->
+    <div class="cover-wrap" id="vip-cover-box">
+      <img id="vip-cover" class="cover-fallback" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85" alt="Capa" />
       <div class="cover-grad"></div>
+      <span class="cover-hot-pill">🔞 Conteúdo Sem Censura 🔥</span>
     </div>
 
     <div class="profile-head">
       <div class="avatar-row">
-        <img id="vip-avatar" class="avatar-img" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=85" alt="Avatar" />
+        <div class="avatar-ring">
+          <img id="vip-avatar" class="avatar-img" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=85" alt="Avatar" />
+          <span class="live-badge">🔥 VIP ATIVO</span>
+        </div>
         <div class="stats-pill">
-          <div><strong id="stat-photos">48</strong> <span style="color:#94a3b8;">Fotos</span></div>
-          <div><strong id="stat-videos">19</strong> <span style="color:#94a3b8;">Vídeos</span></div>
+          <div>📸 <strong id="stat-photos">48</strong> <span style="color:#94a3b8;">Fotos</span></div>
+          <div>🎬 <strong id="stat-videos">19</strong> <span style="color:#94a3b8;">Vídeos</span></div>
         </div>
       </div>
 
       <h1 class="stage-name">
         <span id="vip-name">Carregando...</span>
         <span class="verified-dot">✓</span>
+        <span style="font-size:18px;">😈</span>
       </h1>
       <p class="sub-meta" id="vip-meta">@perfil • 📍 Brasil</p>
-      <p class="bio-text" id="vip-bio">Conteúdo exclusivo sem censura e atendimento VIP.</p>
+      <p class="bio-text" id="vip-bio">Meus vídeos mais quentes, bastidores proibidos e ensaios sem censura 💦🔥🍑</p>
 
       <section class="sub-card">
         <div class="sub-top">
-          <span style="font-size:12px;font-weight:800;color:#f472b6;text-transform:uppercase;">👑 Assinatura VIP (30 Dias)</span>
-          <span style="font-size:11px;background:rgba(16,185,129,0.2);color:#34d399;padding:3px 8px;border-radius:99px;font-weight:700;">Liberação Imediata</span>
+          <span style="font-size:12px;font-weight:900;color:#f472b6;text-transform:uppercase;">👑 Passe Livre 30 Dias 😈💦</span>
+          <span style="font-size:11px;background:rgba(16,185,129,0.2);color:#34d399;padding:3px 9px;border-radius:99px;font-weight:800;">⚡ Libera na Hora</span>
         </div>
         <button id="btn-subscribe-month" class="sub-btn" onclick="assinarMensal()">
-          Assinar por R$ 49,90 / mês
+          🔥 Desbloquear Tudo — R$ 49,90 / mês 🍑
         </button>
       </section>
     </div>
@@ -108,16 +336,16 @@
   <!-- Modal Checkout Pix -->
   <div id="pix-modal" class="pix-modal">
     <div class="pix-box">
-      <div style="font-size:30px;margin-bottom:6px;">💠</div>
-      <h3 id="pix-modal-title" style="margin:0 0 6px;font-size:17px;">Pagamento Pix Instantâneo</h3>
+      <div style="font-size:34px;margin-bottom:6px;">😈🔥</div>
+      <h3 id="pix-modal-title" style="margin:0 0 6px;font-size:17px;font-weight:800;">Pagamento Pix Instantâneo</h3>
       <p id="pix-device-note" style="font-size:11px;color:#94a3b8;margin-bottom:12px;"></p>
       <img id="pix-qr-img" src="" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:12px;display:none;margin:0 auto;" />
       <input id="pix-copy-text" class="pix-code-input" readonly />
-      <button onclick="copiarPix()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#10b981;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
+      <button onclick="copiarPix()" style="width:100%;padding:13px;border:none;border-radius:12px;background:#10b981;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">
         📋 Copiar Código Pix
       </button>
       <div style="margin-top:12px;font-size:12px;font-weight:700;color:#f472b6;">
-        ⏳ Aguardando confirmação automática...
+        ⏳ Liberando conteúdo automaticamente assim que pagar...
       </div>
       <button onclick="fecharPixModal()" style="margin-top:12px;background:transparent;border:none;color:#94a3b8;font-size:12px;cursor:pointer;">
         Cancelar
@@ -131,7 +359,6 @@
     let CREATOR_ID = 0;
     let statusPoll = null;
 
-    // Pega o slug da URL (/vip/nome-da-modelo)
     const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || 'demo');
 
     window.addEventListener('DOMContentLoaded', async () => {
@@ -152,15 +379,30 @@
       const { creator, posts } = await res.json();
       CREATOR_ID = creator.id;
 
-      document.title = 'Clube VIP — ' + creator.stage_name;
+      document.title = 'Clube VIP 😈 — ' + creator.stage_name;
       document.getElementById('vip-name').innerText = creator.stage_name;
       document.getElementById('vip-meta').innerText = '@' + creator.slug + ' • 📍 ' + (creator.city || 'Brasil');
-      document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo exclusivo sem censura.';
+      document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo proibido sem censura, vídeos íntimos e bastidores 😈💦🔥';
       if (creator.avatar_url) document.getElementById('vip-avatar').src = creator.avatar_url;
-      if (creator.cover_url || creator.avatar_url) document.getElementById('vip-cover').src = creator.cover_url || creator.avatar_url;
+
+      // Injeta vídeo embaçado na capa (usa o 1º vídeo dela ou vídeo teaser)
+      const videoPost = (posts || []).find(p => p.media_type === 'video' && (p.preview_url || p.media_url));
+      const coverVideoUrl = creator.cover_video_url
+        || (videoPost ? (videoPost.preview_url || videoPost.media_url) : 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4');
+
+      const coverBox = document.getElementById('vip-cover-box');
+      if (coverBox && coverVideoUrl) {
+        coverBox.innerHTML = `
+          <video src="${coverVideoUrl}" autoplay muted loop playsinline></video>
+          <div class="cover-grad"></div>
+          <span class="cover-hot-pill">🔞 Conteúdo Sem Censura 🔥</span>
+        `;
+      } else if (creator.cover_url || creator.avatar_url) {
+        document.getElementById('vip-cover').src = creator.cover_url || creator.avatar_url;
+      }
 
       const price = Number(creator.vip_monthly_price || 49.90);
-      document.getElementById('btn-subscribe-month').innerText = 'Assinar por R$ ' + price.toFixed(2).replace('.', ',') + ' / mês';
+      document.getElementById('btn-subscribe-month').innerText = '🔥 Desbloquear Tudo — R$ ' + price.toFixed(2).replace('.', ',') + ' / mês 🍑';
 
       document.getElementById('vip-feed-list').innerHTML = posts.map((p, idx) => `
         <article class="post-card">
@@ -169,37 +411,37 @@
               <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" />
               <div>
                 <strong style="display:flex;align-items:center;gap:5px;font-size:14px;color:#fff;">
-                  ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span>
+                  ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span> 😈
                 </strong>
-                <span style="font-size:11px;color:#f472b6;font-weight:700;">
-                  ${p.allow_subscription !== false ? '👑 Assinantes ou 🔥 Visualização Única' : '🔥 Somente Visualização Única (1x)'}
+                <span style="font-size:11px;color:#f472b6;font-weight:800;">
+                  ${p.allow_subscription !== false ? '👑 Assinantes VIP ou 🔥 Avulso 1x 💦' : '🔥 Somente Visualização Única (1x) 🍑'}
                 </span>
               </div>
             </div>
-            <span style="font-size:11px;color:#64748b;font-weight:600;">Hoje</span>
+            <span style="font-size:11px;color:#64748b;font-weight:700;">Hoje 🔥</span>
           </div>
 
-          <p class="post-caption">${p.caption || ''}</p>
+          <p class="post-caption">${p.caption || 'Vídeo exclusivo sem censura só para quem tem coragem 😈💦🔥'}</p>
 
           <div id="vip-media-slot-${p.id}" class="media-slot">
             <img class="blur-bg" src="${p.preview_url || creator.avatar_url}" />
             <div class="lock-overlay">
-              <div class="lock-icon">${p.media_type === 'video' ? '🎬' : '🔒'}</div>
-              <strong style="font-size:16px;margin-bottom:5px;">
-                ${p.media_type === 'video' ? 'Vídeo Exclusivo Protegido' : 'Ensaio Exclusivo Protegido'}
+              <div class="lock-icon">${p.media_type === 'video' ? '🎬🔥' : '😈🔒'}</div>
+              <strong style="font-size:16.5px;margin-bottom:6px;color:#fff;">
+                ${p.media_type === 'video' ? 'Vídeo Proibido Sem Censura 💦' : 'Ensaio Íntimo Sem Censura 🍑'}
               </strong>
-              <span style="font-size:12px;color:#94a3b8;max-width:270px;line-height:1.4;margin-bottom:18px;">
-                Blindado contra print e gravação. Vinculado exclusivamente ao seu aparelho após o Pix.
+              <span style="font-size:12px;color:#cbd5e1;max-width:275px;line-height:1.45;margin-bottom:18px;">
+                Conteúdo 100% explícito e protegido contra print. Liberação imediata no seu celular via Pix 🔥
               </span>
               <button id="ppv-btn-${p.id}" class="ppv-btn" onclick="comprarPostUnico(${p.id}, ${Number(p.price).toFixed(2)})">
-                🔥 Desbloquear 1x — R$ ${Number(p.price).toFixed(2).replace('.', ',')}
+                😈 Ver Agora (1x) — R$ ${Number(p.price).toFixed(2).replace('.', ',')} 🔥
               </button>
             </div>
           </div>
 
           <div class="post-foot">
-            <span>❤️ ${p.likes || 210 + idx * 45} curtidas</span>
-            <span>🛡️ Proteção Anti-Print Ativa</span>
+            <span>🔥 ${p.likes || 340 + idx * 58} curtidas • 💦 ${18 + idx * 7}</span>
+            <span>🛡️ Anti-Print Ativo</span>
           </div>
         </article>
       `).join('');
@@ -216,7 +458,7 @@
 
       const subBtn = document.getElementById('btn-subscribe-month');
       subBtn.style.background = '#10b981';
-      subBtn.innerText = '✅ Assinatura VIP Ativa neste Aparelho';
+      subBtn.innerText = '✅ Passe VIP Ativo neste Aparelho 🔥';
       subBtn.disabled = true;
 
       (data.posts || []).forEach(p => {
@@ -265,7 +507,7 @@
         alert('Prévia (/vip/demo): em um perfil real, gera o QR Code Pix do Mercado Pago na hora!');
         return;
       }
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar sua assinatura de 30 dias:');
+      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar seu Passe VIP de 30 dias:');
       if (!buyer) return;
 
       const deviceHash = await window.getDeviceHash();
@@ -277,7 +519,7 @@
       const data = await res.json();
       if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
 
-      abrirModalPix(data, 'Assinatura Mensal VIP (30 dias)');
+      abrirModalPix(data, 'Assinatura Mensal VIP 😈 (30 dias)');
 
       clearInterval(statusPoll);
       statusPoll = setInterval(async () => {
@@ -295,7 +537,7 @@
         alert('Prévia (/vip/demo): em um perfil real, gera o Pix de R$ ' + price.toFixed(2).replace('.', ',') + ' e libera a mídia 1x!');
         return;
       }
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para carimbar sua compra:');
+      const buyer = prompt('Digite seu e-mail ou WhatsApp para liberar o conteúdo:');
       if (!buyer) return;
 
       const btn = document.getElementById('ppv-btn-' + postId);
@@ -317,7 +559,7 @@
 
         if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
 
-        abrirModalPix(data, 'Desbloquear Visualização Única (1x)');
+        abrirModalPix(data, 'Desbloquear Conteúdo 1x 😈🔥');
 
         clearInterval(statusPoll);
         statusPoll = setInterval(async () => {
@@ -326,7 +568,7 @@
             clearInterval(statusPoll);
             document.getElementById('pix-modal').classList.remove('open');
             btn.style.background = '#10b981';
-            btn.innerText = '🔥 Abrir Visualização Única Agora';
+            btn.innerText = '🔥 Abrir Conteúdo Liberado Agora';
             btn.onclick = () => window.openSingleViewPost(postId, data.unlockId);
           }
         }, 3000);

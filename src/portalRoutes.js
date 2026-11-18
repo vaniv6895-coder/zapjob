@@ -66,7 +66,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     'https://api.mercadopago.com/v1/payments',
     {
       transaction_amount: Number(amount),
-      description: `Portal VIP - ${planName}`,
+      description: `garota VIP - ${planName}`,
       payment_method_id: 'pix',
       external_reference: `portal:${orderId}`,
       notification_url: `${webhookBase}/webhook/mercadopago`,
@@ -186,7 +186,7 @@ export function registerPortalRoutes(app) {
     }
     await trackProfileEvent(creator.id, 'whatsapp_click');
     const cleanPhone = String(creator.whatsapp).replace(/\D/g, '').replace(/^55/, '');
-    const msg = encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no Portal VIP!`);
+    const msg = encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no Garota VIP!`);
     return reply.redirect(`https://wa.me/55${cleanPhone}?text=${msg}`);
   });
 
@@ -395,7 +395,7 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal VIP — Modelos e Acompanhantes${city ? ` em ${city}` : ''}</title>
+  <title>Garota VIP — Modelos e Acompanhantes${city ? ` em ${city}` : ''}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -529,7 +529,7 @@ export function registerPortalRoutes(app) {
 
   <header class="header">
     <div class="header-inner">
-      <a href="/vitrine" class="brand">PORTAL VIP</a>
+      <a href="/vitrine" class="brand">GAROTA VIP</a>
       <div class="nav-actions">
         <a href="/reels" class="nav-reels">🎬 Reels</a>
         <a href="/minha-conta" class="cta-announce">+ Anunciar</a>
@@ -604,7 +604,7 @@ export function registerPortalRoutes(app) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Creator Studio — Portal VIP</title>
+  <title>Creator Studio — Garota VIP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   ${googleClientId ? '<script src="https://accounts.google.com/gsi/client" async defer></script>' : ''}
@@ -871,7 +871,7 @@ export function registerPortalRoutes(app) {
 <body>
   <div class="wrap">
     <div class="top-nav">
-      <a href="/vitrine" class="brand">💎 PORTAL VIP <span class="brand-tag">Studio</span></a>
+      <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
       <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
     </div>
 
