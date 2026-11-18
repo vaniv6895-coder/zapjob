@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Editar Perfil - Creator Studio</title>
+  <title>Editar Perfil — Creator Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #f8fafc;
-      color: #1e293b;
+      background: #090d16;
+      color: #f8fafc;
       font-family: 'Montserrat', sans-serif;
-      padding-bottom: 60px;
+      padding-bottom: 70px;
     }
     .navbar {
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
       height: 58px;
       display: flex;
       align-items: center;
@@ -26,7 +26,7 @@
       z-index: 50;
     }
     .navbar-inner {
-      max-width: 600px;
+      max-width: 620px;
       width: 100%;
       margin: 0 auto;
       display: flex;
@@ -34,30 +34,32 @@
       align-items: center;
     }
     .back-btn {
-      color: #64748b;
+      color: #94a3b8;
       text-decoration: none;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
     }
+    .back-btn:hover { color: #fff; }
     .container {
-      max-width: 600px;
-      margin: 24px auto;
+      max-width: 620px;
+      margin: 20px auto;
       padding: 0 16px;
     }
     .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      border: 1px solid #e2e8f0;
+      background: #111827;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      border: 1px solid #1f2937;
+      margin-bottom: 18px;
     }
     .tab-header {
       display: flex;
       justify-content: center;
       gap: 32px;
-      border-bottom: 2px solid #f1f5f9;
+      border-bottom: 2px solid #1f2937;
       padding-bottom: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     .tab-btn {
       background: none;
@@ -66,8 +68,8 @@
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      color: #e25352;
-      border-bottom: 2px solid #e25352;
+      color: #ec4899;
+      border-bottom: 2px solid #ec4899;
       padding-bottom: 10px;
       margin-bottom: -14px;
     }
@@ -78,31 +80,110 @@
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      color: #64748b;
+      color: #94a3b8;
     }
-    .form-group {
-      margin-bottom: 16px;
+    .tab-btn-muted:hover { color: #fff; }
+
+    /* Capa & Avatar Preview */
+    .visual-header {
+      position: relative;
+      margin-bottom: 54px;
     }
-    label {
-      font-size: 12px;
+    .cover-box {
+      width: 100%;
+      height: 155px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #1e293b;
+      position: relative;
+      border: 1px solid #334155;
+    }
+    .cover-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .btn-change-cover {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 7px 12px;
+      border-radius: 99px;
+      font-size: 11px;
       font-weight: 700;
-      color: #475569;
+      cursor: pointer;
+    }
+    .btn-change-cover:hover { background: #ec4899; border-color: #ec4899; }
+
+    .avatar-box {
+      position: absolute;
+      bottom: -42px;
+      left: 18px;
+      width: 92px;
+      height: 92px;
+    }
+    .avatar-box img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #111827;
+      background: #1e293b;
+    }
+    .btn-change-avatar {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #ec4899;
+      color: #fff;
+      border: 2px solid #111827;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sec-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .form-group { margin-bottom: 14px; }
+    label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
       display: block;
       margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       padding: 12px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #334155;
       border-radius: 10px;
       font-size: 14px;
       font-family: inherit;
+      background: #090d16;
+      color: #fff;
       outline: none;
       transition: border-color 0.2s;
     }
-    input:focus, textarea:focus {
-      border-color: #e25352;
-    }
+    input:focus, textarea:focus, select:focus { border-color: #ec4899; }
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -110,43 +191,137 @@
     }
     .btn-submit {
       width: 100%;
-      background: #e25352;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
       color: #fff;
       border: none;
-      padding: 14px;
+      padding: 15px;
       border-radius: 12px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 15px;
       cursor: pointer;
-      margin-top: 10px;
-      transition: background 0.2s;
+      margin-top: 8px;
+      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3);
     }
-    .btn-submit:hover { background: #cf4342; }
+    .btn-submit:hover { opacity: 0.92; }
+
+    /* Galeria de Fotos */
+    .upload-box {
+      border: 2px dashed #334155;
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      background: #090d16;
+      transition: 0.2s;
+    }
+    .upload-box:hover { border-color: #ec4899; }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .g-item {
+      position: relative;
+      aspect-ratio: 1/1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      border: 1px solid #1f2937;
+    }
+    .g-item img, .g-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .g-del {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(220, 38, 38, 0.9);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .g-actions {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(9, 13, 22, 0.85);
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+    }
+    .g-actions button {
+      flex: 1;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 2px;
+      cursor: pointer;
+    }
+    .g-actions button:hover { background: #ec4899; }
   </style>
 </head>
 <body>
 
   <header class="navbar">
     <div class="navbar-inner">
-      <a href="/minha-conta" class="back-btn">← Voltar ao Painel</a>
-      <strong style="font-size:15px; color:#1e293b;">Editar Perfil</strong>
-      <div style="width:50px;"></div>
+      <a href="/minha-conta" class="back-btn">← Voltar ao Studio</a>
+      <strong style="font-size:15px; color:#fff;">Editar Perfil</strong>
+      <div style="width:70px;"></div>
     </div>
   </header>
 
   <div class="container">
     <div class="card">
-      
-      <!-- Abas Estilo Fatal Model -->
+      <!-- Abas Editar / Visualizar -->
       <div class="tab-header">
-        <button class="tab-btn">Editar</button>
-        <button class="tab-btn-muted" id="preview-link" onclick="verPerfilPublico()">Visualizar</button>
+        <button type="button" class="tab-btn">✏️ Editar</button>
+        <button type="button" class="tab-btn-muted" onclick="verPerfilPublico()">👁️ Visualizar Perfil</button>
       </div>
 
+      <!-- Foto de Capa e Foto de Perfil -->
+      <div class="visual-header">
+        <div class="cover-box">
+          <img id="previewCover" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA+DO+PERFIL" alt="Capa" />
+          <button type="button" class="btn-change-cover" onclick="document.getElementById('inputCoverFile').click()">
+            📷 Trocar Capa
+          </button>
+          <input type="file" id="inputCoverFile" accept="image/*" style="display:none" onchange="uploadPerfilOuCapa('cover', this.files[0])" />
+        </div>
+
+        <div class="avatar-box">
+          <img id="previewAvatar" src="https://placehold.co/300x300/1e293b/ec4899?text=FOTO" alt="Avatar" />
+          <button type="button" class="btn-change-avatar" title="Trocar Foto de Perfil" onclick="document.getElementById('inputAvatarFile').click()">
+            📷
+          </button>
+          <input type="file" id="inputAvatarFile" accept="image/*" style="display:none" onchange="uploadPerfilOuCapa('avatar', this.files[0])" />
+        </div>
+      </div>
+
+      <p id="photo-status" style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:12px;"></p>
+
       <form id="form-edit" onsubmit="salvarAlteracoes(event)">
-        <div class="form-group">
-          <label>Nome Artístico</label>
-          <input type="text" id="stageName" required />
+        <div class="sec-title">👤 Informações Básicas</div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Nome Artístico</label>
+            <input type="text" id="stageName" required placeholder="Ex: Vanessinha" />
+          </div>
+          <div class="form-group">
+            <label>WhatsApp (com DDD)</label>
+            <input type="text" id="whatsapp" placeholder="Ex: 65999999999" />
+          </div>
         </div>
 
         <div class="form-group">
@@ -157,35 +332,67 @@
         <div class="grid-2">
           <div class="form-group">
             <label>Bairro</label>
-            <input type="text" id="neighborhood" />
+            <input type="text" id="neighborhood" placeholder="Ex: Costa Verde" />
           </div>
           <div class="form-group">
-            <label>Valor 1 Hora (R$)</label>
-            <input type="number" id="hourlyPrice" />
+            <label>Cidade</label>
+            <input type="text" id="city" placeholder="Ex: Várzea Grande" />
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Link da Foto de Perfil (Avatar URL)</label>
-          <input type="url" id="avatarUrl" />
+        <div class="sec-title" style="margin-top:8px;">💰 Valores & Horário</div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Valor 1 Hora (R$)</label>
+            <input type="number" step="10" id="hourlyPrice" placeholder="Ex: 200" />
+          </div>
+          <div class="form-group">
+            <label>Clube VIP Mensal (R$)</label>
+            <input type="number" step="5" id="vipMonthlyPrice" placeholder="Ex: 49.90" />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Link da Foto de Capa (Capa URL)</label>
-          <input type="url" id="coverUrl" />
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Início do Expediente</label>
+            <input type="time" id="scheduleStart" value="09:00" />
+          </div>
+          <div class="form-group">
+            <label>Fim do Expediente</label>
+            <input type="time" id="scheduleEnd" value="22:00" />
+          </div>
         </div>
 
+        <div class="sec-title" style="margin-top:8px;">📝 Sobre Mim (Bio)</div>
         <div class="form-group">
-          <label>Biografia / Descrição Completa</label>
-          <textarea id="bio" rows="4"></textarea>
+          <textarea id="bio" rows="4" placeholder="Descreva seu atendimento, diferenciais, local e horários..."></textarea>
         </div>
 
-        <button type="submit" class="btn-submit">💾 Salvar Alterações</button>
+        <!-- Campos ocultos para URLs -->
+        <input type="hidden" id="avatarUrl" />
+        <input type="hidden" id="coverUrl" />
+
+        <button type="submit" class="btn-submit" id="btn-save">💾 Salvar Todas as Alterações</button>
       </form>
+    </div>
+
+    <!-- Card Separado: Gerenciar Fotos e Vídeos da Galeria -->
+    <div class="card">
+      <div class="sec-title">📸 Minhas Fotos e Vídeos da Galeria</div>
+      <div class="upload-box" onclick="document.getElementById('galleryFilesInput').click()">
+        <p style="font-size:14px; font-weight:700; color:#fff;">+ Adicionar Fotos ou Vídeos</p>
+        <p style="font-size:11px; color:#94a3b8; margin-top:4px;">Toque aqui para selecionar arquivos do celular ou PC</p>
+        <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadGaleria(this.files)" />
+      </div>
+      <p id="gallery-status" style="font-size:12px; color:#10b981; font-weight:700; margin-top:8px;"></p>
+
+      <div class="gallery-grid" id="galleryGrid"></div>
     </div>
   </div>
 
   <script>
+    const token = localStorage.getItem('portal_token') || '';
     let creatorSlug = '';
 
     async function carregarDados() {
@@ -197,24 +404,36 @@
         const res = await fetch('/api/portal/me', {
           headers: { Authorization: 'Bearer ' + token }
         });
+        if (!res.ok) {
+          window.location.href = '/minha-conta';
+          return;
+        }
         const data = await res.json();
-        
-        // Verifica se veio dentro de data.creator ou direto em data
-        const c = data.creator || data; 
-        if (c && c.slug) {
-          creatorSlug = c.slug;
+        const c = data.creator || data;
+
+        if (c) {
+          creatorSlug = c.slug || '';
           document.getElementById('stageName').value = c.stage_name || '';
+          document.getElementById('whatsapp').value = c.whatsapp || '';
           document.getElementById('specialtyTag').value = c.specialty_tag || '';
           document.getElementById('neighborhood').value = c.neighborhood || '';
+          document.getElementById('city').value = c.city || '';
           document.getElementById('hourlyPrice').value = c.hourly_rate || '';
+          document.getElementById('vipMonthlyPrice').value = c.vip_monthly_price || '49.90';
+          document.getElementById('bio').value = c.bio || '';
+
+          if (c.schedule_start) document.getElementById('scheduleStart').value = c.schedule_start;
+          if (c.schedule_end) document.getElementById('scheduleEnd').value = c.schedule_end;
+
           document.getElementById('avatarUrl').value = c.avatar_url || '';
           document.getElementById('coverUrl').value = c.cover_url || '';
-          document.getElementById('bio').value = c.bio || '';
-        } else {
-          console.error('Dados da criadora não encontrados na resposta:', data);
+
+          if (c.avatar_url) document.getElementById('previewAvatar').src = c.avatar_url;
+          if (c.cover_url) document.getElementById('previewCover').src = c.cover_url;
         }
+        carregarGaleria();
       } catch (err) {
-        console.error('Erro ao carregar dados do perfil', err);
+        console.error('Erro ao carregar dados do perfil:', err);
       }
     }
 
@@ -222,33 +441,190 @@
       if (creatorSlug) {
         window.open('/acompanhante/' + creatorSlug, '_blank');
       } else {
-        alert('Slug não encontrado.');
+        alert('Aguarde o carregamento do perfil ou salve primeiro.');
+      }
+    }
+
+    async function uploadPerfilOuCapa(tipo, file) {
+      if (!file) return;
+      const status = document.getElementById('photo-status');
+      status.innerText = tipo === 'cover' ? 'Enviando nova capa...' : 'Enviando nova foto de perfil...';
+
+      try {
+        const presign = await fetch('/api/creator/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public' }),
+        }).then(r => r.json());
+
+        if (!presign.ok) {
+          status.innerText = '';
+          return alert(presign.error || 'Erro ao enviar imagem.');
+        }
+
+        await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
+
+        const payload = tipo === 'cover'
+          ? { cover_url: presign.publicUrl }
+          : { avatar_url: presign.publicUrl };
+
+        await fetch('/api/portal/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+
+        if (tipo === 'cover') {
+          document.getElementById('previewCover').src = presign.publicUrl;
+          document.getElementById('coverUrl').value = presign.publicUrl;
+          status.innerText = '✅ Foto de capa atualizada!';
+        } else {
+          document.getElementById('previewAvatar').src = presign.publicUrl;
+          document.getElementById('avatarUrl').value = presign.publicUrl;
+          status.innerText = '✅ Foto de perfil atualizada!';
+        }
+      } catch (err) {
+        status.innerText = '';
+        alert('Falha no upload da imagem.');
       }
     }
 
     async function salvarAlteracoes(e) {
       e.preventDefault();
+      const btn = document.getElementById('btn-save');
+      btn.innerText = 'Salvando...';
+      btn.disabled = true;
+
+      const rateVal = document.getElementById('hourlyPrice').value;
+      const vipVal = document.getElementById('vipMonthlyPrice').value;
+
       const payload = {
-        stageName: document.getElementById('stageName').value,
-        specialtyTag: document.getElementById('specialtyTag').value,
-        neighborhood: document.getElementById('neighborhood').value,
-        hourlyPrice: document.getElementById('hourlyPrice').value,
-        avatarUrl: document.getElementById('avatarUrl').value,
-        coverUrl: document.getElementById('coverUrl').value,
-        bio: document.getElementById('bio').value
+        stage_name: document.getElementById('stageName').value.trim(),
+        whatsapp: document.getElementById('whatsapp').value.replace(/\D/g, ''),
+        specialty_tag: document.getElementById('specialtyTag').value.trim(),
+        neighborhood: document.getElementById('neighborhood').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        hourly_rate: rateVal ? Number(rateVal) : null,
+        vip_monthly_price: vipVal ? Number(vipVal) : 49.90,
+        schedule_start: document.getElementById('scheduleStart').value,
+        schedule_end: document.getElementById('scheduleEnd').value,
+        bio: document.getElementById('bio').value.trim(),
+        avatar_url: document.getElementById('avatarUrl').value || null,
+        cover_url: document.getElementById('coverUrl').value || null,
       };
 
-      const res = p = await fetch('/api/creator/update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.ok) {
-        alert('Perfil atualizado com sucesso!');
-      } else {
-        alert('Erro ao atualizar perfil.');
+      try {
+        const res = await fetch('/api/portal/me', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.creator?.slug) creatorSlug = data.creator.slug;
+          alert('✅ Perfil, horário e valores salvos com sucesso!');
+        } else {
+          alert(data.error || 'Erro ao salvar alterações.');
+        }
+      } catch (err) {
+        alert('Erro de conexão ao salvar.');
+      } finally {
+        btn.innerText = '💾 Salvar Todas as Alterações';
+        btn.disabled = false;
       }
+    }
+
+    async function carregarGaleria() {
+      const res = await fetch('/api/creator/media', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) return;
+      const { items } = await res.json();
+      document.getElementById('galleryGrid').innerHTML = (items || []).map(m => `
+        <div class="g-item">
+          ${m.media_type === 'video'
+            ? `<video src="${m.public_url}"></video>`
+            : `<img src="${m.public_url}" />`}
+          <button type="button" class="g-del" onclick="deletarMidia(${m.id})">✕</button>
+          ${m.media_type === 'image' ? `
+            <div class="g-actions">
+              <button type="button" onclick="usarComoFoto('avatar', '${m.public_url}')">Perfil</button>
+              <button type="button" onclick="usarComoFoto('cover', '${m.public_url}')">Capa</button>
+            </div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function uploadGaleria(files) {
+      if (!files || !files.length) return;
+      const status = document.getElementById('gallery-status');
+
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        status.innerText = `Enviando ${i + 1} de ${files.length}...`;
+
+        const presign = await fetch('/api/creator/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ fileName: f.name, contentType: f.type, visibility: 'public' }),
+        }).then(r => r.json());
+
+        if (!presign.ok) continue;
+
+        await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': f.type },
+          body: f,
+        });
+
+        await fetch('/api/creator/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            mediaType: presign.mediaType,
+            visibility: 'public',
+            r2Key: presign.r2Key,
+            publicUrl: presign.publicUrl,
+          }),
+        });
+      }
+
+      status.innerText = '✅ Fotos/vídeos adicionados à galeria!';
+      carregarGaleria();
+    }
+
+    async function usarComoFoto(tipo, url) {
+      const payload = tipo === 'cover' ? { cover_url: url } : { avatar_url: url };
+      await fetch('/api/portal/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload),
+      });
+      if (tipo === 'cover') {
+        document.getElementById('previewCover').src = url;
+        document.getElementById('coverUrl').value = url;
+        alert('✅ Foto definida como Capa!');
+      } else {
+        document.getElementById('previewAvatar').src = url;
+        document.getElementById('avatarUrl').value = url;
+        alert('✅ Foto definida como Perfil!');
+      }
+    }
+
+    async function deletarMidia(id) {
+      if (!confirm('Remover esta mídia da galeria?')) return;
+      await fetch('/api/creator/media/' + id, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      carregarGaleria();
     }
 
     carregarDados();
