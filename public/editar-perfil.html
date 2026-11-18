@@ -189,19 +189,29 @@
     let creatorSlug = '';
 
     async function carregarDados() {
+      if (!token) {
+        window.location.href = '/minha-conta';
+        return;
+      }
       try {
-        const res = await fetch('/api/creator/current-session');
+        const res = await fetch('/api/portal/me', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
         const data = await res.json();
-        if (data && data.creator) {
-          const c = data.creator;
+        
+        // Verifica se veio dentro de data.creator ou direto em data
+        const c = data.creator || data; 
+        if (c && c.slug) {
           creatorSlug = c.slug;
           document.getElementById('stageName').value = c.stage_name || '';
           document.getElementById('specialtyTag').value = c.specialty_tag || '';
           document.getElementById('neighborhood').value = c.neighborhood || '';
-          document.getElementById('hourlyPrice').value = c.hourly_price || '';
+          document.getElementById('hourlyPrice').value = c.hourly_rate || '';
           document.getElementById('avatarUrl').value = c.avatar_url || '';
           document.getElementById('coverUrl').value = c.cover_url || '';
           document.getElementById('bio').value = c.bio || '';
+        } else {
+          console.error('Dados da criadora não encontrados na resposta:', data);
         }
       } catch (err) {
         console.error('Erro ao carregar dados do perfil', err);
