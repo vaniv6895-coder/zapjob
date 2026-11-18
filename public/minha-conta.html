@@ -566,7 +566,7 @@
         return;
       }
 
-      loadDashboard();
+      window.location.href = '/minha-conta/editar';
     }
 
     function openStudioTab(tabName) {
@@ -604,7 +604,7 @@
         return;
       }
 
-      loadDashboard();
+      window.location.href = '/minha-conta/editar';
     }
 
     async function doRegister() {
@@ -1081,7 +1081,7 @@
       } else if (sessionStorage.getItem('bio_verified') !== '1') {
         window.location.href = '/biometria-facial?mode=unlock';
       } else {
-        loadDashboard();
+        window.location.href = '/minha-conta/editar';
       }
     }
   </script>
