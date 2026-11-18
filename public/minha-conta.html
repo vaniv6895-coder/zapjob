@@ -466,9 +466,10 @@
           </div>
           <p class="subtitle">Proteja sua conta contra invasões com a biometria do seu aparelho e envie sua prova de vida facial.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn" style="flex:1;" onclick="registerBiometrics()">
-              🔐 Ativar Face ID / Digital
-            </button>
+            <!-- Substitui o botão registerBiometrics() por este: -->
+<button type="button" class="btn" style="flex:1;" onclick="window.location.href='/biometria-facial?mode=register'">
+  📷 Ativar Biometria Facial
+</button>
             <button type="button" class="btn btn-green" style="flex:1;" onclick="openLivenessModal()">
               🎥 Prova de Vida Facial
             </button>
@@ -602,7 +603,7 @@
 
     window.addEventListener('load', initGoogleLogin);
 
-    async function handleGoogleCredential(response) {
+   async function handleGoogleCredential(response) {
       const res = await fetch('/api/portal/google-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -620,16 +621,15 @@
         return;
       }
 
-      // Passo 2 (2FA): Se tem biometria ativada no aparelho, pede Face ID/Digital após o Gmail!
-      if (localStorage.getItem('bio_enabled') === '1') {
-        document.getElementById('l-email').value = data.creator.email || '';
-        lockAppScreen();
-        unlockWithBiometrics();
+      // Redireciona para a câmera de biometria facial se estiver ativa
+      if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+        window.location.href = '/biometria-facial?mode=unlock';
         return;
       }
 
       loadDashboard();
     }
+
 
     function openStudioTab(tabName) {
       document.querySelectorAll('.studio-section').forEach(el => el.style.display = 'none');
@@ -691,9 +691,8 @@
       token = data.token;
       sessionStorage.setItem('portal_token', token);
 
-      if (localStorage.getItem('bio_enabled') === '1') {
-        lockAppScreen();
-        unlockWithBiometrics();
+      if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+        window.location.href = '/biometria-facial?mode=unlock';
         return;
       }
 

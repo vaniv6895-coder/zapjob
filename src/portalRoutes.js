@@ -97,6 +97,12 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  app.get('/biometria-facial', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'biometria-facial.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+  
   registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
