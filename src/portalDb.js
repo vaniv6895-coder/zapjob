@@ -32,6 +32,19 @@ export async function initPortalDB() {
 
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(10, 2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_monthly_price NUMERIC(10, 2) DEFAULT 49.90;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS age INT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS specialty_tag TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS neighborhood TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS has_location TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS half_hour_rate NUMERIC(10, 2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS schedule_start TEXT DEFAULT '09:00';
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS schedule_end TEXT DEFAULT '22:00';
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS height TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS weight TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS physical_tags JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS services_tags JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS audio_url TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS verification_video_url TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_creators_home_ranking
       ON creator_accounts (city, active, verified, tier, featured_until DESC, last_boost_at DESC);
@@ -153,8 +166,11 @@ export async function authenticateCreator(email, password) {
 
 export async function getCreatorById(creatorId) {
   const res = await pool.query(
-    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
-            subscription_price, vip_monthly_price, verified, active, tier, featured_until, last_boost_at, created_at
+    `SELECT id, email, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
+            whatsapp, half_hour_rate, hourly_rate, vip_monthly_price, schedule_start, schedule_end,
+            height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
+            verification_video_url, subscription_price, verified, active, tier, featured_until,
+            last_boost_at, created_at
      FROM creator_accounts
      WHERE id = $1`,
     [Number(creatorId)]
@@ -164,8 +180,10 @@ export async function getCreatorById(creatorId) {
 
 export async function getCreatorBySlug(slug) {
   const res = await pool.query(
-    `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
-            subscription_price, vip_monthly_price, verified, active, tier, featured_until, last_boost_at
+    `SELECT id, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
+            whatsapp, half_hour_rate, hourly_rate, vip_monthly_price, schedule_start, schedule_end,
+            height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
+            verification_video_url, subscription_price, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE slug = $1 AND active = TRUE AND verified = TRUE`,
     [String(slug).trim().toLowerCase()]
@@ -176,13 +194,26 @@ export async function getCreatorBySlug(slug) {
 export async function updateCreatorProfile(creatorId, fields) {
   const allowed = [
     'stage_name',
+    'age',
+    'specialty_tag',
+    'neighborhood',
     'city',
     'state',
+    'has_location',
     'whatsapp',
+    'half_hour_rate',
     'hourly_rate',
+    'schedule_start',
+    'schedule_end',
+    'height',
+    'weight',
+    'physical_tags',
+    'services_tags',
     'bio',
     'avatar_url',
     'cover_url',
+    'audio_url',
+    'verification_video_url',
     'mp_access_token',
     'subscription_price',
     'vip_monthly_price',
@@ -195,7 +226,11 @@ export async function updateCreatorProfile(creatorId, fields) {
   for (const key of allowed) {
     if (fields[key] !== undefined) {
       sets.push(`${key} = $${idx++}`);
-      values.push(fields[key]);
+      if (key === 'physical_tags' || key === 'services_tags') {
+        values.push(JSON.stringify(Array.isArray(fields[key]) ? fields[key] : []));
+      } else {
+        values.push(fields[key]);
+      }
     }
   }
 
@@ -275,7 +310,8 @@ export async function getHomeRanking({ city = null, state = null, limit = 60 } =
   params.push(Number(limit) || 60);
 
   const res = await pool.query(
-    `SELECT id, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url,
+    `SELECT id, slug, stage_name, specialty_tag, neighborhood, city, state, whatsapp,
+            half_hour_rate, hourly_rate, bio, avatar_url, cover_url,
             subscription_price, vip_monthly_price, tier, featured_until, last_boost_at,
             (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured
      FROM creator_accounts
