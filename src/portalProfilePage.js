@@ -215,6 +215,54 @@ export function registerPortalProfileRoute(app) {
 
     const mediaJson = JSON.stringify(visualMediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
 
+    // Formata cada faixa de valor (mostra o preço em verde ou riscado "Não realiza")
+    const fmtRow = (label, val, fallbackConsult = false) => {
+      if (val && Number(val) > 0) {
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <span style="color:#f8fafc;font-weight:700;font-size:14px;">${label}</span>
+          <span style="color:#10b981;font-weight:800;font-size:15px;">R$ ${Number(val).toFixed(2).replace('.', ',')}</span>
+        </div>`;
+      }
+      if (fallbackConsult) {
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <span style="color:#f8fafc;font-weight:700;font-size:14px;">${label}</span>
+          <span style="color:#10b981;font-weight:800;font-size:14px;">Consultar / Combinar</span>
+        </div>`;
+      }
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);opacity:0.45;">
+        <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">${label}</span>
+        <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">Não realiza</span>
+      </div>`;
+    };
+
+    const payList = parseTagList(creator.payment_methods, ['Dinheiro', 'Pix', 'Crédito', 'Débito']);
+    const payIcons = {
+      Dinheiro: '💵',
+      Pix: '💠',
+      Crédito: '💳',
+      Débito: '💳',
+    };
+    const paymentBadgesHtml = payList
+      .map(
+        (p) => `<div style="text-align:center;flex:1;">
+          <div style="font-size:20px;margin-bottom:4px;">${payIcons[p] || '💳'}</div>
+          <span style="font-size:10px;font-weight:800;color:#cbd5e1;text-transform:uppercase;">${p}</span>
+        </div>`
+      )
+      .join('');
+
+    const dynamicRatesModalHtml = `
+      ${fmtRow('1 hora', creator.hourly_rate, true)}
+      ${fmtRow('15 minutos', creator.fifteen_min_rate, false)}
+      ${fmtRow('30 minutos', creator.half_hour_rate, false)}
+      ${fmtRow('2 horas', creator.two_hours_rate, false)}
+      ${fmtRow('Pernoite', creator.overnight_rate, false)}
+      <div style="margin-top:16px;">
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.6px;margin-bottom:12px;">FORMAS DE PAGAMENTO:</div>
+        <div style="display:flex;justify-content:space-around;gap:8px;">${paymentBadgesHtml}</div>
+      </div>
+    `;
+
     let html = fs.readFileSync(TEMPLATE_PATH, 'utf8');
 
     html = html
@@ -241,6 +289,12 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{GALLERY_HTML\}\}/g, galleryHtml)
       .replace(/\{\{MEDIA_JSON\}\}/g, mediaJson)
       .replace('09:00 - 22:00', workHoursText);
+
+    // Substitui o conteúdo estático do modal de Valores pelos valores reais cadastrados pela modelo
+    html = html.replace(
+      /(<h3[^>]*>\s*Valores\s*<\/h3>[\s\S]*?<\/button>\s*<\/div>)([\s\S]*?)(<\/div>\s*<\/div>)/i,
+      `$1<div style="margin-top:8px;">${dynamicRatesModalHtml}</div>$3`
+    );
 
     return reply.type('text/html; charset=utf-8').send(html);
   });

@@ -6,6 +6,8 @@
   <title>Biometria Facial — Garota VIP Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Carrega face-api.js para reconhecimento facial real no navegador -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -62,7 +64,7 @@
       border-radius: 50%;
       box-shadow: 0 0 0 9999px rgba(7, 10, 18, 0.58);
       pointer-events: none;
-      transition: border-color 0.3s ease, transform 0.3s ease;
+      transition: border-color 0.3s ease;
     }
     .scan-line {
       position: absolute;
@@ -83,7 +85,7 @@
       bottom: 14px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.94);
       border: 1px solid #ec4899;
       color: #fff;
       padding: 7px 16px;
@@ -92,6 +94,9 @@
       font-weight: 700;
       white-space: nowrap;
       backdrop-filter: blur(6px);
+      max-width: 92%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .actions { display: flex; gap: 10px; }
@@ -107,7 +112,7 @@
       font-size: 14px;
       cursor: pointer;
     }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-back {
       flex: 1;
       padding: 14px;
@@ -132,12 +137,12 @@
       <video id="cam-video" autoplay playsinline muted></video>
       <div id="oval-guide" class="oval-guide"></div>
       <div id="scan-line" class="scan-line"></div>
-      <div id="status-pill" class="status-pill">🔍 Iniciando câmera...</div>
+      <div id="status-pill" class="status-pill">⏳ Carregando IA facial...</div>
     </div>
 
     <div class="actions">
       <button type="button" class="btn-back" onclick="cancelar()">Voltar</button>
-      <button type="button" id="main-btn" class="btn" onclick="confirmarRosto()">● Ativar Biometria</button>
+      <button type="button" id="main-btn" class="btn" disabled onclick="confirmarRosto()">Aguardando rosto...</button>
     </div>
   </div>
 
@@ -145,7 +150,13 @@
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode') || 'register'; // 'register' | 'unlock'
     const token = sessionStorage.getItem('portal_token') || '';
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+    const MATCH_THRESHOLD = 0.50; // Quanto menor, mais rigoroso (0.50 é padrão bancário)
+
     let stream = null;
+    let scanInterval = null;
+    let latestDescriptor = null;
+    let isUnlocked = false;
 
     if (!token) {
       window.location.href = '/minha-conta';
@@ -157,61 +168,125 @@
     const ovalEl = document.getElementById('oval-guide');
     const scanEl = document.getElementById('scan-line');
     const mainBtn = document.getElementById('main-btn');
+    const videoEl = document.getElementById('cam-video');
 
     if (mode === 'unlock') {
       titleEl.innerText = 'Verificação Facial (2FA)';
-      subEl.innerText = 'Olhe para a câmera para confirmar sua identidade e entrar no Studio.';
+      subEl.innerText = 'Olhe para a câmera para comparar sua biometria e liberar o Studio.';
       mainBtn.style.display = 'none';
     } else {
-      titleEl.innerText = 'Ativar Biometria Facial';
-      subEl.innerText = 'Cadastre seu rosto para proteger o acesso após o login com Gmail.';
+      titleEl.innerText = 'Cadastrar Biometria Facial';
+      subEl.innerText = 'Posicione seu rosto bem iluminado dentro da moldura oval.';
       mainBtn.innerText = '● Cadastrar Rosto';
     }
 
-    function b64urlToBuf(b64url) {
-      const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
-      const bin = atob(b64);
-      return Uint8Array.from(bin, c => c.charCodeAt(0)).buffer;
-    }
-    function bufToB64url(buf) {
-      return btoa(String.fromCharCode(...new Uint8Array(buf)))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    function euclideanDistance(arr1, arr2) {
+      let sum = 0;
+      for (let i = 0; i < arr1.length; i++) {
+        const diff = arr1[i] - arr2[i];
+        sum += diff * diff;
+      }
+      return Math.sqrt(sum);
     }
 
-    async function startCamera() {
+    async function initFaceEngine() {
       try {
+        // Aguarda script do face-api carregar
+        while (!window.faceapi) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+
+        pillEl.innerText = '⏳ Carregando modelos neurais...';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+
+        pillEl.innerText = '📷 Abrindo câmera frontal...';
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false,
         });
-        document.getElementById('cam-video').srcObject = stream;
+        videoEl.srcObject = stream;
+        await new Promise(r => (videoEl.onloadedmetadata = r));
+        await videoEl.play();
 
-        setTimeout(() => {
-          pillEl.innerText = '⏳ Identificando rosto...';
-          ovalEl.style.borderColor = '#f59e0b';
-        }, 900);
-
-        setTimeout(() => {
-          pillEl.innerText = '✅ Rosto identificado!';
-          ovalEl.style.borderColor = '#10b981';
-          scanEl.style.display = 'none';
-
-          // Se estiver no modo desbloqueio (pós-Gmail), libera e entra no painel automaticamente
-          if (mode === 'unlock') {
-            setTimeout(() => {
-              stopCamera();
-              sessionStorage.setItem('bio_verified', '1');
-              window.location.href = '/minha-conta';
-            }, 900);
-          }
-        }, 2600);
+        startRealDetectionLoop();
       } catch (err) {
-        alert('Não foi possível abrir a câmera frontal. Verifique as permissões do navegador.');
+        alert('Erro ao iniciar câmera ou modelos faciais. Verifique a permissão da câmera.');
         cancelar();
       }
     }
 
+    function startRealDetectionLoop() {
+      const savedRaw = localStorage.getItem('face_descriptor');
+      const savedDescriptor = savedRaw ? JSON.parse(savedRaw) : null;
+
+      // Se entrou em modo unlock sem biometria salva, redireciona para cadastro
+      if (mode === 'unlock' && !savedDescriptor) {
+        window.location.href = '/biometria-facial?mode=register';
+        return;
+      }
+
+      scanInterval = setInterval(async () => {
+        if (isUnlocked || videoEl.paused || videoEl.ended) return;
+
+        const detection = await faceapi
+          .detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.6 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (!detection) {
+          latestDescriptor = null;
+          ovalEl.style.borderColor = '#ec4899';
+          pillEl.style.borderColor = '#ec4899';
+          pillEl.innerText = '🔍 Nenhum rosto detectado...';
+          if (mode === 'register') {
+            mainBtn.disabled = true;
+            mainBtn.innerText = 'Posicione seu rosto';
+          }
+          return;
+        }
+
+        // Rosto humano real detectado!
+        latestDescriptor = Array.from(detection.descriptor);
+
+        if (mode === 'register') {
+          ovalEl.style.borderColor = '#10b981';
+          pillEl.style.borderColor = '#10b981';
+          pillEl.innerText = '✅ Rosto mapeado! Pronto para salvar';
+          mainBtn.disabled = false;
+          mainBtn.innerText = '● Salvar Biometria Facial';
+          return;
+        }
+
+        // Modo unlock: compara os 128 pontos faciais com o rosto cadastrado
+        const dist = euclideanDistance(latestDescriptor, savedDescriptor);
+
+        if (dist < MATCH_THRESHOLD) {
+          isUnlocked = true;
+          clearInterval(scanInterval);
+          ovalEl.style.borderColor = '#10b981';
+          pillEl.style.borderColor = '#10b981';
+          scanEl.style.display = 'none';
+          pillEl.innerText = '✅ Identidade confirmada!';
+
+          setTimeout(() => {
+            stopCamera();
+            sessionStorage.setItem('bio_verified', '1');
+            window.location.href = '/minha-conta';
+          }, 800);
+        } else {
+          ovalEl.style.borderColor = '#ef4444';
+          pillEl.style.borderColor = '#ef4444';
+          pillEl.innerText = '❌ Rosto não compatível com o titular';
+        }
+      }, 650);
+    }
+
     function stopCamera() {
+      if (scanInterval) clearInterval(scanInterval);
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
         stream = null;
@@ -227,58 +302,29 @@
       window.location.href = '/minha-conta';
     }
 
-    async function confirmarRosto() {
+    function confirmarRosto() {
+      if (!latestDescriptor || latestDescriptor.length !== 128) {
+        return alert('Mantenha seu rosto centralizado na moldura até ficar verde.');
+      }
+
       mainBtn.disabled = true;
-      mainBtn.innerText = 'Salvando...';
-      pillEl.innerText = '⏳ Registrando biometria...';
+      mainBtn.innerText = 'Salvando biometria...';
 
-      // Tenta vincular também a Passkey nativa do dispositivo se disponível
-      try {
-        if (window.PublicKeyCredential) {
-          const optRes = await fetch('/api/portal/webauthn/register-options', {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token },
-          }).then(r => r.json());
-
-          if (optRes.ok) {
-            const opts = optRes.options;
-            opts.challenge = b64urlToBuf(opts.challenge);
-            opts.user.id = b64urlToBuf(opts.user.id);
-            if (opts.excludeCredentials) {
-              opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBuf(c.id) }));
-            }
-            const cred = await navigator.credentials.create({ publicKey: opts });
-            const payload = {
-              id: cred.id,
-              rawId: bufToB64url(cred.rawId),
-              type: cred.type,
-              response: {
-                attestationObject: bufToB64url(cred.response.attestationObject),
-                clientDataJSON: bufToB64url(cred.response.clientDataJSON),
-                transports: cred.response.getTransports ? cred.response.getTransports() : [],
-              },
-            };
-            await fetch('/api/portal/webauthn/register-verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-              body: JSON.stringify(payload),
-            });
-          }
-        }
-      } catch (e) {}
-
+      localStorage.setItem('face_descriptor', JSON.stringify(latestDescriptor));
       localStorage.setItem('bio_enabled', '1');
       sessionStorage.setItem('bio_verified', '1');
-      pillEl.innerText = '✅ Biometria facial ativada!';
+
+      ovalEl.style.borderColor = '#10b981';
+      scanEl.style.display = 'none';
+      pillEl.innerText = '✅ Biometria facial salva com sucesso!';
 
       setTimeout(() => {
         stopCamera();
-        alert('✅ Biometria facial ativada com sucesso!');
         window.location.href = '/minha-conta';
       }, 800);
     }
 
-    startCamera();
+    window.addEventListener('load', initFaceEngine);
   </script>
 </body>
 </html>

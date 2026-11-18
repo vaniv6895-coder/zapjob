@@ -3,370 +3,502 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Editar Perfil — Creator Studio</title>
+  <title>Editar Perfil — Garota VIP Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-page: #09090b;
+      --bg-surface: #121216;
+      --bg-elevated: #18181d;
+      --bg-input: #0d0d10;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: #e11d48;
+      --accent: #e11d48;
+      --accent-hover: #be123c;
+      --accent-soft: rgba(225, 29, 72, 0.14);
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --success: #10b981;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #090d16;
-      color: #f8fafc;
-      font-family: 'Montserrat', sans-serif;
-      padding-bottom: 70px;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 100px;
     }
-    .navbar {
-      background: #111827;
-      border-bottom: 1px solid #1f2937;
-      height: 58px;
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
+
+    /* Top Navigation */
+    .topbar {
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: 40;
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
     }
-    .navbar-inner {
-      max-width: 620px;
-      width: 100%;
+    .topbar-inner {
+      max-width: 680px;
       margin: 0 auto;
+      height: 60px;
+      padding: 0 18px;
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
     }
-    .back-btn {
-      color: #94a3b8;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
-    }
-    .back-btn:hover { color: #fff; }
-    .container {
-      max-width: 620px;
-      margin: 20px auto;
-      padding: 0 16px;
-    }
-    .card {
-      background: #111827;
-      border-radius: 18px;
-      padding: 22px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
-      border: 1px solid #1f2937;
-      margin-bottom: 18px;
-    }
-    .tab-header {
-      display: flex;
-      justify-content: center;
-      gap: 32px;
-      border-bottom: 2px solid #1f2937;
-      padding-bottom: 12px;
-      margin-bottom: 20px;
-    }
-    .tab-btn {
-      background: none;
-      border: none;
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      color: #ec4899;
-      border-bottom: 2px solid #ec4899;
-      padding-bottom: 10px;
-      margin-bottom: -14px;
-    }
-    .tab-btn-muted {
-      background: none;
-      border: none;
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      color: #94a3b8;
-    }
-    .tab-btn-muted:hover { color: #fff; }
-
-    /* Capa & Avatar */
-    .visual-header { position: relative; margin-bottom: 54px; }
-    .cover-box {
-      width: 100%;
-      height: 155px;
-      border-radius: 14px;
-      overflow: hidden;
-      background: #1e293b;
-      position: relative;
-      border: 1px solid #334155;
-    }
-    .cover-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .btn-change-cover {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(9, 13, 22, 0.85);
-      backdrop-filter: blur(6px);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.2);
-      padding: 7px 12px;
-      border-radius: 99px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-change-cover:hover { background: #ec4899; border-color: #ec4899; }
-
-    .avatar-box {
-      position: absolute;
-      bottom: -42px;
-      left: 18px;
-      width: 92px;
-      height: 92px;
-    }
-    .avatar-box img {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 4px solid #111827;
-      background: #1e293b;
-    }
-    .btn-change-avatar {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: #ec4899;
-      color: #fff;
-      border: 2px solid #111827;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .sec-title {
-      font-size: 14px;
-      font-weight: 800;
-      color: #fff;
-      margin: 18px 0 12px;
-      padding-top: 14px;
-      border-top: 1px solid #1f2937;
-      display: flex;
+    .nav-back {
+      display: inline-flex;
       align-items: center;
       gap: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s, background 0.15s;
     }
-    .form-group { margin-bottom: 14px; }
-    label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #94a3b8;
-      display: block;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-    input, textarea, select {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #334155;
-      border-radius: 10px;
+    .nav-back:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+    .topbar-title {
       font-size: 14px;
-      font-family: inherit;
-      background: #090d16;
-      color: #fff;
-      outline: none;
-      transition: border-color 0.2s;
+      font-weight: 700;
+      letter-spacing: -0.01em;
     }
-    input:focus, textarea:focus, select:focus { border-color: #ec4899; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-
-    /* Chips / Tags clicáveis (Características e Serviços) */
-    .chips-wrap {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .chip-btn {
-      background: #090d16;
-      border: 1px solid #334155;
-      color: #cbd5e1;
+    .btn-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
       font-family: inherit;
       font-size: 12px;
       font-weight: 600;
       padding: 7px 13px;
       border-radius: 99px;
       cursor: pointer;
-      transition: 0.15s;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .chip-btn.active {
-      background: rgba(236, 72, 153, 0.18);
-      border-color: #ec4899;
-      color: #f472b6;
-      font-weight: 700;
+    .btn-preview:hover { border-color: rgba(255,255,255,0.2); background: #222228; }
+
+    /* Layout Container */
+    .container {
+      max-width: 680px;
+      margin: 24px auto;
+      padding: 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
-    /* Áudio Box */
-    .audio-upload-bar {
+    /* Section Card */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .panel-body { padding: 24px; }
+    .panel-header {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+    .panel-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Profile Identity Header (Cover + Avatar) */
+    .cover-stage {
+      position: relative;
+      height: 185px;
+      background: linear-gradient(135deg, #18181f 0%, #271522 100%);
+      overflow: hidden;
+    }
+    .cover-stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .cover-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(18,18,22,0.85) 100%);
+    }
+    .btn-cover-edit {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(9, 9, 11, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #fff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-cover-edit:hover { background: var(--accent); border-color: var(--accent); }
+
+    .identity-bar {
+      padding: 0 24px 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: -48px;
+      position: relative;
+      z-index: 3;
+    }
+    .avatar-holder {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      flex-shrink: 0;
+    }
+    .avatar-holder img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid var(--bg-surface);
+      background: var(--bg-elevated);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .btn-avatar-edit {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg-surface);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .btn-avatar-edit:hover { transform: scale(1.08); }
+    .upload-feedback {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+      padding-bottom: 6px;
+    }
+
+    /* Form Controls */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 520px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 7px;
+    }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 11px 14px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field input::placeholder, .field textarea::placeholder { color: var(--text-muted); }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .field textarea { resize: vertical; line-height: 1.55; }
+
+    /* Currency Input Wrapper */
+    .currency-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .currency-prefix {
+      position: absolute;
+      left: 13px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .currency-box input { padding-left: 38px; font-weight: 600; }
+
+    /* Interactive Chips */
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .chip:hover { border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+    .chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #fda4af;
+      font-weight: 600;
+    }
+
+    /* Voice Note Bar */
+    .voice-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      background: #090d16;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 12px;
+      gap: 14px;
     }
-    .btn-audio {
-      background: #1e293b;
-      color: #fff;
-      border: 1px solid #475569;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
+    .voice-info { display: flex; flex-direction: column; gap: 6px; overflow: hidden; flex: 1; }
+    .voice-status { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .voice-hint { font-size: 11.5px; color: var(--text-muted); }
+    .btn-secondary {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 9px 14px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
       white-space: nowrap;
+      transition: all 0.15s;
     }
-    .btn-audio:hover { background: #ec4899; border-color: #ec4899; }
+    .btn-secondary:hover { background: #24242b; border-color: rgba(255,255,255,0.2); }
 
-    .btn-submit {
-      width: 100%;
-      background: linear-gradient(135deg, #ec4899, #8b5cf6);
-      color: #fff;
-      border: none;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: 800;
-      font-size: 15px;
-      cursor: pointer;
-      margin-top: 14px;
-      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3);
-    }
-    .btn-submit:hover { opacity: 0.92; }
-
-    /* Galeria */
-    .upload-box {
-      border: 2px dashed #334155;
-      border-radius: 12px;
-      padding: 18px;
+    /* Gallery Dropzone & Grid */
+    .dropzone {
+      border: 1.5px dashed rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      padding: 24px 16px;
       text-align: center;
       cursor: pointer;
-      background: #090d16;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .upload-box:hover { border-color: #ec4899; }
-    .gallery-grid {
+    .dropzone:hover {
+      border-color: var(--accent);
+      background: rgba(225, 29, 72, 0.04);
+    }
+    .dropzone-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+    .dropzone-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .media-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 14px;
+      gap: 10px;
+      margin-top: 16px;
     }
-    .g-item {
+    .media-card {
       position: relative;
-      aspect-ratio: 1/1;
-      border-radius: 10px;
+      aspect-ratio: 3/4;
+      border-radius: var(--radius-md);
       overflow: hidden;
       background: #000;
-      border: 1px solid #1f2937;
+      border: 1px solid var(--border);
     }
-    .g-item img, .g-item video { width: 100%; height: 100%; object-fit: cover; }
-    .g-del {
+    .media-card img, .media-card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .media-del {
       position: absolute;
-      top: 5px;
-      right: 5px;
-      background: rgba(220, 38, 38, 0.9);
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(9, 9, 11, 0.78);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.15);
       color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 3px 7px;
       font-size: 11px;
-      font-weight: 700;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .g-actions {
+    .media-del:hover { background: #dc2626; border-color: #dc2626; }
+    .media-bar {
       position: absolute;
+      bottom: 6px;
+      left: 6px;
+      right: 6px;
+      display: flex;
+      gap: 4px;
+    }
+    .media-bar button {
+      flex: 1;
+      background: rgba(9, 9, 11, 0.82);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #f4f4f5;
+      font-family: inherit;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 5px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .media-bar button:hover { background: var(--accent); border-color: var(--accent); }
+
+    /* Sticky Bottom Action Bar */
+    .save-dock {
+      position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(9, 13, 22, 0.85);
-      display: flex;
-      gap: 4px;
-      padding: 4px;
+      z-index: 45;
+      background: rgba(18, 18, 22, 0.88);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      padding: 12px 18px;
     }
-    .g-actions button {
-      flex: 1;
-      background: rgba(255,255,255,0.14);
+    .save-dock-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .save-hint { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .btn-primary {
+      background: var(--accent);
       color: #fff;
       border: none;
-      border-radius: 4px;
-      font-size: 10px;
+      font-family: inherit;
+      font-size: 13.5px;
       font-weight: 700;
-      padding: 4px 2px;
+      padding: 12px 24px;
+      border-radius: var(--radius-md);
       cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(225, 29, 72, 0.32);
     }
-    .g-actions button:hover { background: #ec4899; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
   </style>
 </head>
 <body>
 
-  <header class="navbar">
-    <div class="navbar-inner">
-      <a href="/minha-conta" class="back-btn">← Voltar ao Studio</a>
-      <strong style="font-size:15px; color:#fff;">Editar Perfil</strong>
-      <div style="width:70px;"></div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/minha-conta" class="nav-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Studio
+      </a>
+      <span class="topbar-title">Editar Perfil</span>
+      <button type="button" class="btn-preview" onclick="verPerfilPublico()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Ver Perfil
+      </button>
     </div>
   </header>
 
-  <div class="container">
-    <div class="card">
-      <div class="tab-header">
-        <button type="button" class="tab-btn">✏️ Editar</button>
-        <button type="button" class="tab-btn-muted" onclick="verPerfilPublico()">👁️ Visualizar</button>
+  <form id="form-edit" class="container" onsubmit="salvarAlteracoes(event)">
+
+    <!-- Bloco 1: Identidade Visual -->
+    <section class="panel">
+      <div class="cover-stage">
+        <img id="previewCover" src="https://placehold.co/1200x400/18181f/71717a?text=Capa+do+Perfil" alt="Capa" />
+        <div class="cover-overlay"></div>
+        <button type="button" class="btn-cover-edit" onclick="document.getElementById('inputCoverFile').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Alterar capa
+        </button>
+        <input type="file" id="inputCoverFile" accept="image/*" style="display:none" onchange="uploadArquivoUnico('cover', this.files[0])" />
       </div>
 
-      <!-- Capa e Foto de Perfil -->
-      <div class="visual-header">
-        <div class="cover-box">
-          <img id="previewCover" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA+DO+PERFIL" alt="Capa" />
-          <button type="button" class="btn-change-cover" onclick="document.getElementById('inputCoverFile').click()">
-            📷 Trocar Capa
-          </button>
-          <input type="file" id="inputCoverFile" accept="image/*" style="display:none" onchange="uploadArquivoUnico('cover', this.files[0])" />
-        </div>
-
-        <div class="avatar-box">
-          <img id="previewAvatar" src="https://placehold.co/300x300/1e293b/ec4899?text=FOTO" alt="Avatar" />
-          <button type="button" class="btn-change-avatar" title="Trocar Foto de Perfil" onclick="document.getElementById('inputAvatarFile').click()">
-            📷
+      <div class="identity-bar">
+        <div class="avatar-holder">
+          <img id="previewAvatar" src="https://placehold.co/300x300/18181f/71717a?text=Foto" alt="Avatar" />
+          <button type="button" class="btn-avatar-edit" title="Alterar foto de perfil" onclick="document.getElementById('inputAvatarFile').click()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </button>
           <input type="file" id="inputAvatarFile" accept="image/*" style="display:none" onchange="uploadArquivoUnico('avatar', this.files[0])" />
         </div>
+        <div id="photo-status" class="upload-feedback"></div>
       </div>
 
-      <p id="photo-status" style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:10px;"></p>
-
-      <form id="form-edit" onsubmit="salvarAlteracoes(event)">
-        <div class="sec-title" style="border-top:none; padding-top:0; margin-top:0;">👤 Dados Principais</div>
-
+      <div class="panel-body" style="padding-top: 0;">
         <div class="grid-2">
-          <div class="form-group">
-            <label>Nome Artístico</label>
-            <input type="text" id="stageName" required placeholder="Ex: Vanessinha" />
+          <div class="field">
+            <label for="stageName">Nome Artístico</label>
+            <input type="text" id="stageName" required placeholder="Ex: Valentina" />
           </div>
-          <div class="form-group">
-            <label>Idade (anos)</label>
-            <input type="number" id="age" min="18" max="65" placeholder="Ex: 24" />
+          <div class="field">
+            <label for="age">Idade</label>
+            <input type="number" id="age" min="18" max="65" placeholder="24" />
           </div>
         </div>
 
         <div class="grid-2">
-          <div class="form-group">
-            <label>WhatsApp (com DDD)</label>
-            <input type="text" id="whatsapp" placeholder="Ex: 65999999999" />
+          <div class="field">
+            <label for="whatsapp">WhatsApp (com DDD)</label>
+            <input type="text" id="whatsapp" placeholder="65999999999" />
           </div>
-          <div class="form-group">
-            <label>Local de Atendimento</label>
+          <div class="field">
+            <label for="hasLocation">Local de Atendimento</label>
             <select id="hasLocation">
               <option value="Com local próprio">Com local próprio</option>
               <option value="Motel / Hotel">Motel / Hotel</option>
@@ -376,131 +508,221 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Frase de Destaque (Balão de Fala)</label>
-          <input type="text" id="specialtyTag" placeholder="Ex: Atenta, de conversa fácil e sem pressa" />
+        <div class="field">
+          <label for="specialtyTag">Frase de Destaque</label>
+          <input type="text" id="specialtyTag" placeholder="Ex: Atendimento discreto, sem pressa e com total conforto" />
         </div>
 
         <div class="grid-2">
-          <div class="form-group">
-            <label>Bairro</label>
-            <input type="text" id="neighborhood" placeholder="Ex: Costa Verde" />
+          <div class="field">
+            <label for="neighborhood">Bairro</label>
+            <input type="text" id="neighborhood" placeholder="Ex: Duque de Caxias" />
           </div>
-          <div class="form-group">
-            <label>Cidade</label>
-            <input type="text" id="city" placeholder="Ex: Várzea Grande" />
+          <div class="field">
+            <label for="city">Cidade</label>
+            <input type="text" id="city" placeholder="Ex: Cuiabá" />
           </div>
         </div>
 
-        <!-- Áudio de Apresentação -->
-        <div class="sec-title">🎙️ Áudio de Apresentação (Voz)</div>
-        <div class="audio-upload-bar">
-          <div style="overflow:hidden;">
-            <strong style="font-size:12px; display:block;" id="audioLabel">Nenhum áudio enviado</strong>
-            <audio id="audioPlayerPreview" controls style="height:30px; margin-top:6px; display:none; max-width:100%;"></audio>
-          </div>
-          <button type="button" class="btn-audio" onclick="document.getElementById('inputAudioFile').click()">
-            🎤 Enviar Áudio
-          </button>
-          <input type="file" id="inputAudioFile" accept="audio/*" style="display:none" onchange="uploadArquivoUnico('audio', this.files[0])" />
+        <div class="field">
+          <label for="bio">Sobre Mim</label>
+          <textarea id="bio" rows="4" placeholder="Descreva seu estilo, diferenciais e como funciona seu atendimento..."></textarea>
         </div>
+      </div>
+    </section>
 
-        <!-- Valores e Horários -->
-        <div class="sec-title">💰 Valores e Horário de Expediente</div>
+    <!-- Bloco 2: Tabela de Valores & Pagamentos -->
+    <section class="panel">
+      <div class="panel-body">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Valores e Horários</h2>
+            <p class="panel-desc">Deixe em branco os pacotes que você não realiza.</p>
+          </div>
+        </div>
 
         <div class="grid-3">
-          <div class="form-group">
-            <label>30 Min (R$)</label>
-            <input type="number" step="10" id="halfHourPrice" placeholder="Ex: 150" />
+          <div class="field">
+            <label for="fifteenMinPrice">15 minutos</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="10" id="fifteenMinPrice" placeholder="—" />
+            </div>
           </div>
-          <div class="form-group">
-            <label>1 Hora (R$)</label>
-            <input type="number" step="10" id="hourlyPrice" placeholder="Ex: 250" />
+          <div class="field">
+            <label for="halfHourPrice">30 minutos</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="10" id="halfHourPrice" placeholder="150" />
+            </div>
           </div>
-          <div class="form-group">
-            <label>Clube VIP (R$)</label>
-            <input type="number" step="5" id="vipMonthlyPrice" placeholder="49.90" />
+          <div class="field">
+            <label for="hourlyPrice">1 hora</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="10" id="hourlyPrice" placeholder="250" />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label for="twoHoursPrice">2 horas</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="10" id="twoHoursPrice" placeholder="—" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="overnightPrice">Pernoite</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="50" id="overnightPrice" placeholder="—" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="vipMonthlyPrice">Clube VIP (Mensal)</label>
+            <div class="currency-box">
+              <span class="currency-prefix">R$</span>
+              <input type="number" step="5" id="vipMonthlyPrice" placeholder="49.90" />
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Formas de Pagamento Aceitas</label>
+          <div class="chips-group" id="paymentChips">
+            <button type="button" class="chip" data-val="Dinheiro">Dinheiro</button>
+            <button type="button" class="chip" data-val="Pix">Pix</button>
+            <button type="button" class="chip" data-val="Crédito">Cartão de Crédito</button>
+            <button type="button" class="chip" data-val="Débito">Cartão de Débito</button>
           </div>
         </div>
 
         <div class="grid-2">
-          <div class="form-group">
-            <label>Início Expediente</label>
+          <div class="field">
+            <label for="scheduleStart">Início do Expediente</label>
             <input type="time" id="scheduleStart" value="09:00" />
           </div>
-          <div class="form-group">
-            <label>Fim Expediente</label>
+          <div class="field">
+            <label for="scheduleEnd">Fim do Expediente</label>
             <input type="time" id="scheduleEnd" value="22:00" />
           </div>
         </div>
-
-        <!-- Características Físicas -->
-        <div class="sec-title">✨ Características Físicas</div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Altura (ex: 1.68 m)</label>
-            <input type="text" id="height" placeholder="1.68 m" />
-          </div>
-          <div class="form-group">
-            <label>Peso (ex: 58 kg)</label>
-            <input type="text" id="weight" placeholder="58 kg" />
-          </div>
-        </div>
-        <label>Toque para selecionar suas características:</label>
-        <div class="chips-wrap" id="physicalChips">
-          <button type="button" class="chip-btn" data-val="Cabelo castanho">Cabelo castanho</button>
-          <button type="button" class="chip-btn" data-val="Loira">Loira</button>
-          <button type="button" class="chip-btn" data-val="Morena">Morena</button>
-          <button type="button" class="chip-btn" data-val="Ruiva">Ruiva</button>
-          <button type="button" class="chip-btn" data-val="Olhos claros">Olhos claros</button>
-          <button type="button" class="chip-btn" data-val="Olhos castanhos">Olhos castanhos</button>
-          <button type="button" class="chip-btn" data-val="Pele macia">Pele macia</button>
-          <button type="button" class="chip-btn" data-val="Tatuada">Tatuada</button>
-          <button type="button" class="chip-btn" data-val="Silicone">Silicone</button>
-          <button type="button" class="chip-btn" data-val="Natural">Natural</button>
-        </div>
-
-        <!-- Serviços Oferecidos -->
-        <div class="sec-title">🔥 Serviços Oferecidos</div>
-        <label>Toque nos serviços que você realiza:</label>
-        <div class="chips-wrap" id="servicesChips">
-          <button type="button" class="chip-btn" data-val="Atendimento VIP">Atendimento VIP</button>
-          <button type="button" class="chip-btn" data-val="Massagem relaxante">Massagem relaxante</button>
-          <button type="button" class="chip-btn" data-val="Massagem tântrica">Massagem tântrica</button>
-          <button type="button" class="chip-btn" data-val="Beijo na boca">Beijo na boca</button>
-          <button type="button" class="chip-btn" data-val="Acompanhante para eventos">Acompanhante para eventos</button>
-          <button type="button" class="chip-btn" data-val="Namoradinha">Namoradinha</button>
-          <button type="button" class="chip-btn" data-val="Inversão">Inversão</button>
-          <button type="button" class="chip-btn" data-val="Fetiches">Fetiches</button>
-          <button type="button" class="chip-btn" data-val="Chamada de vídeo">Chamada de vídeo</button>
-        </div>
-
-        <!-- Descrição -->
-        <div class="sec-title">📝 Sobre Mim (Descrição)</div>
-        <div class="form-group">
-          <textarea id="bio" rows="4" placeholder="Fale sobre seu atendimento, estilo, diferenciais..."></textarea>
-        </div>
-
-        <input type="hidden" id="avatarUrl" />
-        <input type="hidden" id="coverUrl" />
-        <input type="hidden" id="audioUrl" />
-
-        <button type="submit" class="btn-submit" id="btn-save">💾 Salvar Todas as Alterações</button>
-      </form>
-    </div>
-
-    <!-- Galeria de Fotos e Vídeos -->
-    <div class="card">
-      <div class="sec-title" style="border-top:none; padding-top:0; margin-top:0;">📸 Minhas Fotos e Vídeos</div>
-      <div class="upload-box" onclick="document.getElementById('galleryFilesInput').click()">
-        <p style="font-size:14px; font-weight:700; color:#fff;">+ Adicionar Fotos ou Vídeos</p>
-        <p style="font-size:11px; color:#94a3b8; margin-top:4px;">Selecione várias fotos ou vídeos da galeria</p>
-        <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadGaleria(this.files)" />
       </div>
-      <p id="gallery-status" style="font-size:12px; color:#10b981; font-weight:700; margin-top:8px;"></p>
-      <div class="gallery-grid" id="galleryGrid"></div>
+    </section>
+
+    <!-- Bloco 3: Áudio de Apresentação -->
+    <section class="panel">
+      <div class="panel-body">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Áudio de Apresentação</h2>
+            <p class="panel-desc">Uma gravação curta de voz aumenta a confiança e os contatos.</p>
+          </div>
+        </div>
+
+        <div class="voice-card">
+          <div class="voice-info">
+            <span class="voice-status" id="audioLabel">Nenhum áudio cadastrado</span>
+            <span class="voice-hint">Formatos MP3, M4A, OGG ou WAV</span>
+            <audio id="audioPlayerPreview" controls style="height: 32px; margin-top: 4px; display: none; max-width: 100%;"></audio>
+          </div>
+          <button type="button" class="btn-secondary" onclick="document.getElementById('inputAudioFile').click()">
+            Selecionar áudio
+          </button>
+          <input type="file" id="inputAudioFile" accept="audio/*" style="display:none" onchange="uploadArquivoUnico('audio', this.files[0])" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Bloco 4: Características e Serviços -->
+    <section class="panel">
+      <div class="panel-body">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Características e Serviços</h2>
+            <p class="panel-desc">Selecione os atributos que aparecem no seu perfil público.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="height">Altura</label>
+            <input type="text" id="height" placeholder="Ex: 1.68 m" />
+          </div>
+          <div class="field">
+            <label for="weight">Peso</label>
+            <input type="text" id="weight" placeholder="Ex: 58 kg" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Características Físicas</label>
+          <div class="chips-group" id="physicalChips">
+            <button type="button" class="chip" data-val="Cabelo castanho">Cabelo castanho</button>
+            <button type="button" class="chip" data-val="Loira">Loira</button>
+            <button type="button" class="chip" data-val="Morena">Morena</button>
+            <button type="button" class="chip" data-val="Ruiva">Ruiva</button>
+            <button type="button" class="chip" data-val="Olhos claros">Olhos claros</button>
+            <button type="button" class="chip" data-val="Olhos castanhos">Olhos castanhos</button>
+            <button type="button" class="chip" data-val="Pele macia">Pele macia</button>
+            <button type="button" class="chip" data-val="Tatuada">Tatuada</button>
+            <button type="button" class="chip" data-val="Silicone">Silicone</button>
+            <button type="button" class="chip" data-val="Natural">Natural</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Serviços Oferecidos</label>
+          <div class="chips-group" id="servicesChips">
+            <button type="button" class="chip" data-val="Atendimento VIP">Atendimento VIP</button>
+            <button type="button" class="chip" data-val="Massagem relaxante">Massagem relaxante</button>
+            <button type="button" class="chip" data-val="Massagem tântrica">Massagem tântrica</button>
+            <button type="button" class="chip" data-val="Beijo na boca">Beijo na boca</button>
+            <button type="button" class="chip" data-val="Acompanhante para eventos">Acompanhante para eventos</button>
+            <button type="button" class="chip" data-val="Namoradinha">Namoradinha</button>
+            <button type="button" class="chip" data-val="Inversão">Inversão</button>
+            <button type="button" class="chip" data-val="Fetiches">Fetiches</button>
+            <button type="button" class="chip" data-val="Chamada de vídeo">Chamada de vídeo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bloco 5: Galeria de Mídia -->
+    <section class="panel">
+      <div class="panel-body">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Galeria de Fotos e Vídeos</h2>
+            <p class="panel-desc">Gerencie as mídias públicas exibidas na vitrine e no seu perfil.</p>
+          </div>
+        </div>
+
+        <div class="dropzone" onclick="document.getElementById('galleryFilesInput').click()">
+          <div class="dropzone-title">+ Adicionar fotos ou vídeos</div>
+          <div class="dropzone-sub">Clique para selecionar vários arquivos do seu dispositivo</div>
+          <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadGaleria(this.files)" />
+        </div>
+        <p id="gallery-status" style="font-size: 12px; color: var(--success); font-weight: 600; margin-top: 10px;"></p>
+        <div class="media-grid" id="galleryGrid"></div>
+      </div>
+    </section>
+
+    <input type="hidden" id="avatarUrl" />
+    <input type="hidden" id="coverUrl" />
+    <input type="hidden" id="audioUrl" />
+
+    <!-- Barra Fixa de Ação -->
+    <div class="save-dock">
+      <div class="save-dock-inner">
+        <span class="save-hint" id="save-status-hint">Edite os campos e salve</span>
+        <button type="submit" class="btn-primary" id="btn-save">Salvar Alterações</button>
+      </div>
     </div>
-  </div>
+
+  </form>
 
   <script>
     // Token exclusivo da sessão atual + trava obrigatória de biometria facial 2FA
@@ -527,19 +749,28 @@
       }
     });
 
-    // Ativa clique nos chips (tags)
-    document.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', () => btn.classList.toggle('active'));
+    // Ativa seleção nos chips
+    document.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        document.getElementById('save-status-hint').innerText = 'Alterações pendentes';
+      });
+    });
+
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+      el.addEventListener('input', () => {
+        document.getElementById('save-status-hint').innerText = 'Alterações pendentes';
+      });
     });
 
     function getSelectedChips(containerId) {
-      return Array.from(document.querySelectorAll(`#${containerId} .chip-btn.active`))
+      return Array.from(document.querySelectorAll(`#${containerId} .chip.active`))
         .map(b => b.dataset.val);
     }
 
     function setSelectedChips(containerId, valuesArray) {
       const set = new Set(valuesArray || []);
-      document.querySelectorAll(`#${containerId} .chip-btn`).forEach(btn => {
+      document.querySelectorAll(`#${containerId} .chip`).forEach(btn => {
         if (set.has(btn.dataset.val)) btn.classList.add('active');
       });
     }
@@ -576,8 +807,11 @@
           document.getElementById('specialtyTag').value = c.specialty_tag || '';
           document.getElementById('neighborhood').value = c.neighborhood || '';
           document.getElementById('city').value = c.city || '';
+          document.getElementById('fifteenMinPrice').value = c.fifteen_min_rate || '';
           document.getElementById('halfHourPrice').value = c.half_hour_rate || '';
           document.getElementById('hourlyPrice').value = c.hourly_rate || '';
+          document.getElementById('twoHoursPrice').value = c.two_hours_rate || '';
+          document.getElementById('overnightPrice').value = c.overnight_rate || '';
           document.getElementById('vipMonthlyPrice').value = c.vip_monthly_price || '49.90';
           document.getElementById('bio').value = c.bio || '';
 
@@ -589,6 +823,7 @@
 
           if (Array.isArray(c.physical_tags)) setSelectedChips('physicalChips', c.physical_tags);
           if (Array.isArray(c.services_tags)) setSelectedChips('servicesChips', c.services_tags);
+          setSelectedChips('paymentChips', Array.isArray(c.payment_methods) ? c.payment_methods : ['Dinheiro', 'Pix']);
 
           document.getElementById('avatarUrl').value = c.avatar_url || '';
           document.getElementById('coverUrl').value = c.cover_url || '';
@@ -597,7 +832,7 @@
           if (c.avatar_url) document.getElementById('previewAvatar').src = c.avatar_url;
           if (c.cover_url) document.getElementById('previewCover').src = c.cover_url;
           if (c.audio_url) {
-            document.getElementById('audioLabel').innerText = '✅ Áudio cadastrado';
+            document.getElementById('audioLabel').innerText = 'Áudio ativo no perfil';
             const player = document.getElementById('audioPlayerPreview');
             player.src = c.audio_url;
             player.style.display = 'block';
@@ -655,28 +890,29 @@
         if (tipo === 'cover') {
           document.getElementById('previewCover').src = upRes.publicUrl;
           document.getElementById('coverUrl').value = upRes.publicUrl;
-          status.innerText = '✅ Capa atualizada!';
+          status.innerText = 'Capa atualizada';
         } else if (tipo === 'avatar') {
           document.getElementById('previewAvatar').src = upRes.publicUrl;
           document.getElementById('avatarUrl').value = upRes.publicUrl;
-          status.innerText = '✅ Foto de perfil atualizada!';
+          status.innerText = 'Foto de perfil atualizada';
         } else {
           document.getElementById('audioUrl').value = upRes.publicUrl;
-          document.getElementById('audioLabel').innerText = '✅ Áudio atualizado!';
+          document.getElementById('audioLabel').innerText = 'Áudio atualizado';
           const player = document.getElementById('audioPlayerPreview');
           player.src = upRes.publicUrl;
           player.style.display = 'block';
-          status.innerText = '✅ Áudio de voz salvo!';
+          status.innerText = 'Áudio salvo no perfil';
         }
       } catch (err) {
         status.innerText = '';
-        alert('Falha no envio do arquivo: ' + (err.message || 'Erro de rede'));
+        alert('Falha no envio: ' + (err.message || 'Erro de rede'));
       }
     }
 
     async function salvarAlteracoes(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-save');
+      const hint = document.getElementById('save-status-hint');
       btn.innerText = 'Salvando...';
       btn.disabled = true;
 
@@ -689,6 +925,7 @@
       if (loc) physicalTags.push(loc);
 
       const servicesTags = getSelectedChips('servicesChips');
+      const paymentMethods = getSelectedChips('paymentChips');
 
       const payload = {
         stage_name: document.getElementById('stageName').value.trim(),
@@ -698,9 +935,13 @@
         neighborhood: document.getElementById('neighborhood').value.trim(),
         city: document.getElementById('city').value.trim(),
         has_location: loc,
+        fifteen_min_rate: document.getElementById('fifteenMinPrice').value ? Number(document.getElementById('fifteenMinPrice').value) : null,
         half_hour_rate: document.getElementById('halfHourPrice').value ? Number(document.getElementById('halfHourPrice').value) : null,
         hourly_rate: document.getElementById('hourlyPrice').value ? Number(document.getElementById('hourlyPrice').value) : null,
+        two_hours_rate: document.getElementById('twoHoursPrice').value ? Number(document.getElementById('twoHoursPrice').value) : null,
+        overnight_rate: document.getElementById('overnightPrice').value ? Number(document.getElementById('overnightPrice').value) : null,
         vip_monthly_price: document.getElementById('vipMonthlyPrice').value ? Number(document.getElementById('vipMonthlyPrice').value) : 49.90,
+        payment_methods: paymentMethods,
         schedule_start: document.getElementById('scheduleStart').value,
         schedule_end: document.getElementById('scheduleEnd').value,
         height: h,
@@ -722,14 +963,15 @@
         const data = await res.json();
         if (data.ok) {
           if (data.creator?.slug) creatorSlug = data.creator.slug;
-          alert('✅ Todas as informações foram salvas com sucesso!');
+          hint.innerText = 'Todas as alterações salvas';
+          hint.style.color = '#10b981';
         } else {
           alert(data.error || 'Erro ao salvar.');
         }
       } catch (err) {
         alert('Erro de conexão ao salvar.');
       } finally {
-        btn.innerText = '💾 Salvar Todas as Alterações';
+        btn.innerText = 'Salvar Alterações';
         btn.disabled = false;
       }
     }
@@ -741,13 +983,13 @@
       if (!res.ok) return;
       const { items } = await res.json();
       document.getElementById('galleryGrid').innerHTML = (items || []).map(m => `
-        <div class="g-item">
+        <div class="media-card">
           ${m.media_type === 'video' ? `<video src="${m.public_url}"></video>` : `<img src="${m.public_url}" />`}
-          <button type="button" class="g-del" onclick="deletarMidia(${m.id})">✕</button>
+          <button type="button" class="media-del" title="Remover" onclick="deletarMidia(${m.id})">✕</button>
           ${m.media_type === 'image' ? `
-            <div class="g-actions">
-              <button type="button" onclick="usarComoFoto('avatar', '${m.public_url}')">Perfil</button>
-              <button type="button" onclick="usarComoFoto('cover', '${m.public_url}')">Capa</button>
+            <div class="media-bar">
+              <button type="button" onclick="usarComoFoto('avatar', '${m.public_url}')">Usar Perfil</button>
+              <button type="button" onclick="usarComoFoto('cover', '${m.public_url}')">Usar Capa</button>
             </div>` : ''}
         </div>
       `).join('');
@@ -785,7 +1027,7 @@
           }),
         });
       }
-      status.innerText = '✅ Fotos/vídeos adicionados!';
+      status.innerText = 'Mídias adicionadas com sucesso';
       carregarGaleria();
     }
 
@@ -799,16 +1041,16 @@
       if (tipo === 'cover') {
         document.getElementById('previewCover').src = url;
         document.getElementById('coverUrl').value = url;
-        alert('✅ Definida como Capa!');
+        document.getElementById('photo-status').innerText = 'Capa atualizada';
       } else {
         document.getElementById('previewAvatar').src = url;
         document.getElementById('avatarUrl').value = url;
-        alert('✅ Definida como Perfil!');
+        document.getElementById('photo-status').innerText = 'Foto de perfil atualizada';
       }
     }
 
     async function deletarMidia(id) {
-      if (!confirm('Remover esta mídia?')) return;
+      if (!confirm('Remover esta mídia da galeria?')) return;
       await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
       carregarGaleria();
     }
