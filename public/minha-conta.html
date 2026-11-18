@@ -125,28 +125,24 @@
       color: #fff; border: 1px solid rgba(236, 72, 153, 0.35);
     }
 
-    /* Mode Switcher & Quick Links */
+    /* Action Bar & Quick Links */
     .mode-switcher {
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: flex-end; align-items: center;
       gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
     }
-    .mode-pills {
-      display: flex; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 99px; padding: 3px;
-    }
-    .mode-pill {
-      border: none; background: transparent; color: var(--text-muted);
-      font-family: inherit; font-size: 11px; font-weight: 700;
-      padding: 7px 13px; border-radius: 99px; cursor: pointer; transition: 0.2s;
-    }
-    .mode-pill.active { background: var(--accent); color: #fff; }
     .quick-ext-link {
       background: rgba(255, 255, 255, 0.05); color: #e2e8f0;
-      border: 1px solid var(--border); padding: 7px 12px;
-      border-radius: 99px; font-size: 11px; font-weight: 700; text-decoration: none;
-      transition: 0.2s;
+      border: 1px solid var(--border); padding: 9px 14px;
+      border-radius: 99px; font-size: 12px; font-weight: 700; text-decoration: none;
+      transition: 0.2s; display: inline-flex; align-items: center; gap: 5px;
     }
     .quick-ext-link:hover { border-color: var(--accent); color: #fff; }
+    .quick-ext-link.primary {
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      border: none; color: #fff; padding: 9px 16px;
+      box-shadow: 0 4px 14px rgba(236, 72, 153, 0.3);
+    }
+    .quick-ext-link.primary:hover { opacity: 0.92; }
 
     /* Live Preview Card */
     .live-preview-card {
@@ -157,14 +153,6 @@
     .lp-cover { position: relative; height: 165px; background: #1e293b; }
     .lp-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .lp-cover-grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.5)); }
-    .edit-cover-btn {
-      position: absolute; top: 12px; right: 12px; z-index: 5;
-      background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);
-      color: #fff; border: 1px solid rgba(255, 255, 255, 0.25);
-      padding: 7px 13px; border-radius: 99px; font-size: 11px; font-weight: 700;
-      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-    }
-    .edit-cover-btn:hover { background: var(--accent); border-color: var(--accent); }
 
     .lp-body { padding: 0 18px 20px; position: relative; }
     .lp-top-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: -46px; margin-bottom: 12px; }
@@ -172,12 +160,6 @@
     .lp-avatar-wrap img {
       width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
       border: 4px solid #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22); background: #fff;
-    }
-    .edit-avatar-btn {
-      position: absolute; bottom: 0; right: -2px; background: var(--accent); color: #fff;
-      border: 2px solid #fff; width: 32px; height: 32px; border-radius: 50%;
-      font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
     }
     .lp-price-box {
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
@@ -195,9 +177,6 @@
     .lp-fake-cta { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .lp-btn-wa { background: #16a34a; color: #fff; text-align: center; padding: 11px; border-radius: 10px; font-size: 12px; font-weight: 700; }
     .lp-btn-vip { background: linear-gradient(135deg, #e11d48, #db2777); color: #fff; text-align: center; padding: 11px; border-radius: 10px; font-size: 12px; font-weight: 700; }
-
-    .client-view-mode .edit-cover-btn,
-    .client-view-mode .edit-avatar-btn { display: none !important; }
 
     /* KPIs & Earnings Chart */
     .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -357,35 +336,21 @@
       <!-- ABA 1: PERFIL & PRÉVIA AO VIVO -->
       <div id="tab-perfil" class="studio-section">
         <div class="mode-switcher">
-          <div class="mode-pills">
-            <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar</button>
-            <button id="btn-mode-client" class="mode-pill" onclick="setPreviewMode('client')">👁️ Visão Cliente</button>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <a href="/minha-conta/editar" class="quick-ext-link" style="border-color:#ec4899;color:#f472b6;">⚙️ Edição Completa</a>
-            <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
-            <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Perfil ↗</a>
-          </div>
+          <a href="/minha-conta/editar" class="quick-ext-link primary">✏️ Editar Perfil Completo</a>
+          <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
+          <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Ver Perfil ↗</a>
         </div>
 
         <div id="live-preview-card" class="live-preview-card">
           <div class="lp-cover">
             <img id="lp-cover-img" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA" alt="Capa" />
             <div class="lp-cover-grad"></div>
-            <button type="button" class="edit-cover-btn" onclick="document.getElementById('cover-file-input').click()">
-              📷 Alterar Capa
-            </button>
-            <input type="file" id="cover-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('cover', this.files[0])" />
           </div>
 
           <div class="lp-body">
             <div class="lp-top-row">
               <div class="lp-avatar-wrap">
                 <img id="lp-avatar-img" src="https://placehold.co/300x300/1e293b/ec4899?text=VIP" alt="Avatar" />
-                <button type="button" class="edit-avatar-btn" title="Trocar foto de perfil" onclick="document.getElementById('avatar-file-input').click()">
-                  📷
-                </button>
-                <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="uploadSingleProfilePhoto('avatar', this.files[0])" />
               </div>
 
               <div class="lp-price-box">
@@ -406,37 +371,6 @@
               <div class="lp-btn-vip" id="lp-vip-btn-label">🔥 Clube VIP (R$ 49,90/mês)</div>
             </div>
           </div>
-        </div>
-
-        <div id="edit-form-card" class="card">
-          <div class="card-header">
-            <h3>✏️ Valores e Informações Rápidas</h3>
-          </div>
-          <div style="display:flex;gap:10px">
-            <div style="flex:1">
-              <label>Cachê 1 Hora (R$)</label>
-              <input id="p-rate" type="number" step="10" placeholder="Ex: 300" oninput="syncLivePreview()" />
-            </div>
-            <div style="flex:1">
-              <label>Assinatura VIP (R$/mês)</label>
-              <input id="p-vip-price" type="number" step="5" placeholder="Ex: 49.90" oninput="syncLivePreview()" />
-            </div>
-          </div>
-          <div style="display:flex;gap:10px">
-            <div style="flex:1.4">
-              <label>Nome Artístico</label>
-              <input id="p-name" oninput="syncLivePreview()" />
-            </div>
-            <div style="flex:1">
-              <label>WhatsApp (DDD)</label>
-              <input id="p-wa" placeholder="65999999999" />
-            </div>
-          </div>
-          <label>Cidade</label>
-          <input id="p-city" oninput="syncLivePreview()" />
-          <label>Descrição do Atendimento</label>
-          <textarea id="p-bio" rows="3" placeholder="Descreva seu atendimento, horários e diferenciais..." oninput="syncLivePreview()"></textarea>
-          <button class="btn" onclick="saveProfile()">💾 Salvar Alterações do Perfil</button>
         </div>
 
         <div class="card">
@@ -464,10 +398,10 @@
           <div class="card-header">
             <h3>🛡️ Segurança & Verificação Facial</h3>
           </div>
-          <p class="subtitle">Proteja sua conta contra invasões com a biometria do seu aparelho e envie sua prova de vida facial.</p>
+          <p class="subtitle">Proteja sua conta contra invasões com a biometria facial e envie sua prova de vida.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="btn" style="flex:1;" onclick="window.location.href='/biometria-facial?mode=register'">
-              📷 Ativar Biometria Facial
+              📷 Recadastrar Biometria Facial
             </button>
             <button type="button" class="btn btn-green" style="flex:1;" onclick="openLivenessModal()">
               🎥 Prova de Vida Facial
@@ -642,41 +576,6 @@
       document.getElementById('nav-' + tabName).classList.add('active');
     }
 
-    function setPreviewMode(mode) {
-      const card = document.getElementById('live-preview-card');
-      const editForm = document.getElementById('edit-form-card');
-      const btnEdit = document.getElementById('btn-mode-edit');
-      const btnClient = document.getElementById('btn-mode-client');
-
-      if (mode === 'client') {
-        card.classList.add('client-view-mode');
-        editForm.style.display = 'none';
-        btnClient.classList.add('active');
-        btnEdit.classList.remove('active');
-      } else {
-        card.classList.remove('client-view-mode');
-        editForm.style.display = 'block';
-        btnEdit.classList.add('active');
-        btnClient.classList.remove('active');
-      }
-    }
-
-    function syncLivePreview() {
-      const name = document.getElementById('p-name').value.trim() || 'Seu Nome Artístico';
-      const city = document.getElementById('p-city').value.trim() || 'Sua Cidade';
-      const rate = document.getElementById('p-rate').value;
-      const vipPrice = document.getElementById('p-vip-price').value;
-      const bio = document.getElementById('p-bio').value.trim() || 'Atendimento exclusivo com total discrição e segurança.';
-
-      document.getElementById('lp-name-display').innerText = name;
-      document.getElementById('lp-city-display').innerText = '📍 ' + city + ' - ' + currentStateUF;
-      document.getElementById('lp-bio-display').innerText = bio;
-      document.getElementById('lp-price-display').innerText = rate ? 'R$ ' + Number(rate).toFixed(0) : 'Consultar';
-      document.getElementById('lp-vip-btn-label').innerText = vipPrice
-        ? '🔥 Clube VIP (R$ ' + Number(vipPrice).toFixed(2).replace('.', ',') + '/mês)'
-        : '🔥 Clube VIP';
-    }
-
     function switchAuth(mode) {
       document.getElementById('t-login').classList.toggle('active', mode === 'login');
       document.getElementById('t-reg').classList.toggle('active', mode === 'reg');
@@ -767,13 +666,13 @@
       document.getElementById('kpi-contacts').innerText = contacts;
       document.getElementById('kpi-rate').innerText = conv + '%';
 
-      document.getElementById('p-rate').value = creator.hourly_rate || '';
-      document.getElementById('p-vip-price').value = creator.vip_monthly_price || '49.90';
-      document.getElementById('p-wa').value = creator.whatsapp || '';
-      document.getElementById('p-name').value = creator.stage_name || '';
-      document.getElementById('p-city').value = creator.city || '';
-      document.getElementById('p-bio').value = creator.bio || '';
-      syncLivePreview();
+      document.getElementById('lp-name-display').innerText = creator.stage_name || 'Seu Nome Artístico';
+      document.getElementById('lp-city-display').innerText = '📍 ' + (creator.city || 'Sua Cidade') + ' - ' + currentStateUF;
+      document.getElementById('lp-bio-display').innerText = creator.bio || 'Atendimento exclusivo com total discrição e segurança.';
+      document.getElementById('lp-price-display').innerText = creator.hourly_rate ? 'R$ ' + Number(creator.hourly_rate).toFixed(0) : 'Consultar';
+      document.getElementById('lp-vip-btn-label').innerText = creator.vip_monthly_price
+        ? '🔥 Clube VIP (R$ ' + Number(creator.vip_monthly_price).toFixed(2).replace('.', ',') + '/mês)'
+        : '🔥 Clube VIP';
 
       document.getElementById('plans-list').innerHTML = plans.map(p => `
         <div class="plan-box">
@@ -820,33 +719,6 @@
       }).join('');
     }
 
-    async function uploadSingleProfilePhoto(target, file) {
-      if (!file) return;
-      const presign = await fetch('/api/creator/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public' }),
-      }).then(r => r.json());
-
-      if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
-      await fetch(presign.uploadUrl, { method: 'PUT', body: file });
-
-      const payload = target === 'cover' ? { cover_url: presign.publicUrl } : { avatar_url: presign.publicUrl };
-      await fetch('/api/portal/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify(payload),
-      });
-
-      if (target === 'cover') {
-        document.getElementById('lp-cover-img').src = presign.publicUrl;
-        alert('✅ Foto de capa atualizada!');
-      } else {
-        document.getElementById('lp-avatar-img').src = presign.publicUrl;
-        alert('✅ Foto principal do perfil atualizada!');
-      }
-    }
-
     async function setExistingAs(target, url) {
       const payload = target === 'cover' ? { cover_url: url } : { avatar_url: url };
       await fetch('/api/portal/me', {
@@ -860,28 +732,6 @@
       } else {
         document.getElementById('lp-avatar-img').src = url;
         alert('✅ Definida como foto principal!');
-      }
-    }
-
-    async function saveProfile() {
-      const rateVal = document.getElementById('p-rate').value;
-      const vipPriceVal = document.getElementById('p-vip-price').value;
-      const res = await fetch('/api/portal/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          hourly_rate: rateVal ? Number(rateVal) : null,
-          vip_monthly_price: vipPriceVal ? Number(vipPriceVal) : 49.90,
-          whatsapp: document.getElementById('p-wa').value.replace(/\D/g, ''),
-          stage_name: document.getElementById('p-name').value.trim(),
-          city: document.getElementById('p-city').value.trim(),
-          bio: document.getElementById('p-bio').value.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        syncLivePreview();
-        alert('✅ Alterações salvas com sucesso!');
       }
     }
 
@@ -1042,47 +892,6 @@
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    async function registerBiometrics() {
-      if (!window.PublicKeyCredential) return alert('Seu navegador não suporta biometria nativa.');
-      const optRes = await fetch('/api/portal/webauthn/register-options', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + token },
-      }).then(r => r.json());
-      if (!optRes.ok) return alert(optRes.error || 'Erro ao iniciar biometria');
-
-      const opts = optRes.options;
-      opts.challenge = b64urlToBuf(opts.challenge);
-      opts.user.id = b64urlToBuf(opts.user.id);
-      if (opts.excludeCredentials) {
-        opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBuf(c.id) }));
-      }
-
-      const cred = await navigator.credentials.create({ publicKey: opts });
-      const payload = {
-        id: cred.id,
-        rawId: bufToB64url(cred.rawId),
-        type: cred.type,
-        response: {
-          attestationObject: bufToB64url(cred.response.attestationObject),
-          clientDataJSON: bufToB64url(cred.response.clientDataJSON),
-          transports: cred.response.getTransports ? cred.response.getTransports() : [],
-        },
-      };
-
-      const verRes = await fetch('/api/portal/webauthn/register-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify(payload),
-      }).then(r => r.json());
-
-      if (verRes.ok) {
-        localStorage.setItem('bio_enabled', '1');
-        alert('✅ Face ID / Biometria ativada com sucesso neste aparelho!');
-      } else {
-        alert(verRes.error || 'Falha ao salvar biometria.');
-      }
-    }
-
     async function loginWithBiometrics() {
       if (!window.PublicKeyCredential) return alert('Seu navegador não suporta biometria nativa.');
       const email = document.getElementById('l-email').value.trim();
@@ -1205,12 +1014,6 @@
       document.getElementById('dash-box').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none';
       document.getElementById('auth-box').style.display = 'block';
-    }
-
-    function lockAppScreen() {
-      if (!token || isBioLocked) return;
-      isBioLocked = true;
-      document.getElementById('bio-lock-screen').style.display = 'flex';
     }
 
     async function unlockWithBiometrics() {
