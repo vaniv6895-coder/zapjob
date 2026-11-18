@@ -245,6 +245,21 @@
     }
     .plan-btn:hover { background: #059669; color: #fff; }
   </style>
+  <script>
+    (function () {
+      const t = sessionStorage.getItem('portal_token');
+      if (t) {
+        if (localStorage.getItem('bio_enabled') !== '1') {
+          window.location.replace('/biometria-facial?mode=register');
+        } else if (sessionStorage.getItem('bio_verified') !== '1') {
+          window.location.replace('/biometria-facial?mode=unlock');
+        } else if (!window.location.search.includes('studio=1')) {
+          window.location.replace('/minha-conta/editar');
+        }
+      }
+    })();
+  </script>
+  
 </head>
 <body>
   <div class="wrap">

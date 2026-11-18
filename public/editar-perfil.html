@@ -438,12 +438,25 @@
     .btn-primary:active { transform: scale(0.98); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
   </style>
+
+  <script>
+    (function () {
+      const t = sessionStorage.getItem('portal_token');
+      if (!t) {
+        window.location.replace('/minha-conta');
+      } else if (localStorage.getItem('bio_enabled') !== '1') {
+        window.location.replace('/biometria-facial?mode=register');
+      } else if (sessionStorage.getItem('bio_verified') !== '1') {
+        window.location.replace('/biometria-facial?mode=unlock');
+      }
+    })();
+  </script>
 </head>
 <body>
 
   <header class="topbar">
     <div class="topbar-inner">
-      <a href="/minha-conta" class="nav-back">
+      <a href="/minha-conta?studio=1" class="nav-back">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         Studio
       </a>
@@ -725,18 +738,9 @@
   </form>
 
   <script>
-    // Token exclusivo da sessão atual + trava obrigatória de biometria facial 2FA
     const token = sessionStorage.getItem('portal_token') || '';
     let creatorSlug = '';
     let leftAt = 0;
-
-    if (!token) {
-      window.location.href = '/minha-conta';
-    } else if (localStorage.getItem('bio_enabled') !== '1') {
-      window.location.href = '/biometria-facial?mode=register';
-    } else if (sessionStorage.getItem('bio_verified') !== '1') {
-      window.location.href = '/biometria-facial?mode=unlock';
-    }
 
     // Saiu da aba / minimizou o navegador por mais de 5s -> reseta sessão e exige Gmail + Bio novamente
     document.addEventListener('visibilitychange', () => {
@@ -745,7 +749,7 @@
       } else if (leftAt && Date.now() - leftAt > 5000) {
         sessionStorage.removeItem('portal_token');
         sessionStorage.removeItem('bio_verified');
-        window.location.href = '/minha-conta';
+        window.location.replace('/minha-conta');
       }
     });
 
@@ -793,7 +797,7 @@
         if (!res.ok) {
           sessionStorage.removeItem('portal_token');
           sessionStorage.removeItem('bio_verified');
-          window.location.href = '/minha-conta';
+          window.location.replace('/minha-conta');
           return;
         }
         const data = await res.json();
