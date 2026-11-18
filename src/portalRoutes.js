@@ -66,7 +66,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     'https://api.mercadopago.com/v1/payments',
     {
       transaction_amount: Number(amount),
-      description: `garota VIP - ${planName}`,
+      description: `Garota VIP - ${planName}`,
       payment_method_id: 'pix',
       external_reference: `portal:${orderId}`,
       notification_url: `${webhookBase}/webhook/mercadopago`,
@@ -93,7 +93,6 @@ export function registerPortalRoutes(app) {
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
-
 
   registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
@@ -191,12 +190,10 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 1: VITRINE COMPLETA (/vitrine)
+  // PÁGINA 1: VITRINE SEPARADA (/vitrine) + API DE DADOS E STORIES
   // =======================================================================
-  app.get('/vitrine', async (req, reply) => {
+  app.get('/api/portal/vitrine-data', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
-    const filter = String(req.query.filter || 'all');
-
     let profiles = await getHomeRanking({ city, limit: 80 });
 
     const [mediaCountsRes, recentVideosRes] = await Promise.all([
@@ -209,19 +206,24 @@ export function registerPortalRoutes(app) {
         GROUP BY creator_id
       `),
       pool.query(`
-        SELECT m.id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.avatar_url, c.cover_url
+        SELECT m.id, m.creator_id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.avatar_url, c.cover_url
         FROM creator_media m
         JOIN creator_accounts c ON c.id = m.creator_id
         WHERE m.media_type = 'video'
           AND m.visibility IN ('public', 'preview')
           AND c.active = TRUE AND c.verified = TRUE
         ORDER BY m.created_at DESC
-        LIMIT 12
+        LIMIT 20
       `),
     ]);
 
     const mediaMap = new Map();
     for (const row of mediaCountsRes.rows) mediaMap.set(row.creator_id, row);
+
+    const videoByCreator = new Map();
+    for (const v of recentVideosRes.rows) {
+      if (!videoByCreator.has(v.creator_id)) videoByCreator.set(v.creator_id, v);
+    }
 
     profiles = profiles.map((p) => ({
       ...p,
@@ -229,34 +231,18 @@ export function registerPortalRoutes(app) {
       total_videos: mediaMap.get(p.id)?.total_videos || 0,
     }));
 
-    const storiesData = profiles.slice(0, 15).map((s) => ({
-      name: s.stage_name,
-      city: `${s.city}-${s.state}`,
-      slug: s.slug,
-      img: s.avatar_url || s.cover_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
-      isDiamond: s.is_featured && s.tier === 'diamond',
-    }));
-
-    const storiesHtml = `
-      <div class="stories-wrap">
-        <a href="/reels" class="story-item">
-          <div class="story-ring" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">
-            <div style="width:60px;height:60px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid #fff">🎬</div>
-          </div>
-          <span style="color:#ec4899;font-weight:800">VIP Reels</span>
-        </a>
-        ${storiesData
-          .map(
-            (s, idx) => `
-          <div class="story-item" onclick="openStory(${idx})" style="cursor:pointer">
-            <div class="story-ring" style="background:${s.isDiamond ? 'linear-gradient(135deg,#ec4899,#b9a36a)' : '#ec4899'}">
-              <img src="${s.img}" alt="${s.name}" loading="lazy" />
-            </div>
-            <span>${s.name.split(' ')[0]}</span>
-          </div>`
-          )
-          .join('')}
-      </div>`;
+    const stories = profiles.slice(0, 15).map((s) => {
+      const vid = videoByCreator.get(s.id);
+      return {
+        name: s.stage_name,
+        city: `${s.city}-${s.state}`,
+        slug: s.slug,
+        avatar: s.avatar_url || s.cover_url || 'https://placehold.co/400x400/111827/ec4899?text=VIP',
+        mediaUrl: s.cover_url || s.avatar_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
+        videoUrl: vid ? vid.public_url : null,
+        caption: vid?.caption || s.specialty_tag || s.bio || '',
+      };
+    });
 
     const demoReels = [
       {
@@ -267,7 +253,6 @@ export function registerPortalRoutes(app) {
         slug: 'isabela-ferraz',
         city: 'Várzea Grande',
         state: 'MT',
-        views: '14,2 mil'
       },
       {
         id: 2,
@@ -277,320 +262,17 @@ export function registerPortalRoutes(app) {
         slug: 'valentina-luxo',
         city: 'Cuiabá',
         state: 'MT',
-        views: '11,8 mil'
       },
-      {
-        id: 3,
-        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-smiling-and-looking-at-camera-34416-large.mp4',
-        caption: 'Quem aí gosta de surpresa? Chama no Whats 💬🔥',
-        stage_name: 'Camila Moraes',
-        slug: 'camila-moraes',
-        city: 'Cuiabá',
-        state: 'MT',
-        views: '9,4 mil'
-      },
-      {
-        id: 4,
-        public_url: 'https://assets.mixkit.co/videos/preview/mixkit-portrait-of-a-fashion-woman-with-silver-makeup-39875-large.mp4',
-        caption: 'Acabei de postar vídeo inédito de visualização única 😈',
-        stage_name: 'Larissa Ribeiro',
-        slug: 'larissa-ribeiro',
-        city: 'São Paulo',
-        state: 'SP',
-        views: '8,1 mil'
-      }
     ];
 
-    const hotReelsList = recentVideosRes.rows.length > 0 ? recentVideosRes.rows : demoReels;
+    const reels = recentVideosRes.rows.length > 0 ? recentVideosRes.rows : demoReels;
+    return reply.send({ ok: true, profiles, stories, reels });
+  });
 
-    const hotReelsCarouselHtml = `
-      <section class="hot-reels-section">
-        <div class="reels-header">
-          <div>
-            <h3>🔥 Mais bombando do momento</h3>
-            <p class="reels-sub">Toque em um vídeo para abrir o feed vertical em tela cheia</p>
-          </div>
-          <a href="/reels">Ver todos →</a>
-        </div>
-        <div class="reels-row">
-          ${hotReelsList
-            .map(
-              (v, idx) => `
-            <a href="/reels?modelo=${v.slug}" class="reel-card">
-              <video src="${v.public_url}#t=0.5" muted playsinline loop onmouseover="this.play()" onmouseout="this.pause()" preload="metadata"></video>
-              <div class="reel-fire-badge">🔥 #${idx + 1} Bombando</div>
-              <div class="reel-play">▶</div>
-              <div class="reel-info">
-                <strong>${v.stage_name}</strong>
-                <p class="reel-desc">${v.caption || 'Vídeo exclusivo sem censura 🔥'}</p>
-                <span>📍 ${v.city}-${v.state} • 👁️ ${v.views || (12 - idx) + ',5 mil'}</span>
-              </div>
-            </a>`
-            )
-            .join('')}
-        </div>
-      </section>`;
-
-    let filteredProfiles = profiles;
-    if (filter === 'diamond') filteredProfiles = profiles.filter((p) => p.is_featured && p.tier === 'diamond');
-    else if (filter === 'vip') filteredProfiles = profiles.filter((p) => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
-    else if (filter === 'video') filteredProfiles = profiles.filter((p) => p.total_videos > 0);
-
-    const baseQuery = city ? `&city=${encodeURIComponent(city)}` : '';
-
-    const cardsHtml =
-      filteredProfiles.length === 0
-        ? `<div class="empty-box">
-            <p style="font-size:16px;margin-bottom:14px">Nenhum perfil ativo encontrado${city ? ` em <strong>${city}</strong>` : ''} ainda.</p>
-            <a href="/minha-conta" style="display:inline-block;background:#ec4899;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:700">Cadastrar Meu Perfil Grátis</a>
-           </div>`
-        : filteredProfiles
-            .map((p) => {
-              const isDiamond = p.is_featured && p.tier === 'diamond';
-              const isVip = p.is_featured && p.tier === 'vip';
-              const cardClass = isDiamond ? 'card card--diamond' : isVip ? 'card card--vip' : 'card';
-              const badgeHtml = isDiamond
-                ? `<span class="badge badge--diamond">💎 LUXO DIAMANTE</span>`
-                : isVip
-                ? `<span class="badge badge--vip">⭐ DESTAQUE VIP</span>`
-                : `<span class="badge badge--online">🟢 ONLINE</span>`;
-
-              const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/111827/ec4899?text=VIP';
-              const rateTag = p.hourly_rate ? `<span style="font-weight:800;color:#38bdf8">R$ ${Number(p.hourly_rate).toFixed(0)}/h</span>` : '';
-
-              return `
-              <article class="${cardClass}">
-                <a href="/acompanhante/${p.slug}" class="card-media">
-                  ${badgeHtml}
-                  <div class="media-counters">
-                    ${p.total_media > 0 ? `<span>📷 ${p.total_media}</span>` : ''}
-                    ${p.total_videos > 0 ? `<span>🎬 ${p.total_videos}</span>` : ''}
-                  </div>
-                  <img src="${cover}" alt="${p.stage_name}" loading="lazy" />
-                  <div class="card-gradient">
-                    <div class="card-name">
-                      <span>${p.stage_name}</span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#1284ED"><path d="M12 2L14.8 4.6L18.6 4.1L19.4 7.8L22.7 9.7L21 13.1L22.7 16.5L19.4 18.4L18.6 22.1L14.8 21.6L12 24.2L9.2 21.6L5.4 22.1L4.6 18.4L1.3 16.5L3 13.1L1.3 9.7L4.6 7.8L5.4 4.1L9.2 4.6L12 2Z"/><path d="M9.5 12.5L11.2 14.2L15 10.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-                    </div>
-                    <div class="card-loc">📍 ${p.city} - ${p.state}</div>
-                  </div>
-                </a>
-                <div class="card-body">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px">
-                    <span style="color:#4ade80;font-weight:700">● Disponível</span>
-                    ${rateTag}
-                  </div>
-                  <p class="card-bio">${p.bio ? p.bio.slice(0, 70) + (p.bio.length > 70 ? '...' : '') : 'Atendimento exclusivo, fotos e vídeos verificados.'}</p>
-                  <div class="card-actions">
-                    <a href="/acompanhante/${p.slug}" class="btn-outline">Ver Perfil</a>
-                    <a href="/r/wa/${p.slug}" target="_blank" class="btn-wa">💬 WhatsApp</a>
-                  </div>
-                </div>
-              </article>`;
-            })
-            .join('');
-
-    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garota VIP — Modelos e Acompanhantes${city ? ` em ${city}` : ''}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Montserrat',sans-serif; background:#090d16; color:#f8fafc; overflow-x:hidden; }
-
-    .age-modal { position:fixed; inset:0; background:rgba(1,7,31,0.88); backdrop-filter:blur(12px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
-    .age-card { background:#111827; border:1px solid #1f2937; border-radius:18px; max-width:380px; width:100%; padding:24px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.6); }
-    .age-card h2 { font-size:18px; font-weight:700; margin-bottom:10px; color:#fff; }
-    .age-card p { font-size:13px; color:#94a3b8; line-height:1.5; margin-bottom:18px; }
-    .age-btn { width:100%; padding:13px; border:none; border-radius:12px; background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; font-weight:800; font-size:15px; cursor:pointer; }
-
-    .story-modal { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:9998; display:none; align-items:center; justify-content:center; padding:16px; }
-    .story-box { position:relative; width:100%; max-width:390px; aspect-ratio:9/16; border-radius:18px; overflow:hidden; background:#111; border:1px solid #334155; }
-    .story-box img { width:100%; height:100%; object-fit:cover; }
-    .story-top { position:absolute; top:0; left:0; right:0; padding:14px; background:linear-gradient(rgba(0,0,0,0.8),transparent); display:flex; justify-content:space-between; align-items:center; color:#fff; }
-    .story-bottom { position:absolute; bottom:0; left:0; right:0; padding:20px 14px; background:linear-gradient(transparent,rgba(0,0,0,0.95)); text-align:center; }
-
-    .topbar { background:linear-gradient(90deg,#ec4899,#8b5cf6); color:#fff; text-align:center; font-size:11px; font-weight:700; padding:8px 12px; letter-spacing:0.5px; }
-    .header { background:#111827; border-bottom:1px solid #1f2937; position:sticky; top:0; z-index:50; }
-    .header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .brand { font-size:20px; font-weight:900; background:linear-gradient(90deg,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; }
-    .nav-actions { display:flex; gap:8px; align-items:center; }
-    .nav-reels { background:#1f2937; color:#fff; padding:8px 14px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; }
-    .cta-announce { background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; padding:8px 16px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; }
-
-    .container { max-width:1100px; margin:0 auto; padding:16px 16px 48px; }
-
-    .stories-wrap { display:flex; gap:14px; overflow-x:auto; padding:4px 2px 16px; scrollbar-width:none; }
-    .stories-wrap::-webkit-scrollbar { display:none; }
-    .story-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#f8fafc; flex-shrink:0; width:72px; }
-    .story-ring { width:66px; height:66px; min-width:66px; min-height:66px; border-radius:50%; padding:3px; margin-bottom:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-    .story-ring img { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #111827; display:block; }
-    .story-item span { font-size:11px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70px; }
-
-    .lux-banner { background:linear-gradient(90deg,#191919 0%,#3d3226 60%,#191919 100%); border:1px solid #b9a36a; border-radius:16px; padding:16px 18px; margin:8px 0 18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; color:#fff; }
-    .lux-title { font-size:17px; font-weight:700; color:#e5d39b; }
-    .lux-desc { font-size:12px; color:#e2e8f0; max-width:440px; }
-    .lux-btn { border:2px solid #b9a36a; color:#fff; padding:8px 16px; border-radius:99px; font-size:12px; font-weight:700; text-decoration:none; background:rgba(185,163,106,0.15); }
-
-    .search-row { display:flex; gap:8px; margin-bottom:14px; }
-    .search-row input { flex:1; padding:12px 18px; border-radius:99px; border:1px solid #334155; background:#111827; color:#fff; font-family:inherit; font-size:14px; outline:none; }
-    .search-row input:focus { border-color:#ec4899; }
-    .search-row button { padding:0 22px; border-radius:99px; border:none; background:linear-gradient(90deg,#ec4899,#db2777); color:#fff; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer; }
-
-    .pills { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; scrollbar-width:none; }
-    .pills::-webkit-scrollbar { display:none; }
-    .pill { padding:8px 16px; border-radius:99px; border:1px solid #334155; color:#94a3b8; text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap; background:#111827; }
-    .pill.active { background:#ec4899; border-color:#ec4899; color:#fff; }
-
-    .section-h1 { font-size:17px; font-weight:700; margin-bottom:14px; color:#fff; }
-    .section-h1 span { color:#ec4899; }
-
-    .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-    @media(min-width:640px){ .grid { grid-template-columns:repeat(3,1fr); gap:16px; } }
-    @media(min-width:960px){ .grid { grid-template-columns:repeat(4,1fr); gap:18px; } }
-
-    .card { background:#111827; border-radius:14px; overflow:hidden; border:1px solid #1f2937; display:flex; flex-direction:column; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:0.2s; }
-    .card:hover { transform:translateY(-2px); border-color:#374151; }
-    .card--diamond { border:3px solid #ec4899; box-shadow:0 8px 24px rgba(236,72,153,0.25); }
-    .card--vip { border:2px solid #eab308; }
-
-    .card-media { position:relative; display:block; aspect-ratio:3/4; background:#0b101d; overflow:hidden; text-decoration:none; }
-    .card-media img { width:100%; height:100%; object-fit:cover; display:block; }
-    .badge { position:absolute; top:8px; left:8px; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:2; }
-    .badge--diamond { background:linear-gradient(90deg,#ec4899,#8b5cf6); color:#fff; }
-    .badge--vip { background:#eab308; color:#000; }
-    .badge--online { background:rgba(17,24,39,0.8); color:#4ade80; }
-    .media-counters { position:absolute; top:8px; right:8px; display:flex; gap:4px; }
-    .media-counters span { background:rgba(11,16,29,0.75); color:#fff; font-size:10px; font-weight:600; padding:3px 8px; border-radius:99px; }
-
-    .card-gradient { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(11,16,29,0.95)); padding:34px 10px 10px; color:#fff; }
-    .card-name { display:flex; align-items:center; gap:5px; font-size:15px; font-weight:700; }
-    .card-loc { font-size:11px; color:#94a3b8; margin-top:2px; }
-
-    .card-body { padding:12px; display:flex; flex-direction:column; flex:1; }
-    .card-bio { font-size:12px; color:#94a3b8; line-height:1.4; margin-bottom:12px; }
-    .card-actions { display:flex; gap:6px; margin-top:auto; }
-    .btn-outline { flex:1; text-align:center; padding:9px 6px; border-radius:8px; border:1px solid #334155; background:#0b101d; color:#f8fafc; font-size:12px; font-weight:700; text-decoration:none; }
-    .btn-outline:hover { background:#1f2937; }
-    .btn-wa { flex:1.3; text-align:center; padding:9px 6px; border-radius:8px; background:#22c55e; color:#052e16; font-size:12px; font-weight:800; text-decoration:none; }
-    .btn-wa:hover { background:#16a34a; color:#fff; }
-    .empty-box { grid-column:1/-1; background:#111827; border:1px solid #1f2937; border-radius:14px; padding:40px 20px; text-align:center; color:#94a3b8; }
-
-    /* Carrossel Horizontal Reels Bombando (Abaixo da grade) */
-    .hot-reels-section { margin: 28px 0 12px; padding-top: 22px; border-top: 1px solid #1f2937; }
-    .reels-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:10px; }
-    .reels-header h3 { font-size:18px; font-weight:800; color:#fff; }
-    .reels-sub { font-size:12px; color:#94a3b8; margin-top:3px; }
-    .reels-header a { font-size:12px; font-weight:700; color:#ec4899; text-decoration:none; white-space:nowrap; }
-    .reels-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
-    .reels-row::-webkit-scrollbar { display:none; }
-    .reel-card { position:relative; width:168px; height:285px; border-radius:16px; overflow:hidden; background:#000; flex-shrink:0; text-decoration:none; border:2px solid #ec4899; scroll-snap-align:start; box-shadow:0 8px 20px rgba(236,72,153,0.18); transition:transform 0.2s; }
-    .reel-card:hover { transform:translateY(-3px); }
-    .reel-card video { width:100%; height:100%; object-fit:cover; opacity:0.9; display:block; }
-    .reel-fire-badge { position:absolute; top:10px; left:10px; background:linear-gradient(90deg,#f97316,#ec4899); color:#fff; font-size:10px; font-weight:800; padding:4px 9px; border-radius:99px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,0.5); }
-    .reel-play { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; border-radius:50%; background:rgba(236,72,153,0.9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
-    .reel-info { position:absolute; bottom:0; left:0; right:0; padding:28px 10px 10px; background:linear-gradient(transparent,rgba(5,8,15,0.96)); color:#fff; }
-    .reel-info strong { display:block; font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .reel-desc { font-size:11px; color:#e2e8f0; line-height:1.35; margin:4px 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .reel-info span { display:block; font-size:10px; color:#94a3b8; font-weight:600; }
-  </style>
-</head>
-<body>
-  <div id="age-gate" class="age-modal" style="display:none">
-    <div class="age-card">
-      <h2>🔞 Conteúdo Exclusivo para Maiores de 18 Anos</h2>
-      <p>Este portal exibe perfis e conteúdos destinados exclusivamente ao público adulto (+18).</p>
-      <button class="age-btn" onclick="acceptAge()">Tenho 18 anos ou mais — Entrar</button>
-    </div>
-  </div>
-
-  <div id="story-modal" class="story-modal" onclick="if(event.target===this) closeStory()">
-    <div class="story-box">
-      <div class="story-top">
-        <strong id="st-name"></strong>
-        <button onclick="closeStory()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">✕</button>
-      </div>
-      <img id="st-img" src="" />
-      <div class="story-bottom">
-        <p id="st-city" style="color:#cbd5e1;font-size:12px;margin-bottom:10px"></p>
-        <div style="display:flex;gap:8px;justify-content:center">
-          <a id="st-reels-link" href="#" style="display:inline-block;background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);color:#fff;padding:10px 16px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">🎬 Ver Reels</a>
-          <a id="st-link" href="#" style="display:inline-block;background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;padding:10px 18px;border-radius:99px;font-weight:700;font-size:13px;text-decoration:none">Ver Perfil</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="topbar">✨ Perfis verificados com contato direto e liberação automática</div>
-
-  <header class="header">
-    <div class="header-inner">
-      <a href="/vitrine" class="brand">GAROTA VIP</a>
-      <div class="nav-actions">
-        <a href="/reels" class="nav-reels">🎬 Reels</a>
-        <a href="/minha-conta" class="cta-announce">+ Anunciar</a>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    ${storiesHtml}
-
-    <div class="lux-banner">
-      <div>
-        <div class="lux-title">👑 Destaque Luxo & Diamante</div>
-        <p class="lux-desc">Os perfis de maior destaque e exclusividade no topo da primeira página.</p>
-      </div>
-      <a href="/vitrine?filter=diamond${baseQuery}" class="lux-btn">Ver Perfis Diamante</a>
-    </div>
-
-    <form class="search-row" method="GET" action="/vitrine">
-      <input type="text" name="city" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande, São Paulo...)" value="${city || ''}" />
-      <button type="submit">Buscar</button>
-    </form>
-
-    <div class="pills">
-      <a href="/vitrine?filter=all${baseQuery}" class="pill ${filter === 'all' ? 'active' : ''}">Todos (${profiles.length})</a>
-      <a href="/vitrine?filter=diamond${baseQuery}" class="pill ${filter === 'diamond' ? 'active' : ''}">💎 Topo Diamante</a>
-      <a href="/vitrine?filter=vip${baseQuery}" class="pill ${filter === 'vip' ? 'active' : ''}">⭐ Destaques VIP</a>
-      <a href="/vitrine?filter=video${baseQuery}" class="pill ${filter === 'video' ? 'active' : ''}">🎬 Com Vídeos</a>
-    </div>
-
-    <h1 class="section-h1">Acompanhantes e Modelos em <span>${city || 'Todo o Brasil'}</span></h1>
-    <div class="grid">${cardsHtml}</div>
-
-    ${hotReelsCarouselHtml}
-  </main>
-
-  <script>
-    const stories = ${JSON.stringify(storiesData)};
-    if (!document.cookie.includes('age_verified=1')) {
-      document.getElementById('age-gate').style.display = 'flex';
-    }
-    function acceptAge() {
-      document.cookie = 'age_verified=1; max-age=2592000; path=/';
-      document.getElementById('age-gate').style.display = 'none';
-    }
-    function openStory(idx) {
-      const s = stories[idx];
-      if (!s) return;
-      document.getElementById('st-name').innerText = s.name;
-      document.getElementById('st-city').innerText = '📍 ' + s.city;
-      document.getElementById('st-img').src = s.img;
-      document.getElementById('st-link').href = '/acompanhante/' + s.slug;
-      document.getElementById('st-reels-link').href = '/reels?modelo=' + s.slug;
-      document.getElementById('story-modal').style.display = 'flex';
-    }
-    function closeStory() {
-      document.getElementById('story-modal').style.display = 'none';
-    }
-  </script>
-</body>
-</html>`);
+  app.get('/vitrine', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'vitrine.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
   });
 
   // =======================================================================
@@ -957,7 +639,8 @@ export function registerPortalRoutes(app) {
             <button id="btn-mode-edit" class="mode-pill active" onclick="setPreviewMode('edit')">✏️ Editar</button>
             <button id="btn-mode-client" class="mode-pill" onclick="setPreviewMode('client')">👁️ Visão Cliente</button>
           </div>
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a href="/minha-conta/editar" class="quick-ext-link" style="border-color:#ec4899;color:#f472b6;">⚙️ Edição Completa</a>
             <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
             <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Perfil ↗</a>
           </div>
@@ -1563,7 +1246,6 @@ export function registerPortalRoutes(app) {
 </html>`);
   });
 
-
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
   // =======================================================================
@@ -1582,14 +1264,15 @@ export function registerPortalRoutes(app) {
       `);
     }
 
-    const res = await pool.query(`SELECT id, stage_name, email, city, state, whatsapp, tier, verified, active, created_at FROM creator_accounts ORDER BY created_at DESC LIMIT 100`);
+    const res = await pool.query(`SELECT id, stage_name, email, city, state, whatsapp, tier, verified, active, verification_video_url, created_at FROM creator_accounts ORDER BY created_at DESC LIMIT 100`);
     const rows = res.rows
       .map(
         (c) => `
       <div style="background:#111827;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div>
           <strong style="color:#fff">#${c.id} ${c.stage_name}</strong> (${c.city}-${c.state})<br/>
-          <small style="color:#94a3b8">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small>
+          <small style="color:#94a3b8">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small><br/>
+          ${c.verification_video_url ? `<a href="${c.verification_video_url}" target="_blank" style="display:inline-block;margin-top:4px;font-size:11px;color:#38bdf8;font-weight:bold;text-decoration:none;">🎥 Assistir Vídeo de Verificação ↗</a>` : '<span style="font-size:11px;color:#ef4444;">Sem vídeo de verificação</span>'}
         </div>
         <button onclick="toggle(${c.id}, ${!c.verified})" style="padding:8px 12px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;background:${c.verified ? '#22c55e' : '#f59e0b'};color:#000">
           ${c.verified ? '✅ Aprovada' : '⏳ Aprovar'}
