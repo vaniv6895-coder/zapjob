@@ -523,6 +523,15 @@
       });
     }
 
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function carregarDados() {
       if (!token) {
         window.location.href = '/minha-conta';
@@ -594,28 +603,28 @@
       status.innerText = tipo === 'audio' ? 'Enviando áudio...' : 'Enviando imagem...';
 
       try {
-        const presign = await fetch('/api/creator/upload-url', {
+        const base64Data = await fileToBase64(file);
+        const upRes = await fetch('/api/creator/upload-direct', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public' }),
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || 'application/octet-stream',
+            visibility: 'public',
+            base64Data,
+          }),
         }).then(r => r.json());
 
-        if (!presign.ok) {
+        if (!upRes.ok) {
           status.innerText = '';
-          return alert(presign.error || 'Erro ao enviar arquivo.');
+          return alert(upRes.error || 'Erro ao enviar arquivo.');
         }
 
-        await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type },
-          body: file,
-        });
-
         const payload = tipo === 'cover'
-          ? { cover_url: presign.publicUrl }
+          ? { cover_url: upRes.publicUrl }
           : tipo === 'avatar'
-          ? { avatar_url: presign.publicUrl }
-          : { audio_url: presign.publicUrl };
+          ? { avatar_url: upRes.publicUrl }
+          : { audio_url: upRes.publicUrl };
 
         await fetch('/api/portal/me', {
           method: 'PUT',
@@ -624,24 +633,24 @@
         });
 
         if (tipo === 'cover') {
-          document.getElementById('previewCover').src = presign.publicUrl;
-          document.getElementById('coverUrl').value = presign.publicUrl;
+          document.getElementById('previewCover').src = upRes.publicUrl;
+          document.getElementById('coverUrl').value = upRes.publicUrl;
           status.innerText = '✅ Capa atualizada!';
         } else if (tipo === 'avatar') {
-          document.getElementById('previewAvatar').src = presign.publicUrl;
-          document.getElementById('avatarUrl').value = presign.publicUrl;
+          document.getElementById('previewAvatar').src = upRes.publicUrl;
+          document.getElementById('avatarUrl').value = upRes.publicUrl;
           status.innerText = '✅ Foto de perfil atualizada!';
         } else {
-          document.getElementById('audioUrl').value = presign.publicUrl;
+          document.getElementById('audioUrl').value = upRes.publicUrl;
           document.getElementById('audioLabel').innerText = '✅ Áudio atualizado!';
           const player = document.getElementById('audioPlayerPreview');
-          player.src = presign.publicUrl;
+          player.src = upRes.publicUrl;
           player.style.display = 'block';
           status.innerText = '✅ Áudio de voz salvo!';
         }
       } catch (err) {
         status.innerText = '';
-        alert('Falha no envio do arquivo.');
+        alert('Falha no envio do arquivo: ' + (err.message || 'Erro de rede'));
       }
     }
 
@@ -730,17 +739,30 @@
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         status.innerText = `Enviando ${i + 1} de ${files.length}...`;
-        const presign = await fetch('/api/creator/upload-url', {
+        const base64Data = await fileToBase64(f);
+        const upRes = await fetch('/api/creator/upload-direct', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ fileName: f.name, contentType: f.type, visibility: 'public' }),
+          body: JSON.stringify({
+            fileName: f.name,
+            contentType: f.type || 'application/octet-stream',
+            visibility: 'public',
+            base64Data,
+          }),
         }).then(r => r.json());
-        if (!presign.ok) continue;
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f });
+        if (!upRes.ok) {
+          alert(upRes.error || 'Erro ao enviar arquivo');
+          continue;
+        }
         await fetch('/api/creator/media', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ mediaType: presign.mediaType, visibility: 'public', r2Key: presign.r2Key, publicUrl: presign.publicUrl }),
+          body: JSON.stringify({
+            mediaType: upRes.mediaType,
+            visibility: 'public',
+            r2Key: upRes.r2Key,
+            publicUrl: upRes.publicUrl,
+          }),
         });
       }
       status.innerText = '✅ Fotos/vídeos adicionados!';
