@@ -84,11 +84,8 @@
     }
     .tab-btn-muted:hover { color: #fff; }
 
-    /* Capa & Avatar Preview */
-    .visual-header {
-      position: relative;
-      margin-bottom: 54px;
-    }
+    /* Capa & Avatar */
+    .visual-header { position: relative; margin-bottom: 54px; }
     .cover-box {
       width: 100%;
       height: 155px;
@@ -98,12 +95,7 @@
       position: relative;
       border: 1px solid #334155;
     }
-    .cover-box img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
+    .cover-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .btn-change-cover {
       position: absolute;
       top: 10px;
@@ -156,7 +148,9 @@
       font-size: 14px;
       font-weight: 800;
       color: #fff;
-      margin-bottom: 14px;
+      margin: 18px 0 12px;
+      padding-top: 14px;
+      border-top: 1px solid #1f2937;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -184,11 +178,59 @@
       transition: border-color 0.2s;
     }
     input:focus, textarea:focus, select:focus { border-color: #ec4899; }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    /* Chips / Tags clicáveis (Características e Serviços) */
+    .chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
     }
+    .chip-btn {
+      background: #090d16;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 13px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .chip-btn.active {
+      background: rgba(236, 72, 153, 0.18);
+      border-color: #ec4899;
+      color: #f472b6;
+      font-weight: 700;
+    }
+
+    /* Áudio Box */
+    .audio-upload-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .btn-audio {
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid #475569;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-audio:hover { background: #ec4899; border-color: #ec4899; }
+
     .btn-submit {
       width: 100%;
       background: linear-gradient(135deg, #ec4899, #8b5cf6);
@@ -199,12 +241,12 @@
       font-weight: 800;
       font-size: 15px;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 14px;
       box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3);
     }
     .btn-submit:hover { opacity: 0.92; }
 
-    /* Galeria de Fotos */
+    /* Galeria */
     .upload-box {
       border: 2px dashed #334155;
       border-radius: 12px;
@@ -212,7 +254,6 @@
       text-align: center;
       cursor: pointer;
       background: #090d16;
-      transition: 0.2s;
     }
     .upload-box:hover { border-color: #ec4899; }
     .gallery-grid {
@@ -229,11 +270,7 @@
       background: #000;
       border: 1px solid #1f2937;
     }
-    .g-item img, .g-item video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .g-item img, .g-item video { width: 100%; height: 100%; object-fit: cover; }
     .g-del {
       position: absolute;
       top: 5px;
@@ -283,20 +320,19 @@
 
   <div class="container">
     <div class="card">
-      <!-- Abas Editar / Visualizar -->
       <div class="tab-header">
         <button type="button" class="tab-btn">✏️ Editar</button>
-        <button type="button" class="tab-btn-muted" onclick="verPerfilPublico()">👁️ Visualizar Perfil</button>
+        <button type="button" class="tab-btn-muted" onclick="verPerfilPublico()">👁️ Visualizar</button>
       </div>
 
-      <!-- Foto de Capa e Foto de Perfil -->
+      <!-- Capa e Foto de Perfil -->
       <div class="visual-header">
         <div class="cover-box">
           <img id="previewCover" src="https://placehold.co/900x360/1e293b/ec4899?text=CAPA+DO+PERFIL" alt="Capa" />
           <button type="button" class="btn-change-cover" onclick="document.getElementById('inputCoverFile').click()">
             📷 Trocar Capa
           </button>
-          <input type="file" id="inputCoverFile" accept="image/*" style="display:none" onchange="uploadPerfilOuCapa('cover', this.files[0])" />
+          <input type="file" id="inputCoverFile" accept="image/*" style="display:none" onchange="uploadArquivoUnico('cover', this.files[0])" />
         </div>
 
         <div class="avatar-box">
@@ -304,14 +340,14 @@
           <button type="button" class="btn-change-avatar" title="Trocar Foto de Perfil" onclick="document.getElementById('inputAvatarFile').click()">
             📷
           </button>
-          <input type="file" id="inputAvatarFile" accept="image/*" style="display:none" onchange="uploadPerfilOuCapa('avatar', this.files[0])" />
+          <input type="file" id="inputAvatarFile" accept="image/*" style="display:none" onchange="uploadArquivoUnico('avatar', this.files[0])" />
         </div>
       </div>
 
-      <p id="photo-status" style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:12px;"></p>
+      <p id="photo-status" style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:10px;"></p>
 
       <form id="form-edit" onsubmit="salvarAlteracoes(event)">
-        <div class="sec-title">👤 Informações Básicas</div>
+        <div class="sec-title" style="border-top:none; padding-top:0; margin-top:0;">👤 Dados Principais</div>
 
         <div class="grid-2">
           <div class="form-group">
@@ -319,8 +355,24 @@
             <input type="text" id="stageName" required placeholder="Ex: Vanessinha" />
           </div>
           <div class="form-group">
+            <label>Idade (anos)</label>
+            <input type="number" id="age" min="18" max="65" placeholder="Ex: 24" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
             <label>WhatsApp (com DDD)</label>
             <input type="text" id="whatsapp" placeholder="Ex: 65999999999" />
+          </div>
+          <div class="form-group">
+            <label>Local de Atendimento</label>
+            <select id="hasLocation">
+              <option value="Com local próprio">Com local próprio</option>
+              <option value="Motel / Hotel">Motel / Hotel</option>
+              <option value="Com local e Motel">Com local e Motel</option>
+              <option value="Apenas virtual / VIP">Apenas virtual / VIP</option>
+            </select>
           </div>
         </div>
 
@@ -340,53 +392,112 @@
           </div>
         </div>
 
-        <div class="sec-title" style="margin-top:8px;">💰 Valores & Horário</div>
+        <!-- Áudio de Apresentação -->
+        <div class="sec-title">🎙️ Áudio de Apresentação (Voz)</div>
+        <div class="audio-upload-bar">
+          <div style="overflow:hidden;">
+            <strong style="font-size:12px; display:block;" id="audioLabel">Nenhum áudio enviado</strong>
+            <audio id="audioPlayerPreview" controls style="height:30px; margin-top:6px; display:none; max-width:100%;"></audio>
+          </div>
+          <button type="button" class="btn-audio" onclick="document.getElementById('inputAudioFile').click()">
+            🎤 Enviar Áudio
+          </button>
+          <input type="file" id="inputAudioFile" accept="audio/*" style="display:none" onchange="uploadArquivoUnico('audio', this.files[0])" />
+        </div>
 
-        <div class="grid-2">
+        <!-- Valores e Horários -->
+        <div class="sec-title">💰 Valores e Horário de Expediente</div>
+
+        <div class="grid-3">
           <div class="form-group">
-            <label>Valor 1 Hora (R$)</label>
-            <input type="number" step="10" id="hourlyPrice" placeholder="Ex: 200" />
+            <label>30 Min (R$)</label>
+            <input type="number" step="10" id="halfHourPrice" placeholder="Ex: 150" />
           </div>
           <div class="form-group">
-            <label>Clube VIP Mensal (R$)</label>
-            <input type="number" step="5" id="vipMonthlyPrice" placeholder="Ex: 49.90" />
+            <label>1 Hora (R$)</label>
+            <input type="number" step="10" id="hourlyPrice" placeholder="Ex: 250" />
+          </div>
+          <div class="form-group">
+            <label>Clube VIP (R$)</label>
+            <input type="number" step="5" id="vipMonthlyPrice" placeholder="49.90" />
           </div>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
-            <label>Início do Expediente</label>
+            <label>Início Expediente</label>
             <input type="time" id="scheduleStart" value="09:00" />
           </div>
           <div class="form-group">
-            <label>Fim do Expediente</label>
+            <label>Fim Expediente</label>
             <input type="time" id="scheduleEnd" value="22:00" />
           </div>
         </div>
 
-        <div class="sec-title" style="margin-top:8px;">📝 Sobre Mim (Bio)</div>
-        <div class="form-group">
-          <textarea id="bio" rows="4" placeholder="Descreva seu atendimento, diferenciais, local e horários..."></textarea>
+        <!-- Características Físicas -->
+        <div class="sec-title">✨ Características Físicas</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Altura (ex: 1.68 m)</label>
+            <input type="text" id="height" placeholder="1.68 m" />
+          </div>
+          <div class="form-group">
+            <label>Peso (ex: 58 kg)</label>
+            <input type="text" id="weight" placeholder="58 kg" />
+          </div>
+        </div>
+        <label>Toque para selecionar suas características:</label>
+        <div class="chips-wrap" id="physicalChips">
+          <button type="button" class="chip-btn" data-val="Cabelo castanho">Cabelo castanho</button>
+          <button type="button" class="chip-btn" data-val="Loira">Loira</button>
+          <button type="button" class="chip-btn" data-val="Morena">Morena</button>
+          <button type="button" class="chip-btn" data-val="Ruiva">Ruiva</button>
+          <button type="button" class="chip-btn" data-val="Olhos claros">Olhos claros</button>
+          <button type="button" class="chip-btn" data-val="Olhos castanhos">Olhos castanhos</button>
+          <button type="button" class="chip-btn" data-val="Pele macia">Pele macia</button>
+          <button type="button" class="chip-btn" data-val="Tatuada">Tatuada</button>
+          <button type="button" class="chip-btn" data-val="Silicone">Silicone</button>
+          <button type="button" class="chip-btn" data-val="Natural">Natural</button>
         </div>
 
-        <!-- Campos ocultos para URLs -->
+        <!-- Serviços Oferecidos -->
+        <div class="sec-title">🔥 Serviços Oferecidos</div>
+        <label>Toque nos serviços que você realiza:</label>
+        <div class="chips-wrap" id="servicesChips">
+          <button type="button" class="chip-btn" data-val="Atendimento VIP">Atendimento VIP</button>
+          <button type="button" class="chip-btn" data-val="Massagem relaxante">Massagem relaxante</button>
+          <button type="button" class="chip-btn" data-val="Massagem tântrica">Massagem tântrica</button>
+          <button type="button" class="chip-btn" data-val="Beijo na boca">Beijo na boca</button>
+          <button type="button" class="chip-btn" data-val="Acompanhante para eventos">Acompanhante para eventos</button>
+          <button type="button" class="chip-btn" data-val="Namoradinha">Namoradinha</button>
+          <button type="button" class="chip-btn" data-val="Inversão">Inversão</button>
+          <button type="button" class="chip-btn" data-val="Fetiches">Fetiches</button>
+          <button type="button" class="chip-btn" data-val="Chamada de vídeo">Chamada de vídeo</button>
+        </div>
+
+        <!-- Descrição -->
+        <div class="sec-title">📝 Sobre Mim (Descrição)</div>
+        <div class="form-group">
+          <textarea id="bio" rows="4" placeholder="Fale sobre seu atendimento, estilo, diferenciais..."></textarea>
+        </div>
+
         <input type="hidden" id="avatarUrl" />
         <input type="hidden" id="coverUrl" />
+        <input type="hidden" id="audioUrl" />
 
         <button type="submit" class="btn-submit" id="btn-save">💾 Salvar Todas as Alterações</button>
       </form>
     </div>
 
-    <!-- Card Separado: Gerenciar Fotos e Vídeos da Galeria -->
+    <!-- Galeria de Fotos e Vídeos -->
     <div class="card">
-      <div class="sec-title">📸 Minhas Fotos e Vídeos da Galeria</div>
+      <div class="sec-title" style="border-top:none; padding-top:0; margin-top:0;">📸 Minhas Fotos e Vídeos</div>
       <div class="upload-box" onclick="document.getElementById('galleryFilesInput').click()">
         <p style="font-size:14px; font-weight:700; color:#fff;">+ Adicionar Fotos ou Vídeos</p>
-        <p style="font-size:11px; color:#94a3b8; margin-top:4px;">Toque aqui para selecionar arquivos do celular ou PC</p>
+        <p style="font-size:11px; color:#94a3b8; margin-top:4px;">Selecione várias fotos ou vídeos da galeria</p>
         <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadGaleria(this.files)" />
       </div>
       <p id="gallery-status" style="font-size:12px; color:#10b981; font-weight:700; margin-top:8px;"></p>
-
       <div class="gallery-grid" id="galleryGrid"></div>
     </div>
   </div>
@@ -394,6 +505,23 @@
   <script>
     const token = localStorage.getItem('portal_token') || '';
     let creatorSlug = '';
+
+    // Ativa clique nos chips (tags)
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => btn.classList.toggle('active'));
+    });
+
+    function getSelectedChips(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} .chip-btn.active`))
+        .map(b => b.dataset.val);
+    }
+
+    function setSelectedChips(containerId, valuesArray) {
+      const set = new Set(valuesArray || []);
+      document.querySelectorAll(`#${containerId} .chip-btn`).forEach(btn => {
+        if (set.has(btn.dataset.val)) btn.classList.add('active');
+      });
+    }
 
     async function carregarDados() {
       if (!token) {
@@ -414,26 +542,41 @@
         if (c) {
           creatorSlug = c.slug || '';
           document.getElementById('stageName').value = c.stage_name || '';
+          document.getElementById('age').value = c.age || '';
           document.getElementById('whatsapp').value = c.whatsapp || '';
           document.getElementById('specialtyTag').value = c.specialty_tag || '';
           document.getElementById('neighborhood').value = c.neighborhood || '';
           document.getElementById('city').value = c.city || '';
+          document.getElementById('halfHourPrice').value = c.half_hour_rate || '';
           document.getElementById('hourlyPrice').value = c.hourly_rate || '';
           document.getElementById('vipMonthlyPrice').value = c.vip_monthly_price || '49.90';
           document.getElementById('bio').value = c.bio || '';
 
+          if (c.has_location) document.getElementById('hasLocation').value = c.has_location;
           if (c.schedule_start) document.getElementById('scheduleStart').value = c.schedule_start;
           if (c.schedule_end) document.getElementById('scheduleEnd').value = c.schedule_end;
+          if (c.height) document.getElementById('height').value = c.height;
+          if (c.weight) document.getElementById('weight').value = c.weight;
+
+          if (Array.isArray(c.physical_tags)) setSelectedChips('physicalChips', c.physical_tags);
+          if (Array.isArray(c.services_tags)) setSelectedChips('servicesChips', c.services_tags);
 
           document.getElementById('avatarUrl').value = c.avatar_url || '';
           document.getElementById('coverUrl').value = c.cover_url || '';
+          document.getElementById('audioUrl').value = c.audio_url || '';
 
           if (c.avatar_url) document.getElementById('previewAvatar').src = c.avatar_url;
           if (c.cover_url) document.getElementById('previewCover').src = c.cover_url;
+          if (c.audio_url) {
+            document.getElementById('audioLabel').innerText = '✅ Áudio cadastrado';
+            const player = document.getElementById('audioPlayerPreview');
+            player.src = c.audio_url;
+            player.style.display = 'block';
+          }
         }
         carregarGaleria();
       } catch (err) {
-        console.error('Erro ao carregar dados do perfil:', err);
+        console.error('Erro ao carregar dados:', err);
       }
     }
 
@@ -441,14 +584,14 @@
       if (creatorSlug) {
         window.open('/acompanhante/' + creatorSlug, '_blank');
       } else {
-        alert('Aguarde o carregamento do perfil ou salve primeiro.');
+        alert('Aguarde o carregamento do perfil.');
       }
     }
 
-    async function uploadPerfilOuCapa(tipo, file) {
+    async function uploadArquivoUnico(tipo, file) {
       if (!file) return;
       const status = document.getElementById('photo-status');
-      status.innerText = tipo === 'cover' ? 'Enviando nova capa...' : 'Enviando nova foto de perfil...';
+      status.innerText = tipo === 'audio' ? 'Enviando áudio...' : 'Enviando imagem...';
 
       try {
         const presign = await fetch('/api/creator/upload-url', {
@@ -459,7 +602,7 @@
 
         if (!presign.ok) {
           status.innerText = '';
-          return alert(presign.error || 'Erro ao enviar imagem.');
+          return alert(presign.error || 'Erro ao enviar arquivo.');
         }
 
         await fetch(presign.uploadUrl, {
@@ -470,7 +613,9 @@
 
         const payload = tipo === 'cover'
           ? { cover_url: presign.publicUrl }
-          : { avatar_url: presign.publicUrl };
+          : tipo === 'avatar'
+          ? { avatar_url: presign.publicUrl }
+          : { audio_url: presign.publicUrl };
 
         await fetch('/api/portal/me', {
           method: 'PUT',
@@ -481,15 +626,22 @@
         if (tipo === 'cover') {
           document.getElementById('previewCover').src = presign.publicUrl;
           document.getElementById('coverUrl').value = presign.publicUrl;
-          status.innerText = '✅ Foto de capa atualizada!';
-        } else {
+          status.innerText = '✅ Capa atualizada!';
+        } else if (tipo === 'avatar') {
           document.getElementById('previewAvatar').src = presign.publicUrl;
           document.getElementById('avatarUrl').value = presign.publicUrl;
           status.innerText = '✅ Foto de perfil atualizada!';
+        } else {
+          document.getElementById('audioUrl').value = presign.publicUrl;
+          document.getElementById('audioLabel').innerText = '✅ Áudio atualizado!';
+          const player = document.getElementById('audioPlayerPreview');
+          player.src = presign.publicUrl;
+          player.style.display = 'block';
+          status.innerText = '✅ Áudio de voz salvo!';
         }
       } catch (err) {
         status.innerText = '';
-        alert('Falha no upload da imagem.');
+        alert('Falha no envio do arquivo.');
       }
     }
 
@@ -499,39 +651,51 @@
       btn.innerText = 'Salvando...';
       btn.disabled = true;
 
-      const rateVal = document.getElementById('hourlyPrice').value;
-      const vipVal = document.getElementById('vipMonthlyPrice').value;
+      const physicalTags = getSelectedChips('physicalChips');
+      const h = document.getElementById('height').value.trim();
+      const w = document.getElementById('weight').value.trim();
+      const loc = document.getElementById('hasLocation').value;
+      if (h) physicalTags.unshift(h);
+      if (w) physicalTags.unshift(w);
+      if (loc) physicalTags.push(loc);
+
+      const servicesTags = getSelectedChips('servicesChips');
 
       const payload = {
         stage_name: document.getElementById('stageName').value.trim(),
+        age: document.getElementById('age').value ? Number(document.getElementById('age').value) : null,
         whatsapp: document.getElementById('whatsapp').value.replace(/\D/g, ''),
         specialty_tag: document.getElementById('specialtyTag').value.trim(),
         neighborhood: document.getElementById('neighborhood').value.trim(),
         city: document.getElementById('city').value.trim(),
-        hourly_rate: rateVal ? Number(rateVal) : null,
-        vip_monthly_price: vipVal ? Number(vipVal) : 49.90,
+        has_location: loc,
+        half_hour_rate: document.getElementById('halfHourPrice').value ? Number(document.getElementById('halfHourPrice').value) : null,
+        hourly_rate: document.getElementById('hourlyPrice').value ? Number(document.getElementById('hourlyPrice').value) : null,
+        vip_monthly_price: document.getElementById('vipMonthlyPrice').value ? Number(document.getElementById('vipMonthlyPrice').value) : 49.90,
         schedule_start: document.getElementById('scheduleStart').value,
         schedule_end: document.getElementById('scheduleEnd').value,
+        height: h,
+        weight: w,
+        physical_tags: physicalTags,
+        services_tags: servicesTags,
         bio: document.getElementById('bio').value.trim(),
         avatar_url: document.getElementById('avatarUrl').value || null,
         cover_url: document.getElementById('coverUrl').value || null,
+        audio_url: document.getElementById('audioUrl').value || null,
       };
 
       try {
         const res = await fetch('/api/portal/me', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + token
-          },
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.ok) {
           if (data.creator?.slug) creatorSlug = data.creator.slug;
-          alert('✅ Perfil, horário e valores salvos com sucesso!');
+          alert('✅ Todas as informações foram salvas com sucesso!');
         } else {
-          alert(data.error || 'Erro ao salvar alterações.');
+          alert(data.error || 'Erro ao salvar.');
         }
       } catch (err) {
         alert('Erro de conexão ao salvar.');
@@ -549,9 +713,7 @@
       const { items } = await res.json();
       document.getElementById('galleryGrid').innerHTML = (items || []).map(m => `
         <div class="g-item">
-          ${m.media_type === 'video'
-            ? `<video src="${m.public_url}"></video>`
-            : `<img src="${m.public_url}" />`}
+          ${m.media_type === 'video' ? `<video src="${m.public_url}"></video>` : `<img src="${m.public_url}" />`}
           <button type="button" class="g-del" onclick="deletarMidia(${m.id})">✕</button>
           ${m.media_type === 'image' ? `
             <div class="g-actions">
@@ -565,38 +727,23 @@
     async function uploadGaleria(files) {
       if (!files || !files.length) return;
       const status = document.getElementById('gallery-status');
-
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         status.innerText = `Enviando ${i + 1} de ${files.length}...`;
-
         const presign = await fetch('/api/creator/upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
           body: JSON.stringify({ fileName: f.name, contentType: f.type, visibility: 'public' }),
         }).then(r => r.json());
-
         if (!presign.ok) continue;
-
-        await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': f.type },
-          body: f,
-        });
-
+        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f });
         await fetch('/api/creator/media', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({
-            mediaType: presign.mediaType,
-            visibility: 'public',
-            r2Key: presign.r2Key,
-            publicUrl: presign.publicUrl,
-          }),
+          body: JSON.stringify({ mediaType: presign.mediaType, visibility: 'public', r2Key: presign.r2Key, publicUrl: presign.publicUrl }),
         });
       }
-
-      status.innerText = '✅ Fotos/vídeos adicionados à galeria!';
+      status.innerText = '✅ Fotos/vídeos adicionados!';
       carregarGaleria();
     }
 
@@ -610,20 +757,17 @@
       if (tipo === 'cover') {
         document.getElementById('previewCover').src = url;
         document.getElementById('coverUrl').value = url;
-        alert('✅ Foto definida como Capa!');
+        alert('✅ Definida como Capa!');
       } else {
         document.getElementById('previewAvatar').src = url;
         document.getElementById('avatarUrl').value = url;
-        alert('✅ Foto definida como Perfil!');
+        alert('✅ Definida como Perfil!');
       }
     }
 
     async function deletarMidia(id) {
-      if (!confirm('Remover esta mídia da galeria?')) return;
-      await fetch('/api/creator/media/' + id, {
-        method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + token }
-      });
+      if (!confirm('Remover esta mídia?')) return;
+      await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
       carregarGaleria();
     }
 
