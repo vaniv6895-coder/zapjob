@@ -503,8 +503,29 @@
   </div>
 
   <script>
-    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
+    // Token exclusivo da sessão atual + trava obrigatória de biometria facial 2FA
+    const token = sessionStorage.getItem('portal_token') || '';
     let creatorSlug = '';
+    let leftAt = 0;
+
+    if (!token) {
+      window.location.href = '/minha-conta';
+    } else if (localStorage.getItem('bio_enabled') !== '1') {
+      window.location.href = '/biometria-facial?mode=register';
+    } else if (sessionStorage.getItem('bio_verified') !== '1') {
+      window.location.href = '/biometria-facial?mode=unlock';
+    }
+
+    // Saiu da aba / minimizou o navegador por mais de 5s -> reseta sessão e exige Gmail + Bio novamente
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        leftAt = Date.now();
+      } else if (leftAt && Date.now() - leftAt > 5000) {
+        sessionStorage.removeItem('portal_token');
+        sessionStorage.removeItem('bio_verified');
+        window.location.href = '/minha-conta';
+      }
+    });
 
     // Ativa clique nos chips (tags)
     document.querySelectorAll('.chip-btn').forEach(btn => {
@@ -533,15 +554,14 @@
     }
 
     async function carregarDados() {
-      if (!token) {
-        window.location.href = '/minha-conta';
-        return;
-      }
+      if (!token) return;
       try {
         const res = await fetch('/api/portal/me', {
           headers: { Authorization: 'Bearer ' + token }
         });
         if (!res.ok) {
+          sessionStorage.removeItem('portal_token');
+          sessionStorage.removeItem('bio_verified');
           window.location.href = '/minha-conta';
           return;
         }
