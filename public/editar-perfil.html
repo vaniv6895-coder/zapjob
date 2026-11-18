@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editar Perfil - Creator Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f8fafc;
+      color: #1e293b;
+      font-family: 'Montserrat', sans-serif;
+      padding-bottom: 60px;
+    }
+    .navbar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .navbar-inner {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .back-btn {
+      color: #64748b;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .container {
+      max-width: 600px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+    }
+    .tab-header {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #e25352;
+      border-bottom: 2px solid #e25352;
+      padding-bottom: 10px;
+      margin-bottom: -14px;
+    }
+    .tab-btn-muted {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #64748b;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      display: block;
+      margin-bottom: 6px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus {
+      border-color: #e25352;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .btn-submit {
+      width: 100%;
+      background: #e25352;
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+    .btn-submit:hover { background: #cf4342; }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="/minha-conta" class="back-btn">← Voltar ao Painel</a>
+      <strong style="font-size:15px; color:#1e293b;">Editar Perfil</strong>
+      <div style="width:50px;"></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      
+      <!-- Abas Estilo Fatal Model -->
+      <div class="tab-header">
+        <button class="tab-btn">Editar</button>
+        <button class="tab-btn-muted" id="preview-link" onclick="verPerfilPublico()">Visualizar</button>
+      </div>
+
+      <form id="form-edit" onsubmit="salvarAlteracoes(event)">
+        <div class="form-group">
+          <label>Nome Artístico</label>
+          <input type="text" id="stageName" required />
+        </div>
+
+        <div class="form-group">
+          <label>Frase de Destaque (Balão de Fala)</label>
+          <input type="text" id="specialtyTag" placeholder="Ex: Atenta, de conversa fácil e sem pressa" />
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Bairro</label>
+            <input type="text" id="neighborhood" />
+          </div>
+          <div class="form-group">
+            <label>Valor 1 Hora (R$)</label>
+            <input type="number" id="hourlyPrice" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Link da Foto de Perfil (Avatar URL)</label>
+          <input type="url" id="avatarUrl" />
+        </div>
+
+        <div class="form-group">
+          <label>Link da Foto de Capa (Capa URL)</label>
+          <input type="url" id="coverUrl" />
+        </div>
+
+        <div class="form-group">
+          <label>Biografia / Descrição Completa</label>
+          <textarea id="bio" rows="4"></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit">💾 Salvar Alterações</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let creatorSlug = '';
+
+    async function carregarDados() {
+      try {
+        const res = await fetch('/api/creator/current-session');
+        const data = await res.json();
+        if (data && data.creator) {
+          const c = data.creator;
+          creatorSlug = c.slug;
+          document.getElementById('stageName').value = c.stage_name || '';
+          document.getElementById('specialtyTag').value = c.specialty_tag || '';
+          document.getElementById('neighborhood').value = c.neighborhood || '';
+          document.getElementById('hourlyPrice').value = c.hourly_price || '';
+          document.getElementById('avatarUrl').value = c.avatar_url || '';
+          document.getElementById('coverUrl').value = c.cover_url || '';
+          document.getElementById('bio').value = c.bio || '';
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados do perfil', err);
+      }
+    }
+
+    function verPerfilPublico() {
+      if (creatorSlug) {
+        window.open('/acompanhante/' + creatorSlug, '_blank');
+      } else {
+        alert('Slug não encontrado.');
+      }
+    }
+
+    async function salvarAlteracoes(e) {
+      e.preventDefault();
+      const payload = {
+        stageName: document.getElementById('stageName').value,
+        specialtyTag: document.getElementById('specialtyTag').value,
+        neighborhood: document.getElementById('neighborhood').value,
+        hourlyPrice: document.getElementById('hourlyPrice').value,
+        avatarUrl: document.getElementById('avatarUrl').value,
+        coverUrl: document.getElementById('coverUrl').value,
+        bio: document.getElementById('bio').value
+      };
+
+      const res = p = await fetch('/api/creator/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert('Perfil atualizado com sucesso!');
+      } else {
+        alert('Erro ao atualizar perfil.');
+      }
+    }
+
+    carregarDados();
+  </script>
+</body>
+</html>

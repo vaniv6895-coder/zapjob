@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import { pool } from './db.js';
+import fs from 'fs';
+import path from 'path';
 import { registerVipFeedRoutes } from './vipFeedRoutes.js';
 
 import axios from 'axios';
@@ -85,6 +87,14 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
+  // Rota para a página separada de edição de perfil
+  app.get('/minha-conta/editar', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'editar-perfil.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+
   registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
