@@ -4,18 +4,27 @@ import crypto from 'crypto';
 import { addCreatorMedia, listCreatorMedia, deleteCreatorMedia } from './portalDb.js';
 
 function getR2Client() {
-  const endpoint = process.env.R2_ENDPOINT;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  let endpoint = (process.env.R2_ENDPOINT || '').trim();
+  const accessKeyId = (process.env.R2_ACCESS_KEY_ID || '').trim();
+  const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || '').trim();
+  const bucket = (process.env.R2_BUCKET_NAME || '').trim();
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
     return null;
+  }
+
+  // Remove o nome do bucket caso tenha sido colado no final do R2_ENDPOINT
+  if (bucket && endpoint.endsWith('/' + bucket)) {
+    endpoint = endpoint.slice(0, -('/' + bucket).length);
   }
 
   return new S3Client({
     region: 'auto',
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
+    // Evita cabeçalhos extras de checksum que quebram o upload direto (PUT) no R2
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
 }
 
@@ -24,13 +33,13 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
   app.post('/api/creator/upload-url', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const r2 = getR2Client();
-      const bucket = process.env.R2_BUCKET_NAME;
-      const publicBase = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+      const bucket = (process.env.R2_BUCKET_NAME || '').trim();
+      const publicBase = (process.env.R2_PUBLIC_URL || '').trim().replace(/\/$/, '');
 
       if (!r2 || !bucket || !publicBase) {
         return reply.status(500).send({
           ok: false,
-          error: 'Cloudflare R2 não configurado no Railway (verifique R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME e R2_PUBLIC_URL).',
+          error: 'Cloudflare R2 não configurado no Railway.',
         });
       }
 
@@ -115,7 +124,7 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
 
     try {
       const r2 = getR2Client();
-      const bucket = process.env.R2_BUCKET_NAME;
+      const bucket = (process.env.R2_BUCKET_NAME || '').trim();
       if (r2 && bucket) {
         await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: deleted.r2_key }));
       }
