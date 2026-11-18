@@ -4,6 +4,26 @@ import { getCreatorBySlug, listCreatorMedia, trackProfileEvent } from './portalD
 
 const TEMPLATE_PATH = path.resolve('acompanhante.html');
 
+function parseTagList(rawValue, fallback = []) {
+  if (!rawValue) return fallback;
+  if (Array.isArray(rawValue)) return rawValue.filter(Boolean);
+  if (typeof rawValue === 'string') {
+    const trimmed = rawValue.trim();
+    if (!trimmed) return fallback;
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      } catch {}
+    }
+    return trimmed
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return fallback;
+}
+
 export function registerPortalProfileRoute(app) {
   app.get('/acompanhante/:slug', async (req, reply) => {
     const creator = await getCreatorBySlug(req.params.slug);
@@ -16,70 +36,95 @@ export function registerPortalProfileRoute(app) {
 
     await trackProfileEvent(creator.id, 'view');
 
+    const isDemoAccount = String(creator.email || '').endsWith('@demo.com');
     let mediaList = await listCreatorMedia(creator.id, false);
 
-    // Fallback de demonstração para perfis fictícios/vazios (fotos, vídeo, vídeo de verificação e áudio)
-    if (mediaList.length === 0) {
+    // Fallback apenas para contas de demonstração (@demo.com) sem mídias próprias
+    if (mediaList.length === 0 && isDemoAccount) {
       mediaList = [
         {
           media_type: 'image',
-          public_url: creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=80'
+          public_url: creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=80',
         },
         {
           media_type: 'image',
-          public_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80'
+          public_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80',
         },
         {
           media_type: 'image',
-          public_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80'
-        },
-        {
-          media_type: 'image',
-          public_url: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=800&q=80'
-        },
-        {
-          media_type: 'image',
-          public_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&q=80'
+          public_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
         },
         {
           media_type: 'video',
-          public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+          public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
         },
-        {
-          media_type: 'verification',
-          public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4'
-        },
-        {
-          media_type: 'audio',
-          public_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
-        }
       ];
     }
 
-    // Separa apenas fotos e vídeos para a galeria e Lightbox
+    // Separa fotos e vídeos reais para a galeria e Lightbox
     const visualMediaList = mediaList.filter((m) => m.media_type === 'image' || m.media_type === 'video');
     const photosCount = visualMediaList.filter((m) => m.media_type === 'image').length;
     const videosCount = visualMediaList.filter((m) => m.media_type === 'video').length;
 
-    const audioItem = mediaList.find((m) => m.media_type === 'audio');
-    const verificationItem = mediaList.find((m) => m.media_type === 'verification');
+    // Prioriza o áudio salvo diretamente no perfil (creator.audio_url) ou na galeria (media_type === 'audio')
+    const audioMediaItem = mediaList.find((m) => m.media_type === 'audio');
+    const finalAudioUrl =
+      (creator.audio_url && String(creator.audio_url).trim()) ||
+      (audioMediaItem && audioMediaItem.public_url) ||
+      (isDemoAccount ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
 
-    const coverUrl = creator.cover_url || creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80';
-    const avatarUrl = creator.avatar_url || creator.cover_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&q=80';
+    // Prioriza vídeo de verificação salvo no perfil ou na tabela creator_media
+    const verifMediaItem = mediaList.find((m) => m.media_type === 'verification');
+    const finalVerifUrl =
+      (creator.verification_video_url && String(creator.verification_video_url).trim()) ||
+      (verifMediaItem && verifMediaItem.public_url) ||
+      '';
 
-    // Barra de Áudio com Ondas Sonoras
+    const coverUrl =
+      creator.cover_url ||
+      creator.avatar_url ||
+      (visualMediaList[0] && visualMediaList[0].public_url) ||
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80';
+
+    const avatarUrl =
+      creator.avatar_url ||
+      creator.cover_url ||
+      (visualMediaList[0] && visualMediaList[0].public_url) ||
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&q=80';
+
+    // Barra de Áudio com duração real automática
     const waveHeights = [30, 55, 80, 45, 90, 60, 35, 75, 95, 50, 40, 85, 70, 30, 65, 90, 55, 40, 80, 60, 35, 75, 50, 85, 45, 70, 90, 40, 60, 35, 75, 50];
     const waveSpans = waveHeights.map((h) => `<span style="height:${h}%"></span>`).join('');
 
-    const audioInjectionHtml = audioItem
+    const audioInjectionHtml = finalAudioUrl
       ? `<div class="audio-wave-bar">
            <button id="play-audio-btn" class="btn-wave-play" onclick="toggleAudio()">▶</button>
            <span class="wave-label">Ouça minha voz</span>
            <div id="waveform-bars" class="waveform-bars">${waveSpans}</div>
-           <span class="wave-time">0:25</span>
-           <audio id="creator-audio" src="${audioItem.public_url}" onended="resetAudioUI()"></audio>
+           <span id="wave-time-label" class="wave-time">0:00</span>
+           <audio id="creator-audio" src="${finalAudioUrl}" preload="metadata" onloadedmetadata="updateAudioDuration()" ontimeupdate="updateAudioProgress()" onended="resetAudioUI()"></audio>
          </div>
          <script>
+           function formatSecs(sec) {
+             if (!sec || !isFinite(sec)) return '0:00';
+             const m = Math.floor(sec / 60);
+             const s = Math.floor(sec % 60);
+             return m + ':' + String(s).padStart(2, '0');
+           }
+           function updateAudioDuration() {
+             const audioEl = document.getElementById('creator-audio');
+             const lbl = document.getElementById('wave-time-label');
+             if (audioEl && lbl && isFinite(audioEl.duration)) {
+               lbl.innerText = formatSecs(audioEl.duration);
+             }
+           }
+           function updateAudioProgress() {
+             const audioEl = document.getElementById('creator-audio');
+             const lbl = document.getElementById('wave-time-label');
+             if (audioEl && lbl && !audioEl.paused) {
+               lbl.innerText = formatSecs(audioEl.currentTime);
+             }
+           }
            function toggleAudio() {
              const audioEl = document.getElementById('creator-audio');
              const btn = document.getElementById('play-audio-btn');
@@ -98,15 +143,16 @@ export function registerPortalProfileRoute(app) {
            function resetAudioUI() {
              document.getElementById('play-audio-btn').innerText = '▶';
              document.getElementById('waveform-bars').classList.remove('playing');
+             updateAudioDuration();
            }
          </script>`
       : '';
 
     // Bloco dedicado de Vídeo de Verificação
-    const verificationSectionHtml = verificationItem
+    const verificationSectionHtml = finalVerifUrl
       ? `<section class="verification-section">
-           <div class="verif-card" onclick="openDirectMedia('${verificationItem.public_url}', true)">
-             <video src="${verificationItem.public_url}#t=0.5" muted playsinline loop autoplay preload="metadata"></video>
+           <div class="verif-card" onclick="openDirectMedia('${finalVerifUrl}', true)">
+             <video src="${finalVerifUrl}#t=0.5" muted playsinline loop autoplay preload="metadata"></video>
              <div style="position:absolute; top:14px; right:14px; background:rgba(0,0,0,0.65); color:#fff; font-size:11px; font-weight:700; padding:5px 10px; border-radius:99px;">▶ Vídeo de Verificação</div>
              <div class="verif-pills">
                <span class="v-pill"><i>✓</i> Corpo real</span>
@@ -124,9 +170,11 @@ export function registerPortalProfileRoute(app) {
          </section>`
       : '';
 
-    const rateCardHtml = creator.hourly_rate
-      ? `<div class="big-info"><small>a partir de</small><br>R$ ${Number(creator.hourly_rate).toFixed(0)} <small>(1 hora)</small></div>`
-      : `<div class="big-info"><small>a partir de</small><br>R$ 300 <small>(1 hora)</small></div>`;
+    const rateValue = creator.hourly_rate || creator.half_hour_rate;
+    const rateLabel = creator.hourly_rate ? '(1 hora)' : '(30 min)';
+    const rateCardHtml = rateValue
+      ? `<div class="big-info"><small>a partir de</small><br>R$ ${Number(rateValue).toFixed(0)} <small>${rateLabel}</small></div>`
+      : `<div class="big-info"><small>valores</small><br>A combinar <small>(WhatsApp)</small></div>`;
 
     const galleryHtml =
       visualMediaList.length === 0
@@ -144,13 +192,26 @@ export function registerPortalProfileRoute(app) {
             )
             .join('');
 
-    const bioText = creator.bio || `Olá, me chamo ${creator.stage_name}! Atendimento VIP com total discrição, higiene e conforto em local climatizado. Entre em contato pelo WhatsApp para agendar nosso encontro.`;
+    const bioText =
+      (creator.bio && String(creator.bio).trim()) ||
+      `Olá, me chamo ${creator.stage_name}! Atendimento VIP com total discrição, higiene e conforto. Entre em contato pelo WhatsApp para agendar nosso encontro.`;
 
-    const physicalList = ['1.68 m', '58 kg', 'Cabelo castanho', 'Olhos claros', 'Pele macia', 'Com local'];
-    const servicesList = ['Atendimento VIP', 'Massagem relaxante', 'Massagem tântrica', 'Beijo na boca', 'Acompanhante para eventos'];
+    const defaultPhysical = [
+      creator.height ? `${creator.height}` : null,
+      creator.weight ? `${creator.weight}` : null,
+      creator.has_location || 'Atendimento VIP',
+    ].filter(Boolean);
+
+    const physicalList = parseTagList(creator.physical_tags, defaultPhysical);
+    const servicesList = parseTagList(creator.services_tags, ['Atendimento VIP', 'Acompanhante']);
 
     const physicalTagsHtml = physicalList.map((t) => `<span class="red-tag">${t}</span>`).join('');
     const servicesTagsHtml = servicesList.map((t) => `<span class="red-tag">${t}</span>`).join('');
+
+    const workHoursText =
+      creator.schedule_start && creator.schedule_end
+        ? `${creator.schedule_start} - ${creator.schedule_end}`
+        : '09:00 - 22:00';
 
     const mediaJson = JSON.stringify(visualMediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
 
@@ -160,10 +221,10 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{STAGE_NAME\}\}/g, creator.stage_name || '')
       .replace(/\{\{CITY\}\}/g, creator.city || 'Várzea Grande')
       .replace(/\{\{STATE\}\}/g, creator.state || 'MT')
-      .replace(/\{\{NEIGHBORHOOD\}\}/g, creator.neighborhood || 'Centro / Região VIP')
+      .replace(/\{\{NEIGHBORHOOD\}\}/g, creator.neighborhood || 'Região Central')
       .replace(/\{\{AGE\}\}/g, String(creator.age || 24))
-      .replace(/\{\{FOLLOWERS_COUNT\}\}/g, '148')
-      .replace(/\{\{SPECIALTY_TAG\}\}/g, 'Atendimento VIP')
+      .replace(/\{\{FOLLOWERS_COUNT\}\}/g, String(creator.followers_count || 148))
+      .replace(/\{\{SPECIALTY_TAG\}\}/g, creator.specialty_tag || 'Atendimento VIP')
       .replace(/\{\{SLUG\}\}/g, creator.slug || '')
       .replace(/\{\{COVER_URL\}\}/g, coverUrl)
       .replace(/\{\{AVATAR_URL\}\}/g, avatarUrl)
@@ -178,7 +239,8 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{PHYSICAL_TAGS\}\}/g, physicalTagsHtml)
       .replace(/\{\{SERVICES_TAGS\}\}/g, servicesTagsHtml)
       .replace(/\{\{GALLERY_HTML\}\}/g, galleryHtml)
-      .replace(/\{\{MEDIA_JSON\}\}/g, mediaJson);
+      .replace(/\{\{MEDIA_JSON\}\}/g, mediaJson)
+      .replace('09:00 - 22:00', workHoursText);
 
     return reply.type('text/html; charset=utf-8').send(html);
   });

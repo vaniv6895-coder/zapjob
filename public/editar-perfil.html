@@ -503,7 +503,7 @@
   </div>
 
   <script>
-    const token = localStorage.getItem('portal_token') || '';
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
     let creatorSlug = '';
 
     // Ativa clique nos chips (tags)
