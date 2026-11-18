@@ -3,17 +3,25 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { addCreatorMedia, listCreatorMedia, deleteCreatorMedia } from './portalDb.js';
 
-function getR2Client() {
-  let endpoint = (process.env.R2_ENDPOINT || '').trim();
-  const accessKeyId = (process.env.R2_ACCESS_KEY_ID || '').trim();
-  const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || '').trim();
-  const bucket = (process.env.R2_BUCKET_NAME || '').trim();
-
-  if (!endpoint || !accessKeyId || !secretAccessKey) return null;
+function getStorageConfig() {
+  // Prioriza as variáveis S3_* que já estão funcionando no bot-midias, com fallback para R2_*
+  let endpoint = (process.env.S3_ENDPOINT || process.env.R2_ENDPOINT || '').trim();
+  const accessKeyId = (process.env.S3_ACCESS_KEY || process.env.S3_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || '').trim();
+  const secretAccessKey = (process.env.S3_SECRET_KEY || process.env.S3_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || '').trim();
+  const bucket = (process.env.S3_BUCKET || process.env.S3_BUCKET_NAME || process.env.R2_BUCKET_NAME || '').trim();
+  const publicBase = (process.env.S3_PUBLIC_URL || process.env.R2_PUBLIC_URL || '').trim().replace(/\/$/, '');
 
   if (bucket && endpoint.endsWith('/' + bucket)) {
     endpoint = endpoint.slice(0, -('/' + bucket).length);
   }
+
+  return { endpoint, accessKeyId, secretAccessKey, bucket, publicBase };
+}
+
+function getR2Client() {
+  const { endpoint, accessKeyId, secretAccessKey } = getStorageConfig();
+
+  if (!endpoint || !accessKeyId || !secretAccessKey) return null;
 
   return new S3Client({
     region: 'auto',
@@ -30,11 +38,10 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
   app.post('/api/creator/upload-direct', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const r2 = getR2Client();
-      const bucket = (process.env.R2_BUCKET_NAME || '').trim();
-      const publicBase = (process.env.R2_PUBLIC_URL || '').trim().replace(/\/$/, '');
+      const { bucket, publicBase } = getStorageConfig();
 
       if (!r2 || !bucket || !publicBase) {
-        return reply.status(500).send({ ok: false, error: 'Cloudflare R2 não configurado no Railway.' });
+        return reply.status(500).send({ ok: false, error: 'Storage R2/S3 não configurado no Railway.' });
       }
 
       const { fileName = 'arquivo', contentType = 'application/octet-stream', visibility = 'public', base64Data } = req.body || {};
@@ -76,15 +83,14 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
     }
   });
 
-  // Mantém presigned URL sem assinar ContentType (evita 400 Bad Request)
+  // 2. Presigned URL sem assinar ContentType (evita 400 Bad Request)
   app.post('/api/creator/upload-url', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const r2 = getR2Client();
-      const bucket = (process.env.R2_BUCKET_NAME || '').trim();
-      const publicBase = (process.env.R2_PUBLIC_URL || '').trim().replace(/\/$/, '');
+      const { bucket, publicBase } = getStorageConfig();
 
       if (!r2 || !bucket || !publicBase) {
-        return reply.status(500).send({ ok: false, error: 'Cloudflare R2 não configurado no Railway.' });
+        return reply.status(500).send({ ok: false, error: 'Storage R2/S3 não configurado no Railway.' });
       }
 
       const creatorId = req.creator.id;
@@ -103,7 +109,6 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
       const unique = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
       const r2Key = `creators/${creatorId}/${safeVis}/${unique}.${ext}`;
 
-      // Sem ContentType no comando evita mismatch de header e 400 Bad Request no R2
       const command = new PutObjectCommand({ Bucket: bucket, Key: r2Key });
       const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 });
       const publicUrl = `${publicBase}/${r2Key}`;
@@ -116,7 +121,7 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
     }
   });
 
-  // Confirma o upload no banco
+  // 3. Confirma o upload no banco
   app.post('/api/creator/media', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const creatorId = req.creator.id;
@@ -143,20 +148,20 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
     }
   });
 
-  // Lista galeria da modelo
+  // 4. Lista galeria da modelo
   app.get('/api/creator/media', { preHandler: requireCreatorAuth }, async (req, reply) => {
     const items = await listCreatorMedia(req.creator.id, true);
     return reply.send({ ok: true, items });
   });
 
-  // Apaga foto/vídeo do banco e do R2
+  // 5. Apaga foto/vídeo do banco e do R2
   app.delete('/api/creator/media/:id', { preHandler: requireCreatorAuth }, async (req, reply) => {
     const deleted = await deleteCreatorMedia(req.creator.id, req.params.id);
     if (!deleted) return reply.status(404).send({ ok: false, error: 'Mídia não encontrada.' });
 
     try {
       const r2 = getR2Client();
-      const bucket = (process.env.R2_BUCKET_NAME || '').trim();
+      const { bucket } = getStorageConfig();
       if (r2 && bucket) {
         await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: deleted.r2_key }));
       }
