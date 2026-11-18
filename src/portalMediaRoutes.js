@@ -21,6 +21,7 @@ function getR2Client() {
   return new S3Client({
     region: 'auto',
     endpoint,
+    forcePathStyle: true,
     credentials: { accessKeyId, secretAccessKey },
     // Evita cabeçalhos extras de checksum que quebram o upload direto (PUT) no R2
     requestChecksumCalculation: 'WHEN_REQUIRED',
