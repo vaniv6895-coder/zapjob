@@ -269,6 +269,18 @@
 </head>
 <body>
   <div class="wrap">
+
+    <!-- Tela de Bloqueio estilo App de Banco -->
+<div id="bio-lock-screen" style="display:none;position:fixed;inset:0;background:rgba(7,10,18,0.97);backdrop-filter:blur(12px);z-index:99999;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:360px;width:100%;text-align:center;margin:0;border-color:#ec4899;">
+    <div style="font-size:44px;margin-bottom:10px;">🔒</div>
+    <h3 style="justify-content:center;font-size:18px;margin-bottom:6px;">Sessão Protegida</h3>
+    <p class="subtitle" style="margin-bottom:18px;">Confirme seu Face ID ou digital para continuar no Creator Studio.</p>
+    <button type="button" class="btn" onclick="unlockWithBiometrics()">🔐 Desbloquear com Biometria</button>
+    <button type="button" class="logout-btn" style="width:100%;margin-top:10px;padding:11px;" onclick="logout()">Sair da conta</button>
+  </div>
+</div>
+
     <div class="top-nav">
       <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
       <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
@@ -301,6 +313,9 @@
         <label>Senha</label>
         <input id="l-pass" type="password" placeholder="Sua senha" />
         <button class="btn" onclick="doLogin()">Acessar Creator Studio</button>
+        <button type="button" class="btn" onclick="loginWithBiometrics()" style="margin-top:10px;background:#1e293b;border:1px solid #334155;box-shadow:none;">
+  🔐 Entrar com Face ID / Biometria
+</button>
       </div>
 
       <div id="reg-form" style="display:none">
@@ -444,6 +459,35 @@
             </div>
           </div>
         </div>
+
+        <div class="card">
+  <div class="card-header">
+    <h3>🛡️ Segurança & Verificação Facial</h3>
+  </div>
+  <p class="subtitle">Proteja sua conta contra invasões com a biometria do seu aparelho e envie sua prova de vida facial.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn" style="flex:1;" onclick="registerBiometrics()">
+      🔐 Ativar Face ID / Digital
+    </button>
+    <button type="button" class="btn btn-green" style="flex:1;" onclick="openLivenessModal()">
+      🎥 Prova de Vida Facial
+    </button>
+  </div>
+</div>
+
+<!-- Modal da Câmera de Prova de Vida Facial -->
+<div id="liveness-modal" style="display:none;position:fixed;inset:0;background:rgba(7,10,18,0.92);z-index:999;align-items:center;justify-content:center;padding:16px;">
+  <div class="card" style="max-width:400px;width:100%;text-align:center;margin:0;">
+    <h3 style="justify-content:center;margin-bottom:8px;">🎥 Prova de Vida Facial</h3>
+    <p id="liveness-instruction" style="font-size:13px;color:#f472b6;font-weight:700;margin-bottom:12px;">Carregando desafio...</p>
+    <video id="liveness-video" autoplay playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:3/4;object-fit:cover;margin-bottom:12px;"></video>
+    <div style="display:flex;gap:8px;">
+      <button type="button" class="logout-btn" style="flex:1;padding:12px;" onclick="closeLivenessModal()">Cancelar</button>
+      <button type="button" id="liveness-rec-btn" class="btn btn-green" style="flex:2;" onclick="recordAndSendLiveness()">● Gravar 4s e Enviar</button>
+    </div>
+  </div>
+</div>
+
       </div>
 
       <!-- ABA 2: CLUBE VIP -->
@@ -663,6 +707,7 @@
     }
 
     function logout() {
+      localStorage.removeItem('bio_enabled');
       localStorage.removeItem('portal_token');
       location.reload();
     }
@@ -760,7 +805,7 @@
       }).then(r => r.json());
 
       if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
-      await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      await fetch(presign.uploadUrl, { method: 'PUT', body: file });
 
       const payload = target === 'cover' ? { cover_url: presign.publicUrl } : { avatar_url: presign.publicUrl };
       await fetch('/api/portal/me', {
@@ -833,7 +878,7 @@
       }).then(r => r.json());
 
       if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
-      await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      await fetch(presign.uploadUrl, { method: 'PUT', body: file });
 
       const res = await fetch('/api/vip/posts', {
         method: 'POST',
@@ -916,7 +961,7 @@
         }).then(r => r.json());
 
         if (!presign.ok) { alert(presign.error); continue; }
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f });
+        await fetch(presign.uploadUrl, { method: 'PUT', body: f });
 
         await fetch('/api/creator/media', {
           method: 'POST',
@@ -963,6 +1008,237 @@
     }
 
     loadDashboard();
+
+    /* ================= BIOMETRIA FACIAL / PASSKEYS (WEBAUTHN) ================= */
+function b64urlToBuf(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64);
+  return Uint8Array.from(bin, c => c.charCodeAt(0)).buffer;
+}
+function bufToB64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function registerBiometrics() {
+  if (!window.PublicKeyCredential) return alert('Seu navegador não suporta biometria nativa.');
+  const optRes = await fetch('/api/portal/webauthn/register-options', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+  }).then(r => r.json());
+  if (!optRes.ok) return alert(optRes.error || 'Erro ao iniciar biometria');
+
+  const opts = optRes.options;
+  opts.challenge = b64urlToBuf(opts.challenge);
+  opts.user.id = b64urlToBuf(opts.user.id);
+  if (opts.excludeCredentials) {
+    opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBuf(c.id) }));
+  }
+
+  const cred = await navigator.credentials.create({ publicKey: opts });
+  const payload = {
+    id: cred.id,
+    rawId: bufToB64url(cred.rawId),
+    type: cred.type,
+    response: {
+      attestationObject: bufToB64url(cred.response.attestationObject),
+      clientDataJSON: bufToB64url(cred.response.clientDataJSON),
+      transports: cred.response.getTransports ? cred.response.getTransports() : [],
+    },
+  };
+
+  const verRes = await fetch('/api/portal/webauthn/register-verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(payload),
+  }).then(r => r.json());
+
+  if (verRes.ok) {
+  localStorage.setItem('bio_enabled', '1');
+  alert('✅ Face ID / Biometria ativada com sucesso neste aparelho!');
+}
+  else alert(verRes.error || 'Falha ao salvar biometria.');
+}
+
+async function loginWithBiometrics() {
+  if (!window.PublicKeyCredential) return alert('Seu navegador não suporta biometria nativa.');
+  const email = document.getElementById('l-email').value.trim();
+  const optRes = await fetch('/api/portal/webauthn/login-options', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  }).then(r => r.json());
+  if (!optRes.ok) return alert(optRes.error || 'Biometria não encontrada.');
+
+  const opts = optRes.options;
+  const rawChallenge = opts.challenge;
+  opts.challenge = b64urlToBuf(opts.challenge);
+  if (opts.allowCredentials) {
+    opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: b64urlToBuf(c.id) }));
+  }
+
+  const assertion = await navigator.credentials.get({ publicKey: opts });
+  const payload = {
+    id: assertion.id,
+    rawId: bufToB64url(assertion.rawId),
+    type: assertion.type,
+    response: {
+      authenticatorData: bufToB64url(assertion.response.authenticatorData),
+      clientDataJSON: bufToB64url(assertion.response.clientDataJSON),
+      signature: bufToB64url(assertion.response.signature),
+      userHandle: assertion.response.userHandle ? bufToB64url(assertion.response.userHandle) : null,
+    },
+  };
+
+  const verRes = await fetch('/api/portal/webauthn/login-verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assertion: payload, challenge: rawChallenge }),
+  }).then(r => r.json());
+
+  if (!verRes.ok) return alert(verRes.error || 'Falha na leitura biométrica.');
+  token = verRes.token;
+  localStorage.setItem('portal_token', token);
+  localStorage.setItem('bio_enabled', '1');
+  loadDashboard();
+}
+
+/* ================= PROVA DE VIDA FACIAL (CÂMERA AO VIVO) ================= */
+let livenessStream = null;
+
+async function openLivenessModal() {
+  const modal = document.getElementById('liveness-modal');
+  modal.style.display = 'flex';
+  const chal = await fetch('/api/portal/liveness-challenge', {
+    headers: { Authorization: 'Bearer ' + token },
+  }).then(r => r.json());
+  document.getElementById('liveness-instruction').innerText = chal.instruction || 'Sorria para a câmera';
+
+  livenessStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+  document.getElementById('liveness-video').srcObject = livenessStream;
+}
+
+function closeLivenessModal() {
+  if (livenessStream) {
+    livenessStream.getTracks().forEach(t => t.stop());
+    livenessStream = null;
+  }
+  document.getElementById('liveness-modal').style.display = 'none';
+}
+
+async function recordAndSendLiveness() {
+  if (!livenessStream) return;
+  const btn = document.getElementById('liveness-rec-btn');
+  btn.disabled = true;
+  btn.innerText = 'Gravando (4s)...';
+
+  const recorder = new MediaRecorder(livenessStream);
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  recorder.onstop = async () => {
+    btn.innerText = 'Enviando verificação...';
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const up = await fetch('/api/creator/upload-direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ fileName: 'verificacao.webm', contentType: 'video/webm', visibility: 'public', base64Data: reader.result }),
+      }).then(r => r.json());
+
+      if (up.ok) {
+        await fetch('/api/portal/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ verification_video_url: up.publicUrl }),
+        });
+        alert('✅ Vídeo facial enviado para análise!');
+      } else {
+        alert(up.error || 'Erro ao enviar vídeo.');
+      }
+      btn.disabled = false;
+      btn.innerText = '● Gravar 4s e Enviar';
+      closeLivenessModal();
+    };
+    reader.readAsDataURL(blob);
+  };
+
+  recorder.start();
+  setTimeout(() => recorder.stop(), 4000);
+}
+
+/* ================= BLOQUEIO AUTOMÁTICO AO SAIR/VOLTAR ================= */
+let leftAt = 0;
+let isBioLocked = false;
+
+function lockAppScreen() {
+  if (!token || localStorage.getItem('bio_enabled') !== '1' || isBioLocked) return;
+  isBioLocked = true;
+  document.getElementById('bio-lock-screen').style.display = 'flex';
+}
+
+async function unlockWithBiometrics() {
+  try {
+    const email = document.getElementById('l-email')?.value.trim() || '';
+    const optRes = await fetch('/api/portal/webauthn/login-options', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json());
+    if (!optRes.ok) return alert(optRes.error || 'Erro ao iniciar biometria.');
+
+    const opts = optRes.options;
+    const rawChallenge = opts.challenge;
+    opts.challenge = b64urlToBuf(opts.challenge);
+    if (opts.allowCredentials) {
+      opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: b64urlToBuf(c.id) }));
+    }
+
+    const assertion = await navigator.credentials.get({ publicKey: opts });
+    const payload = {
+      id: assertion.id,
+      rawId: bufToB64url(assertion.rawId),
+      type: assertion.type,
+      response: {
+        authenticatorData: bufToB64url(assertion.response.authenticatorData),
+        clientDataJSON: bufToB64url(assertion.response.clientDataJSON),
+        signature: bufToB64url(assertion.response.signature),
+        userHandle: assertion.response.userHandle ? bufToB64url(assertion.response.userHandle) : null,
+      },
+    };
+
+    const verRes = await fetch('/api/portal/webauthn/login-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assertion: payload, challenge: rawChallenge }),
+    }).then(r => r.json());
+
+    if (!verRes.ok) return alert(verRes.error || 'Biometria não reconhecida.');
+    token = verRes.token;
+    localStorage.setItem('portal_token', token);
+    isBioLocked = false;
+    document.getElementById('bio-lock-screen').style.display = 'none';
+  } catch (e) {
+    alert('Confirmação biométrica cancelada.');
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    leftAt = Date.now();
+  } else if (leftAt && Date.now() - leftAt > 15000) {
+    lockAppScreen();
+  }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (token && localStorage.getItem('bio_enabled') === '1') {
+    lockAppScreen();
+    unlockWithBiometrics();
+  }
+});
+
   </script>
 </body>
 </html>

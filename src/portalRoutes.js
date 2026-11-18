@@ -21,6 +21,7 @@ import {
 } from './portalDb.js';
 import { registerPortalProfileRoute } from './portalProfilePage.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
+import { registerPortalSecurityRoutes } from './portalSecurityRoutes.js';
 
 const HIGHLIGHT_PLANS = [
   { code: 'boost_1x', name: 'Subida ao Topo (1x)', badge: 'IMEDIATO ⚡', price: 9.9, desc: 'Joga seu perfil para o 1º lugar agora.' },
@@ -41,6 +42,8 @@ function verifySessionToken(token) {
   const parts = String(token).split('.');
   if (parts.length !== 3) return null;
   const [creatorId, ts, sig] = parts;
+  const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // Expira após 7 dias
+  if (Date.now() - Number(ts) > maxAgeMs) return null;
   const secret = process.env.PANEL_PASSWORD || 'portal_secret_2026';
   const expected = crypto.createHmac('sha256', secret).update(`${creatorId}.${ts}`).digest('hex');
   if (sig !== expected) return null;
@@ -97,6 +100,7 @@ export function registerPortalRoutes(app) {
   registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
+  registerPortalSecurityRoutes(app, requireCreatorAuth, signSessionToken);
 
   app.post('/api/portal/register', async (req, reply) => {
     try {
@@ -275,7 +279,7 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-// Entrega o Client ID do Google para o frontend separado
+  // Entrega o Client ID do Google para o frontend separado
   app.get('/api/portal/auth-config', async (req, reply) => {
     return reply.send({ googleClientId: process.env.GOOGLE_CLIENT_ID || '' });
   });
@@ -286,8 +290,6 @@ export function registerPortalRoutes(app) {
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
-  
- 
 
   // =======================================================================
   // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
