@@ -466,10 +466,9 @@
           </div>
           <p class="subtitle">Proteja sua conta contra invasões com a biometria do seu aparelho e envie sua prova de vida facial.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <!-- Substitui o botão registerBiometrics() por este: -->
-<button type="button" class="btn" style="flex:1;" onclick="window.location.href='/biometria-facial?mode=register'">
-  📷 Ativar Biometria Facial
-</button>
+            <button type="button" class="btn" style="flex:1;" onclick="window.location.href='/biometria-facial?mode=register'">
+              📷 Ativar Biometria Facial
+            </button>
             <button type="button" class="btn btn-green" style="flex:1;" onclick="openLivenessModal()">
               🎥 Prova de Vida Facial
             </button>
@@ -603,7 +602,7 @@
 
     window.addEventListener('load', initGoogleLogin);
 
-   async function handleGoogleCredential(response) {
+    async function handleGoogleCredential(response) {
       const res = await fetch('/api/portal/google-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -621,15 +620,20 @@
         return;
       }
 
-      // Redireciona para a câmera de biometria facial se estiver ativa
-      if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+      // Se nunca cadastrou a biometria facial, manda cadastrar agora!
+      if (localStorage.getItem('bio_enabled') !== '1') {
+        window.location.href = '/biometria-facial?mode=register';
+        return;
+      }
+
+      // Se já cadastrou, exige o reconhecimento facial (2FA) a cada nova sessão
+      if (sessionStorage.getItem('bio_verified') !== '1') {
         window.location.href = '/biometria-facial?mode=unlock';
         return;
       }
 
       loadDashboard();
     }
-
 
     function openStudioTab(tabName) {
       document.querySelectorAll('.studio-section').forEach(el => el.style.display = 'none');
@@ -691,7 +695,12 @@
       token = data.token;
       sessionStorage.setItem('portal_token', token);
 
-      if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+      if (localStorage.getItem('bio_enabled') !== '1') {
+        window.location.href = '/biometria-facial?mode=register';
+        return;
+      }
+
+      if (sessionStorage.getItem('bio_verified') !== '1') {
         window.location.href = '/biometria-facial?mode=unlock';
         return;
       }
@@ -723,6 +732,7 @@
     function logout() {
       localStorage.removeItem('bio_enabled');
       sessionStorage.removeItem('portal_token');
+      sessionStorage.removeItem('bio_verified');
       location.reload();
     }
 
@@ -1113,6 +1123,7 @@
       token = verRes.token;
       sessionStorage.setItem('portal_token', token);
       localStorage.setItem('bio_enabled', '1');
+      sessionStorage.setItem('bio_verified', '1');
       loadDashboard();
     }
 
@@ -1188,6 +1199,7 @@
     function resetSessionToLogin() {
       token = '';
       sessionStorage.removeItem('portal_token');
+      sessionStorage.removeItem('bio_verified');
       isBioLocked = false;
       document.getElementById('bio-lock-screen').style.display = 'none';
       document.getElementById('dash-box').style.display = 'none';
@@ -1241,6 +1253,7 @@
         token = verRes.token;
         sessionStorage.setItem('portal_token', token);
         localStorage.setItem('bio_enabled', '1');
+        sessionStorage.setItem('bio_verified', '1');
         isBioLocked = false;
         document.getElementById('bio-lock-screen').style.display = 'none';
         loadDashboard();
@@ -1258,9 +1271,15 @@
       }
     });
 
-    // Inicialização: se já há sessão ativa na aba atual, carrega o painel
+    // Inicialização: verifica estado da biometria antes de carregar o painel
     if (token) {
-      loadDashboard();
+      if (localStorage.getItem('bio_enabled') !== '1') {
+        window.location.href = '/biometria-facial?mode=register';
+      } else if (sessionStorage.getItem('bio_verified') !== '1') {
+        window.location.href = '/biometria-facial?mode=unlock';
+      } else {
+        loadDashboard();
+      }
     }
   </script>
 </body>
