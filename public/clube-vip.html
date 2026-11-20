@@ -3,30 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clube VIP 😈 — Conteúdo Proibido & Exclusivo</title>
+  <title>Clube VIP — Conteúdo Exclusivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
     body {
       background: radial-gradient(circle at top, #180b1e 0%, #06080f 55%);
       color: #f8fafc;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Header */
     .topbar {
-      background: rgba(11, 15, 25, 0.85);
-      backdrop-filter: blur(12px);
-      padding: 13px 16px;
-      border-bottom: 1px solid rgba(236, 72, 153, 0.25);
+      background: rgba(11, 15, 25, 0.88);
+      backdrop-filter: blur(14px);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(236, 72, 153, 0.22);
       position: sticky;
       top: 0;
       z-index: 40;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
     }
-    .topbar a { text-decoration: none; color: #cbd5e1; font-weight: 700; font-size: 13px; }
+    .topbar a {
+      text-decoration: none;
+      color: #cbd5e1;
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+    }
     .topbar a:hover { color: #fff; }
     .dev-badge {
       font-size: 10px;
@@ -36,38 +46,40 @@
       border-radius: 99px;
       color: #f472b6;
       font-weight: 800;
+      white-space: nowrap;
     }
 
-    /* Container & Capa com Vídeo Embaçado */
-    .container { max-width: 540px; margin: 0 auto; padding-bottom: 56px; }
+    /* Container & Capa Grande sem Censura (Foto ou Vídeo) */
+    .container { max-width: 560px; margin: 0 auto; padding-bottom: 64px; }
     .cover-wrap {
       position: relative;
-      height: 205px;
-      background: #0f172a;
+      height: 250px;
+      width: 100%;
+      background: #0d111a;
       overflow: hidden;
     }
+    @media(min-width: 600px) { .cover-wrap { height: 300px; } }
     .cover-wrap video,
-    .cover-wrap img.cover-fallback {
+    .cover-wrap img.cover-media {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: blur(11px) brightness(0.6) saturate(1.3);
-      transform: scale(1.15);
+      filter: none;
       display: block;
     }
     .cover-grad {
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(6, 8, 15, 0.15) 0%, rgba(6, 8, 15, 0.96) 100%);
+      background: linear-gradient(180deg, rgba(6, 8, 15, 0.04) 0%, rgba(6, 8, 15, 0.25) 62%, rgba(6, 8, 15, 0.96) 100%);
       pointer-events: none;
     }
     .cover-hot-pill {
       position: absolute;
       top: 12px;
       right: 12px;
-      background: rgba(15, 23, 42, 0.78);
+      background: rgba(15, 23, 42, 0.82);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(236, 72, 153, 0.5);
+      border: 1px solid rgba(236, 72, 153, 0.45);
       color: #fff;
       font-size: 11px;
       font-weight: 800;
@@ -77,16 +89,17 @@
     }
 
     /* Perfil */
-    .profile-head { padding: 0 16px 18px; margin-top: -58px; position: relative; z-index: 10; }
-    .avatar-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; }
+    .profile-head { padding: 0 16px 18px; margin-top: -54px; position: relative; z-index: 10; }
+    .avatar-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .avatar-ring {
       position: relative;
-      width: 96px;
-      height: 96px;
+      width: 92px;
+      height: 92px;
       border-radius: 50%;
       padding: 3px;
       background: linear-gradient(135deg, #ec4899, #f43f5e, #8b5cf6);
       box-shadow: 0 0 24px rgba(236, 72, 153, 0.45);
+      flex-shrink: 0;
     }
     .avatar-img {
       width: 100%;
@@ -115,7 +128,7 @@
     .stats-pill {
       display: flex;
       gap: 14px;
-      background: rgba(17, 24, 39, 0.9);
+      background: rgba(17, 24, 39, 0.92);
       border: 1px solid rgba(236, 72, 153, 0.25);
       padding: 9px 14px;
       border-radius: 14px;
@@ -133,20 +146,43 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
     .sub-meta { font-size: 12px; color: #94a3b8; margin-top: 3px; font-weight: 600; }
-    .bio-text { font-size: 13px; color: #e2e8f0; line-height: 1.5; margin-top: 10px; }
+    .bio-text { font-size: 13px; color: #e2e8f0; line-height: 1.55; margin-top: 10px; white-space: pre-line; }
 
-    /* Card Assinatura VIP */
+    /* Card Assinatura & Planos VIP */
     .sub-card {
       background: linear-gradient(135deg, #270c26 0%, #1c1033 100%);
-      border: 1.5px solid rgba(236, 72, 153, 0.6);
+      border: 1.5px solid rgba(236, 72, 153, 0.55);
       border-radius: 18px;
       padding: 18px;
       margin-top: 16px;
       box-shadow: 0 10px 30px rgba(236, 72, 153, 0.2);
     }
-    .sub-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sub-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .plans-list-vip { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 14px; }
+    @media(min-width: 480px) { .plans-list-vip { grid-template-columns: 1fr 1fr; } }
+    .plan-chip-vip {
+      background: rgba(9, 13, 22, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #fff;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .plan-chip-vip:hover, .plan-chip-vip.selected {
+      border-color: #ec4899;
+      background: rgba(236, 72, 153, 0.18);
+    }
     .sub-btn {
       width: 100%;
       padding: 15px;
@@ -155,13 +191,35 @@
       background: linear-gradient(90deg, #f43f5e, #ec4899, #8b5cf6);
       color: #fff;
       font-family: inherit;
-      font-size: 14.5px;
+      font-size: 14px;
       font-weight: 900;
       cursor: pointer;
       box-shadow: 0 6px 24px rgba(236, 72, 153, 0.45);
       transition: transform 0.15s, opacity 0.15s;
     }
-    .sub-btn:hover { transform: translateY(-1px); opacity: 0.95; }
+    .sub-btn:hover { transform: translateY(-1px); opacity: 0.96; }
+
+    /* Caixa de Mensagem Exclusiva de Assinantes */
+    .msg-box-card {
+      background: #0f1523;
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      padding: 16px;
+      margin: 0 14px 20px;
+    }
+    .msg-input {
+      width: 100%;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .msg-input:focus { border-color: #ec4899; }
 
     /* Posts Feed */
     .feed-list { padding: 0 14px; }
@@ -287,16 +345,16 @@
 
   <header class="topbar">
     <a href="/vitrine">← Vitrine</a>
-    <strong style="font-size:15px;letter-spacing:0.6px;">🔥 CLUBE <span style="color:#ec4899;">VIP</span> 😈</strong>
+    <strong style="font-size:14.5px;letter-spacing:0.6px;">🔥 CLUBE <span style="color:#ec4899;">VIP</span></strong>
     <span id="dev-badge" class="dev-badge">ID: ...</span>
   </header>
 
   <main class="container">
-    <!-- Capa com Vídeo Embaçado em Loop -->
+    <!-- Fundo Grande Sem Censura (Foto ou Vídeo) -->
     <div class="cover-wrap" id="vip-cover-box">
-      <img id="vip-cover" class="cover-fallback" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85" alt="Capa" />
+      <img id="vip-cover" class="cover-media" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85" alt="Capa VIP" />
       <div class="cover-grad"></div>
-      <span class="cover-hot-pill">🔞 Conteúdo Sem Censura 🔥</span>
+      <span class="cover-hot-pill">✨ Clube VIP Oficial</span>
     </div>
 
     <div class="profile-head">
@@ -306,29 +364,58 @@
           <span class="live-badge">🔥 VIP ATIVO</span>
         </div>
         <div class="stats-pill">
-          <div>📸 <strong id="stat-photos">48</strong> <span style="color:#94a3b8;">Fotos</span></div>
-          <div>🎬 <strong id="stat-videos">19</strong> <span style="color:#94a3b8;">Vídeos</span></div>
+          <div>📸 <strong id="stat-photos">0</strong> <span style="color:#94a3b8;">Fotos</span></div>
+          <div>🎬 <strong id="stat-videos">0</strong> <span style="color:#94a3b8;">Vídeos</span></div>
         </div>
       </div>
 
       <h1 class="stage-name">
         <span id="vip-name">Carregando...</span>
         <span class="verified-dot">✓</span>
-        <span style="font-size:18px;">😈</span>
       </h1>
       <p class="sub-meta" id="vip-meta">@perfil • 📍 Brasil</p>
-      <p class="bio-text" id="vip-bio">Meus vídeos mais quentes, bastidores proibidos e ensaios sem censura 💦🔥🍑</p>
+      <p class="bio-text" id="vip-bio">Conteúdo exclusivo, bastidores e ensaios especiais para assinantes VIP.</p>
 
       <section class="sub-card">
         <div class="sub-top">
-          <span style="font-size:12px;font-weight:900;color:#f472b6;text-transform:uppercase;">👑 Passe Livre 30 Dias 😈💦</span>
+          <span style="font-size:12px;font-weight:900;color:#f472b6;text-transform:uppercase;">👑 Planos do Clube VIP</span>
           <span style="font-size:11px;background:rgba(16,185,129,0.2);color:#34d399;padding:3px 9px;border-radius:99px;font-weight:800;">⚡ Libera na Hora</span>
         </div>
-        <button id="btn-subscribe-month" class="sub-btn" onclick="assinarMensal()">
-          🔥 Desbloquear Tudo — R$ 49,90 / mês 🍑
+
+        <div id="vip-plans-options" class="plans-list-vip"></div>
+
+        <button id="btn-subscribe-month" class="sub-btn" onclick="assinarPlanoSelecionado()">
+          🔥 Desbloquear Tudo — R$ 25,99 / mês
         </button>
       </section>
     </div>
+
+    <!-- Chat Exclusivo de Assinantes VIP -->
+    <section class="msg-box-card" id="vip-chat-section">
+      <strong style="display:block;font-size:13.5px;color:#fff;margin-bottom:4px;">💬 Chat Exclusivo de Assinantes</strong>
+      <p style="font-size:11.5px;color:#94a3b8;margin-bottom:10px;">Somente quem assinou o Clube VIP pode enviar mensagem direta.</p>
+
+      <div id="vip-msg-locked" style="background:rgba(9,13,22,0.85);border:1px dashed rgba(236,72,153,0.45);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:12.5px;font-weight:700;color:#f472b6;margin-bottom:8px;">
+          🔒 Chat bloqueado para visitantes
+        </div>
+        <p style="font-size:11.5px;color:#94a3b8;margin-bottom:12px;">
+          Assine um dos planos VIP acima para liberar o envio de mensagens para a criadora.
+        </p>
+        <button type="button" onclick="document.querySelector('.sub-card')?.scrollIntoView({ behavior: 'smooth' })" style="padding:10px 16px;border:none;border-radius:99px;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;">
+          Ver Planos VIP
+        </button>
+      </div>
+
+      <div id="vip-msg-form-unlocked" style="display:none;">
+        <input id="msgSenderName" class="msg-input" placeholder="Seu nome ou apelido VIP" />
+        <textarea id="msgTextArea" class="msg-input" rows="2" placeholder="Escreva sua mensagem para a criadora..."></textarea>
+        <button type="button" onclick="enviarMensagemVip()" style="width:100%;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;">
+          Enviar Mensagem VIP
+        </button>
+        <p id="msgSendFeedback" style="font-size:12px;color:#10b981;font-weight:700;margin-top:8px;"></p>
+      </div>
+    </section>
 
     <div class="feed-list" id="vip-feed-list"></div>
   </main>
@@ -336,7 +423,7 @@
   <!-- Modal Checkout Pix -->
   <div id="pix-modal" class="pix-modal">
     <div class="pix-box">
-      <div style="font-size:34px;margin-bottom:6px;">😈🔥</div>
+      <div style="font-size:34px;margin-bottom:6px;">🔥💎</div>
       <h3 id="pix-modal-title" style="margin:0 0 6px;font-size:17px;font-weight:800;">Pagamento Pix Instantâneo</h3>
       <p id="pix-device-note" style="font-size:11px;color:#94a3b8;margin-bottom:12px;"></p>
       <img id="pix-qr-img" src="" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:12px;display:none;margin:0 auto;" />
@@ -358,10 +445,29 @@
   <script>
     let CREATOR_ID = 0;
     let statusPoll = null;
+    let selectedPlan = { key: 'm1', label: '1 Mês', de: 48.99, por: 25.99 };
+    let isVipSubscriber = false;
 
     const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || 'demo');
 
+    function fmtBRL(v) {
+      return Number(v || 0).toFixed(2).replace('.', ',');
+    }
+
+    function isVideoUrl(url) {
+      return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(url || ''));
+    }
+
+    function atualizarEstadoChatVip(subscribed) {
+      isVipSubscriber = Boolean(subscribed);
+      const lockedBox = document.getElementById('vip-msg-locked');
+      const unlockedBox = document.getElementById('vip-msg-form-unlocked');
+      if (lockedBox) lockedBox.style.display = isVipSubscriber ? 'none' : 'block';
+      if (unlockedBox) unlockedBox.style.display = isVipSubscriber ? 'block' : 'none';
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
+      atualizarEstadoChatVip(false);
       await carregarClubeVip();
       if (typeof window.getDeviceHash === 'function') {
         const hash = await window.getDeviceHash();
@@ -370,39 +476,97 @@
       }
     });
 
+    function renderizarFundoVip(creator, posts = []) {
+      const coverBox = document.getElementById('vip-cover-box');
+      if (!coverBox) return;
+
+      const videoPost = (posts || []).find(p => p.media_type === 'video' && (p.preview_url || p.media_url));
+      const candidateUrl = creator.cover_video_url
+        || (isVideoUrl(creator.cover_url) ? creator.cover_url : '')
+        || creator.cover_url
+        || (videoPost ? (videoPost.preview_url || videoPost.media_url) : '')
+        || creator.avatar_url
+        || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85';
+
+      const mediaHtml = isVideoUrl(candidateUrl)
+        ? `<video src="${candidateUrl}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;filter:none;display:block;"></video>`
+        : `<img id="vip-cover" class="cover-media" src="${candidateUrl}" alt="Capa VIP" style="width:100%;height:100%;object-fit:cover;filter:none;display:block;" />`;
+
+      coverBox.innerHTML = `
+        ${mediaHtml}
+        <div class="cover-grad"></div>
+        <span class="cover-hot-pill">✨ Clube VIP Oficial</span>
+      `;
+    }
+
+    function renderizarPlanosVip(creator) {
+      const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
+      const p1Por = Number(plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99);
+      const p1De = plansObj.m1?.de ?? creator.vip_anchor_price ?? 48.99;
+
+      const list = [
+        { key: 'm1', label: '1 Mês', de: p1De ? Number(p1De) : null, por: p1Por },
+        { key: 'm2', label: '2 Meses', de: plansObj.m2?.de ? Number(plansObj.m2.de) : 89.90, por: Number(plansObj.m2?.por ?? 44.99) },
+        { key: 'm3', label: 'Trimestral', de: plansObj.m3?.de ? Number(plansObj.m3.de) : 129.90, por: Number(plansObj.m3?.por ?? 59.99) },
+        { key: 'm12', label: 'Anual', de: plansObj.m12?.de ? Number(plansObj.m12.de) : 399.90, por: Number(plansObj.m12?.por ?? 149.99) },
+      ];
+
+      selectedPlan = list[0];
+      const container = document.getElementById('vip-plans-options');
+      if (container) {
+        container.innerHTML = list.map((p, idx) => `
+          <button type="button" class="plan-chip-vip ${idx === 0 ? 'selected' : ''}" onclick="selecionarPlanoVip(this, ${idx})">
+            <strong>${p.label}</strong>
+            <span>
+              ${p.de && p.de > p.por ? `<s style="color:#94a3b8;font-size:10.5px;margin-right:4px;">R$ ${fmtBRL(p.de)}</s>` : ''}
+              <strong style="color:#34d399;">R$ ${fmtBRL(p.por)}</strong>
+            </span>
+          </button>
+        `).join('');
+      }
+      window.__vipPlansList = list;
+      atualizarBotaoAssinatura();
+    }
+
+    function selecionarPlanoVip(el, idx) {
+      document.querySelectorAll('.plan-chip-vip').forEach(b => b.classList.remove('selected'));
+      if (el) el.classList.add('selected');
+      const list = window.__vipPlansList || [];
+      if (list[idx]) selectedPlan = list[idx];
+      atualizarBotaoAssinatura();
+    }
+
+    function atualizarBotaoAssinatura() {
+      const btn = document.getElementById('btn-subscribe-month');
+      if (!btn || btn.disabled) return;
+      const anchorStr = selectedPlan.de && selectedPlan.de > selectedPlan.por
+        ? ` (De R$ ${fmtBRL(selectedPlan.de)})`
+        : '';
+      btn.innerText = `🔥 Assinar ${selectedPlan.label} — R$ ${fmtBRL(selectedPlan.por)}${anchorStr}`;
+    }
+
     async function carregarClubeVip() {
       const res = await fetch('/api/vip/profile/' + encodeURIComponent(slug));
       if (!res.ok) {
         document.getElementById('vip-name').innerText = 'Perfil não encontrado';
         return;
       }
-      const { creator, posts } = await res.json();
+      const { creator, posts = [] } = await res.json();
       CREATOR_ID = creator.id;
 
-      document.title = 'Clube VIP 😈 — ' + creator.stage_name;
+      const photosCount = posts.filter(p => p.media_type !== 'video').length;
+      const videosCount = posts.filter(p => p.media_type === 'video').length;
+      if (photosCount > 0) document.getElementById('stat-photos').innerText = photosCount;
+      if (videosCount > 0) document.getElementById('stat-videos').innerText = videosCount;
+
+      document.title = 'Clube VIP — ' + creator.stage_name;
       document.getElementById('vip-name').innerText = creator.stage_name;
       document.getElementById('vip-meta').innerText = '@' + creator.slug + ' • 📍 ' + (creator.city || 'Brasil');
-      document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo proibido sem censura, vídeos íntimos e bastidores 😈💦🔥';
+      document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo exclusivo, bastidores e ensaios especiais para assinantes VIP.';
       if (creator.avatar_url) document.getElementById('vip-avatar').src = creator.avatar_url;
 
-      // Injeta vídeo embaçado na capa (usa o 1º vídeo dela ou vídeo teaser)
-      const videoPost = (posts || []).find(p => p.media_type === 'video' && (p.preview_url || p.media_url));
-      const coverVideoUrl = creator.cover_video_url
-        || (videoPost ? (videoPost.preview_url || videoPost.media_url) : 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4');
-
-      const coverBox = document.getElementById('vip-cover-box');
-      if (coverBox && coverVideoUrl) {
-        coverBox.innerHTML = `
-          <video src="${coverVideoUrl}" autoplay muted loop playsinline></video>
-          <div class="cover-grad"></div>
-          <span class="cover-hot-pill">🔞 Conteúdo Sem Censura 🔥</span>
-        `;
-      } else if (creator.cover_url || creator.avatar_url) {
-        document.getElementById('vip-cover').src = creator.cover_url || creator.avatar_url;
-      }
-
-      const price = Number(creator.vip_monthly_price || 49.90);
-      document.getElementById('btn-subscribe-month').innerText = '🔥 Desbloquear Tudo — R$ ' + price.toFixed(2).replace('.', ',') + ' / mês 🍑';
+      renderizarFundoVip(creator, posts);
+      renderizarPlanosVip(creator);
 
       document.getElementById('vip-feed-list').innerHTML = posts.map((p, idx) => `
         <article class="post-card">
@@ -411,40 +575,74 @@
               <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" />
               <div>
                 <strong style="display:flex;align-items:center;gap:5px;font-size:14px;color:#fff;">
-                  ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span> 😈
+                  ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span>
                 </strong>
                 <span style="font-size:11px;color:#f472b6;font-weight:800;">
-                  ${p.allow_subscription !== false ? '👑 Assinantes VIP ou 🔥 Avulso 1x 💦' : '🔥 Somente Visualização Única (1x) 🍑'}
+                  ${p.allow_subscription !== false ? '👑 Assinantes VIP ou 🔥 Avulso 1x' : '🔥 Somente Visualização Única (1x)'}
                 </span>
               </div>
             </div>
-            <span style="font-size:11px;color:#64748b;font-weight:700;">Hoje 🔥</span>
+            <span style="font-size:11px;color:#64748b;font-weight:700;">Hoje</span>
           </div>
 
-          <p class="post-caption">${p.caption || 'Vídeo exclusivo sem censura só para quem tem coragem 😈💦🔥'}</p>
+          <p class="post-caption">${p.caption || 'Conteúdo exclusivo disponível no Clube VIP.'}</p>
 
           <div id="vip-media-slot-${p.id}" class="media-slot">
             <img class="blur-bg" src="${p.preview_url || creator.avatar_url}" />
             <div class="lock-overlay">
-              <div class="lock-icon">${p.media_type === 'video' ? '🎬🔥' : '😈🔒'}</div>
+              <div class="lock-icon">${p.media_type === 'video' ? '🎬' : '🔒'}</div>
               <strong style="font-size:16.5px;margin-bottom:6px;color:#fff;">
-                ${p.media_type === 'video' ? 'Vídeo Proibido Sem Censura 💦' : 'Ensaio Íntimo Sem Censura 🍑'}
+                ${p.media_type === 'video' ? 'Vídeo Exclusivo VIP' : 'Ensaio Exclusivo VIP'}
               </strong>
               <span style="font-size:12px;color:#cbd5e1;max-width:275px;line-height:1.45;margin-bottom:18px;">
-                Conteúdo 100% explícito e protegido contra print. Liberação imediata no seu celular via Pix 🔥
+                Conteúdo protegido contra print. Liberação imediata no seu aparelho via Pix.
               </span>
               <button id="ppv-btn-${p.id}" class="ppv-btn" onclick="comprarPostUnico(${p.id}, ${Number(p.price).toFixed(2)})">
-                😈 Ver Agora (1x) — R$ ${Number(p.price).toFixed(2).replace('.', ',')} 🔥
+                Ver Agora (1x) — R$ ${fmtBRL(p.price)}
               </button>
             </div>
           </div>
 
           <div class="post-foot">
-            <span>🔥 ${p.likes || 340 + idx * 58} curtidas • 💦 ${18 + idx * 7}</span>
+            <span>🔥 ${p.likes || 340 + idx * 58} curtidas</span>
             <span>🛡️ Anti-Print Ativo</span>
           </div>
         </article>
       `).join('');
+    }
+
+    async function enviarMensagemVip() {
+      const fb = document.getElementById('msgSendFeedback');
+      if (!isVipSubscriber) {
+        alert('Apenas assinantes VIP podem enviar mensagem.');
+        return;
+      }
+      const name = (document.getElementById('msgSenderName')?.value || '').trim() || 'Assinante VIP';
+      const messageText = (document.getElementById('msgTextArea')?.value || '').trim();
+
+      if (!messageText) {
+        if (fb) { fb.style.color = '#f87171'; fb.innerText = 'Escreva uma mensagem antes de enviar.'; }
+        return;
+      }
+
+      const deviceHash = typeof window.getDeviceHash === 'function' ? await window.getDeviceHash() : '';
+      try {
+        const res = await fetch('/api/portal/vip/' + encodeURIComponent(slug) + '/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscriberName: name, messageText, deviceHash })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          document.getElementById('msgTextArea').value = '';
+          if (fb) { fb.style.color = '#10b981'; fb.innerText = '✅ Mensagem enviada para a criadora!'; }
+        } else {
+          if (res.status === 403) atualizarEstadoChatVip(false);
+          if (fb) { fb.style.color = '#f87171'; fb.innerText = data.error || 'Apenas assinantes VIP podem enviar mensagem.'; }
+        }
+      } catch {
+        if (fb) { fb.style.color = '#f87171'; fb.innerText = 'Erro de conexão ao enviar mensagem.'; }
+      }
     }
 
     async function verificarAssinaturaAtiva(deviceHash) {
@@ -454,11 +652,12 @@
         body: JSON.stringify({ creatorId: CREATOR_ID, deviceHash })
       });
       const data = await res.json();
+      atualizarEstadoChatVip(Boolean(data.subscribed));
       if (!data.subscribed) return;
 
       const subBtn = document.getElementById('btn-subscribe-month');
       subBtn.style.background = '#10b981';
-      subBtn.innerText = '✅ Passe VIP Ativo neste Aparelho 🔥';
+      subBtn.innerText = '✅ Passe VIP Ativo neste Aparelho';
       subBtn.disabled = true;
 
       (data.posts || []).forEach(p => {
@@ -489,7 +688,7 @@
 
     function abrirModalPix(data, title) {
       document.getElementById('pix-modal-title').innerText = title;
-      document.getElementById('pix-device-note').innerText = 'Vinculado exclusivamente a este celular (ID: ' + data.boundDevice + ')';
+      document.getElementById('pix-device-note').innerText = 'Vinculado exclusivamente a este aparelho (ID: ' + data.boundDevice + ')';
       document.getElementById('pix-copy-text').value = data.qrCode;
 
       const qrImg = document.getElementById('pix-qr-img');
@@ -502,24 +701,30 @@
       document.getElementById('pix-modal').classList.add('open');
     }
 
-    async function assinarMensal() {
+    async function assinarPlanoSelecionado() {
       if (CREATOR_ID === 0) {
-        alert('Prévia (/vip/demo): em um perfil real, gera o QR Code Pix do Mercado Pago na hora!');
+        alert(`Prévia (/vip/demo): plano ${selectedPlan.label} por R$ ${fmtBRL(selectedPlan.por)}.`);
         return;
       }
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar seu Passe VIP de 30 dias:');
+      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar seu acesso VIP:');
       if (!buyer) return;
 
       const deviceHash = await window.getDeviceHash();
       const res = await fetch('/api/vip/subscribe-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: CREATOR_ID, buyerIdentifier: buyer, deviceHash })
+        body: JSON.stringify({
+          creatorId: CREATOR_ID,
+          buyerIdentifier: buyer,
+          deviceHash,
+          planKey: selectedPlan.key,
+          amount: selectedPlan.por
+        })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
 
-      abrirModalPix(data, 'Assinatura Mensal VIP 😈 (30 dias)');
+      abrirModalPix(data, `Assinatura VIP — ${selectedPlan.label}`);
 
       clearInterval(statusPoll);
       statusPoll = setInterval(async () => {
@@ -534,7 +739,7 @@
 
     async function comprarPostUnico(postId, price) {
       if (CREATOR_ID === 0) {
-        alert('Prévia (/vip/demo): em um perfil real, gera o Pix de R$ ' + price.toFixed(2).replace('.', ',') + ' e libera a mídia 1x!');
+        alert('Prévia (/vip/demo): libera a mídia 1x por R$ ' + fmtBRL(price) + '.');
         return;
       }
       const buyer = prompt('Digite seu e-mail ou WhatsApp para liberar o conteúdo:');
@@ -559,7 +764,7 @@
 
         if (!res.ok || !data.ok) return alert(data.error || 'Erro ao gerar Pix.');
 
-        abrirModalPix(data, 'Desbloquear Conteúdo 1x 😈🔥');
+        abrirModalPix(data, 'Desbloquear Conteúdo 1x');
 
         clearInterval(statusPoll);
         statusPoll = setInterval(async () => {

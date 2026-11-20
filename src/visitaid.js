@@ -171,12 +171,20 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 2C. Mensagens dos Assinantes VIP (enviar, listar no VIP Studio e responder)
+  // 2C. Mensagens dos Assinantes VIP (somente assinantes ativos podem enviar)
   app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
     try {
-      const { subscriberContact = 'VIP', subscriberName = 'Assinante VIP', messageText = '' } = req.body || {};
+      const {
+        subscriberContact = '',
+        subscriberName = 'Assinante VIP',
+        messageText = '',
+        deviceHash = '',
+      } = req.body || {};
+
       const cleanMsg = String(messageText || '').trim();
+      const cleanDev = String(deviceHash || '').trim();
       if (!cleanMsg) return reply.status(400).send({ error: 'Mensagem vazia' });
+      if (!cleanDev) return reply.status(403).send({ error: 'Apenas assinantes VIP podem enviar mensagem.' });
 
       const creatorRes = await pool.query(
         `SELECT id FROM creator_accounts WHERE slug = $1 LIMIT 1`,
@@ -185,11 +193,32 @@ export function registerTelemetryRoutes(app, pool) {
       const creator = creatorRes.rows[0];
       if (!creator) return reply.status(404).send({ error: 'Criadora não encontrada' });
 
+      const subRes = await pool.query(
+        `SELECT id, buyer_identifier
+         FROM vip_subscriptions
+         WHERE creator_id = $1
+           AND status = 'active'
+           AND device_hash = $2
+           AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY id DESC
+         LIMIT 1`,
+        [creator.id, cleanDev]
+      ).catch(() => ({ rows: [] }));
+
+      const activeSub = subRes.rows[0];
+      if (!activeSub) {
+        return reply.status(403).send({
+          error: 'Apenas assinantes VIP ativos neste aparelho podem enviar mensagens.'
+        });
+      }
+
+      const finalContact = String(subscriberContact || activeSub.buyer_identifier || 'Assinante VIP').trim();
+
       const inserted = await pool.query(
         `INSERT INTO vip_subscriber_messages (creator_id, subscriber_contact, subscriber_name, message_text)
          VALUES ($1, $2, $3, $4)
          RETURNING id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at`,
-        [creator.id, String(subscriberContact).trim(), String(subscriberName).trim() || 'Assinante VIP', cleanMsg]
+        [creator.id, finalContact, String(subscriberName).trim() || 'Assinante VIP', cleanMsg]
       );
       return reply.send({ ok: true, message: inserted.rows[0] });
     } catch {
