@@ -24,12 +24,13 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg-page);
       color: var(--text-primary);
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
     }
 
     /* Modal +18 */
@@ -135,9 +136,10 @@
       height: 38px;
       border-radius: 10px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
       transition: border-color 0.15s, background 0.15s;
     }
     .hamburger-btn:hover { border-color: var(--border-hover); background: #22222b; }
@@ -151,12 +153,13 @@
     .drawer-backdrop.open { display: block; }
     .side-drawer {
       position: fixed; top: 0; left: -310px;
-      width: 290px; height: 100dvh;
+      width: min(290px, 84vw); height: 100dvh;
       background: var(--bg-surface);
       border-right: 1px solid var(--border);
       z-index: 9995;
       padding: 22px 18px;
       display: flex; flex-direction: column;
+      overflow-y: auto;
       transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
     }
@@ -193,7 +196,7 @@
       color: #fff;
       font-weight: 700;
       justify-content: center;
-      padding: 14px;
+      padding: 13px;
       box-shadow: 0 6px 20px rgba(225, 29, 72, 0.28);
     }
 
@@ -211,7 +214,7 @@
     .topbar span { color: #fda4af; font-weight: 700; }
 
     .header {
-      background: rgba(9, 9, 11, 0.85);
+      background: rgba(9, 9, 11, 0.88);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
       position: sticky;
@@ -221,53 +224,72 @@
     .header-inner {
       max-width: 1140px;
       margin: 0 auto;
-      padding: 12px 18px;
+      padding: 11px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
+    @media (min-width: 640px) { .header-inner { padding: 12px 18px; } }
     .brand {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       letter-spacing: -0.03em;
       color: #fff;
       text-decoration: none;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
     }
     .brand-accent {
       background: linear-gradient(135deg, #fb7185, #c084fc);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .nav-actions { display: flex; gap: 8px; align-items: center; }
+    .nav-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
     .nav-reels {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
       color: var(--text-primary);
-      padding: 8px 14px;
+      padding: 7px 12px;
       border-radius: 99px;
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 600;
       text-decoration: none;
+      white-space: nowrap;
       transition: border-color 0.15s;
     }
     .nav-reels:hover { border-color: var(--border-hover); }
+    .nav-client {
+      background: rgba(147, 51, 234, 0.16);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      color: #e9d5ff;
+      padding: 7px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .nav-client:hover { background: rgba(147, 51, 234, 0.28); }
     .cta-announce {
       background: var(--accent);
       color: #fff;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 99px;
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 700;
       text-decoration: none;
+      white-space: nowrap;
       box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3);
       transition: background 0.15s;
     }
 
-    .container { max-width: 1140px; margin: 0 auto; padding: 18px 18px 56px; }
+    .container { max-width: 1140px; margin: 0 auto; padding: 16px 14px 56px; }
+    @media (min-width: 640px) { .container { padding: 18px 18px 56px; } }
 
     /* Stories */
     .stories-wrap { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 18px; scrollbar-width: none; }
@@ -311,11 +333,11 @@
     }
 
     /* Busca + Botão Página de Filtros */
-    .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .search-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
     .search-row input {
-      flex: 1;
+      flex: 1 1 200px;
       min-width: 0;
-      padding: 13px 16px;
+      padding: 12px 15px;
       border-radius: 14px;
       border: 1px solid var(--border);
       background: var(--bg-surface);
@@ -326,7 +348,8 @@
     }
     .search-row input:focus { border-color: var(--accent); }
     .btn-filters-link {
-      padding: 0 16px;
+      padding: 0 15px;
+      min-height: 44px;
       border-radius: 14px;
       border: 1px solid var(--border);
       background: var(--bg-elevated);
@@ -347,6 +370,7 @@
     }
     .search-row button {
       padding: 0 20px;
+      min-height: 44px;
       border-radius: 14px;
       border: none;
       background: var(--accent);
@@ -400,9 +424,9 @@
     .section-h1 span { color: #fb7185; }
 
     /* Grid de Modelos */
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    @media(min-width:640px){ .grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
-    @media(min-width:960px){ .grid { grid-template-columns: repeat(4, 1fr); gap: 18px; } }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    @media(min-width:640px){ .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+    @media(min-width:960px){ .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; } }
 
     .card {
       background: var(--bg-surface);
@@ -411,6 +435,7 @@
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      min-width: 0;
       transition: transform 0.2s ease, border-color 0.2s ease;
     }
     .card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
@@ -518,10 +543,13 @@
       <button onclick="toggleDrawer()" style="background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;">✕</button>
     </div>
 
-    <div class="drawer-section-label">Portal da Modelo</div>
-    <a href="/minha-conta" class="drawer-link primary-cta">✨ Criar Conta Modelo</a>
+    <div class="drawer-section-label">Área do Cliente & Fã</div>
+    <a href="/meu-vip" class="drawer-link primary-cta">👤 Cadastrar / Meu Painel VIP</a>
 
-    <div class="drawer-section-label" style="margin-top: 18px;">Explorar</div>
+    <div class="drawer-section-label" style="margin-top: 16px;">Portal da Modelo</div>
+    <a href="/minha-conta" class="drawer-link">✨ Criar / Acessar Conta Modelo</a>
+
+    <div class="drawer-section-label" style="margin-top: 16px;">Explorar</div>
     <a href="/vitrine" class="drawer-link">Início / Vitrine</a>
     <a href="/filtros" class="drawer-link">🎛️ Busca Avançada & Filtros</a>
     <a href="/reels" class="drawer-link">VIP Reels (Vídeos)</a>
@@ -536,15 +564,16 @@
 
   <header class="header">
     <div class="header-inner">
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
         <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Menu">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <a href="/vitrine" class="brand">GAROTA <span class="brand-accent">VIP</span></a>
       </div>
       <div class="nav-actions">
+        <a href="/meu-vip" class="nav-client">👤 Área do Cliente</a>
         <a href="/reels" class="nav-reels">Reels</a>
-        <a href="/minha-conta" class="cta-announce">Criar Conta Modelo</a>
+        <a href="/minha-conta" class="cta-announce">Sou Modelo</a>
       </div>
     </div>
   </header>
@@ -600,9 +629,6 @@
   </main>
 
   <script>
-    // =========================================================
-    // TELEMETRIA COMPORTAMENTAL + RETENÇÃO REAL POR VÍDEO
-    // =========================================================
     (function initTelemetry() {
       let vid = localStorage.getItem('gv_vid');
       if (!vid) {
@@ -693,9 +719,6 @@
       });
     })();
 
-    // =========================================================
-    // LEITURA DOS PARÂMETROS DA PÁGINA /filtros
-    // =========================================================
     const urlParams = new URLSearchParams(location.search);
     let currentCity = urlParams.get('city') || '';
     const activeTags = urlParams.get('tags') ? urlParams.get('tags').split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -738,7 +761,6 @@
       }
     })();
 
-    // Controle dos Stories + Retenção Real de Vídeo
     let currentStoryIdx = 0;
     let storyTimer = null;
     let storyProgress = 0;
