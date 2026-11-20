@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Busca Avançada & Filtros — Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #09090b;
+      --bg-surface: #121216;
+      --bg-elevated: #18181f;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.18);
+      --accent: #e11d48;
+      --accent-2: #9333ea;
+      --accent-soft: rgba(225, 29, 72, 0.14);
+      --gold: #eab308;
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --green: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 110px;
+    }
+
+    /* Topbar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(9, 9, 11, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      height: 60px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .back-btn {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: 0.15s;
+    }
+    .back-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .clear-btn {
+      background: rgba(225, 29, 72, 0.12);
+      border: 1px solid rgba(225, 29, 72, 0.3);
+      color: #fda4af;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 99px;
+      cursor: pointer;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 20px auto;
+      padding: 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Hero / Resumo Superior */
+    .hero-box {
+      background: linear-gradient(135deg, #16131a 0%, #1d1219 55%, #121216 100%);
+      border: 1px solid rgba(225, 29, 72, 0.25);
+      border-radius: 20px;
+      padding: 20px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .hero-box h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .hero-box p { font-size: 12.5px; color: var(--text-secondary); }
+    .live-pill {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    /* Presets / Combinações Populares */
+    .presets-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .presets-row::-webkit-scrollbar { display: none; }
+    .preset-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.15s;
+    }
+    .preset-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+    /* Cards de Categoria */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+    .card-sub { font-size: 11.5px; color: var(--text-muted); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .input-field, .select-field {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13.5px;
+      outline: none;
+    }
+    .input-field:focus, .select-field:focus { border-color: var(--accent); }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .chip:hover { border-color: var(--border-hover); color: #fff; }
+    .chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(225, 29, 72, 0.28);
+    }
+
+    /* Prévia Rápida de Modelos Encontradas */
+    .preview-strip {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-top: 6px;
+      scrollbar-width: none;
+    }
+    .preview-strip::-webkit-scrollbar { display: none; }
+    .mini-profile {
+      width: 82px;
+      flex-shrink: 0;
+      text-align: center;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+    .mini-profile img {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent);
+      display: block;
+      margin: 0 auto 5px;
+    }
+    .mini-profile span {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Barra Fixa Inferior */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(18, 18, 22, 0.94);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      padding: 13px 18px;
+      z-index: 50;
+    }
+    .bottom-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .apply-btn {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(225, 29, 72, 0.32);
+      transition: transform 0.1s;
+    }
+    .apply-btn:active { transform: scale(0.99); }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/vitrine" class="back-btn">← Voltar para Vitrine</a>
+      <strong style="font-size:15px;">Busca Personalizada</strong>
+      <button type="button" class="clear-btn" onclick="limparTudo()">Limpar tudo</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Cabeçalho Informativo -->
+    <section class="hero-box">
+      <div>
+        <h1>Encontre exatamente o seu estilo</h1>
+        <p>Combine características físicas, idade, local de atendimento e serviços.</p>
+      </div>
+      <div class="live-pill" id="liveCountPill">● Carregando perfis...</div>
+    </section>
+
+    <!-- Atalhos de Busca Rápida -->
+    <div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
+        ⚡ Combinações Mais Buscadas
+      </div>
+      <div class="presets-row">
+        <button type="button" class="preset-btn" onclick="aplicarPreset('novinha', ['Com local'])">🔥 Novinhas com Local</button>
+        <button type="button" class="preset-btn" onclick="aplicarPreset('', ['Loira', 'Silicone'])">👱‍♀️ Loiras com Silicone</button>
+        <button type="button" class="preset-btn" onclick="aplicarPreset('', ['Morena', 'Tatuada'])">🖤 Morenas Tatuadas</button>
+        <button type="button" class="preset-btn" onclick="aplicarPreset('', ['Ruiva'])">🦊 Ruivas</button>
+        <button type="button" class="preset-btn" onclick="aplicarPreset('coroa', [])">👑 Coroas / Maduras (35+)</button>
+        <button type="button" class="preset-btn" onclick="aplicarPreset('', ['Natural'])">🌿 100% Naturais</button>
+      </div>
+    </div>
+
+    <!-- Prévia ao vivo das modelos que batem com o filtro -->
+    <div class="card" id="previewBox" style="display:none;">
+      <div class="card-head" style="margin-bottom:6px;">
+        <span class="card-title">Prévia dos Perfis Encontrados</span>
+        <span class="card-sub" id="previewSubtitle">Toque para abrir direto</span>
+      </div>
+      <div class="preview-strip" id="previewStrip"></div>
+    </div>
+
+    <!-- Localização & Ordenação -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">📍 Cidade e Ordenação</span>
+        <span class="card-sub">Filtre por região</span>
+      </div>
+      <div class="grid-2">
+        <input type="text" id="filterCity" class="input-field" placeholder="Digite a cidade (ex: Cuiabá, Várzea Grande...)" oninput="atualizarContagemAoVivo()" />
+        <select id="filterSort" class="select-field" onchange="atualizarContagemAoVivo()">
+          <option value="ranking">Ordenar: Destaques & VIP primeiro</option>
+          <option value="price_asc">Ordenar: Menor valor (1h)</option>
+          <option value="youngest">Ordenar: Mais novas primeiro</option>
+          <option value="videos">Ordenar: Com mais vídeos</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Aparência & Cabelo -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">💇‍♀️ Aparência & Cabelo</span>
+        <span class="card-sub">Pode marcar mais de uma opção</span>
+      </div>
+      <div class="chips" data-group="tags">
+        <button type="button" class="chip" data-val="Loira">Loira</button>
+        <button type="button" class="chip" data-val="Morena">Morena</button>
+        <button type="button" class="chip" data-val="Ruiva">Ruiva</button>
+        <button type="button" class="chip" data-val="Cabelo castanho">Castanha</button>
+        <button type="button" class="chip" data-val="Olhos claros">Olhos Claros</button>
+        <button type="button" class="chip" data-val="Olhos castanhos">Olhos Castanhos</button>
+      </div>
+    </div>
+
+    <!-- Corpo & Biotipo -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">✨ Corpo & Biotipo</span>
+        <span class="card-sub">Silicone, natural, tatuagens</span>
+      </div>
+      <div class="chips" data-group="tags">
+        <button type="button" class="chip" data-val="Silicone">Com Silicone</button>
+        <button type="button" class="chip" data-val="Natural">Sem Silicone (Natural)</button>
+        <button type="button" class="chip" data-val="Tatuada">Tatuada</button>
+        <button type="button" class="chip" data-val="Pele macia">Pele Macia</button>
+      </div>
+    </div>
+
+    <!-- Faixa Etária & Altura -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🎂 Faixa Etária</span>
+        </div>
+        <div class="chips" data-group="age">
+          <button type="button" class="chip" data-val="novinha">Novinha (18–23)</button>
+          <button type="button" class="chip" data-val="jovem">24–34 anos</button>
+          <button type="button" class="chip" data-val="coroa">Coroa / Madura (35+)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">📏 Altura</span>
+        </div>
+        <div class="chips" data-group="height">
+          <button type="button" class="chip" data-val="baixa">Baixinha (até 1,62m)</button>
+          <button type="button" class="chip" data-val="media">Média (1,63m–1,72m)</button>
+          <button type="button" class="chip" data-val="alta">Alta (+1,72m)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Serviços & Experiência -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">🔥 Serviços & Experiência</span>
+        <span class="card-sub">O que você procura no encontro</span>
+      </div>
+      <div class="chips" data-group="services">
+        <button type="button" class="chip" data-val="Atendimento VIP">Atendimento VIP</button>
+        <button type="button" class="chip" data-val="Namoradinha">Estilo Namoradinha</button>
+        <button type="button" class="chip" data-val="Massagem relaxante">Massagem Relaxante</button>
+        <button type="button" class="chip" data-val="Massagem tântrica">Massagem Tântrica</button>
+        <button type="button" class="chip" data-val="Beijo na boca">Beijo na Boca</button>
+        <button type="button" class="chip" data-val="Acompanhante para eventos">Jantar / Eventos</button>
+        <button type="button" class="chip" data-val="Chamada de vídeo">Chamada de Vídeo</button>
+        <button type="button" class="chip" data-val="Fetiches">Fetiches</button>
+      </div>
+    </div>
+
+    <!-- Local de Atendimento & Valor -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🏨 Local de Atendimento</span>
+        </div>
+        <div class="chips" data-group="location">
+          <button type="button" class="chip" data-val="Com local">Com Local Próprio</button>
+          <button type="button" class="chip" data-val="Motel">Motel / Hotel</button>
+          <button type="button" class="chip" data-val="virtual">Virtual / Clube VIP</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">💰 Valor Máximo (1h)</span>
+        </div>
+        <div class="chips" data-group="maxPrice">
+          <button type="button" class="chip" data-val="150">Até R$ 150</button>
+          <button type="button" class="chip" data-val="250">Até R$ 250</button>
+          <button type="button" class="chip" data-val="400">Até R$ 400</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mídia & Destaques -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">🎬 Mídia & Verificação</span>
+      </div>
+      <div class="chips" data-group="media">
+        <button type="button" class="chip" data-val="video">Apenas com Vídeos</button>
+        <button type="button" class="chip" data-val="diamond">Topo Diamante</button>
+        <button type="button" class="chip" data-val="vip">Destaques VIP</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="bottom-bar">
+    <div class="bottom-inner">
+      <button type="button" class="apply-btn" id="btnApplyFilters" onclick="aplicarFiltrosNaVitrine()">
+        🔍 Ver Modelos na Vitrine
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let cachedProfiles = [];
+    const state = {
+      tags: new Set(),
+      services: new Set(),
+      age: null,
+      height: null,
+      location: null,
+      maxPrice: null,
+      media: null,
+    };
+
+    // Carrega os perfis para mostrar a contagem e prévia ao vivo
+    async function carregarBaseModelos() {
+      try {
+        const res = await fetch('/api/portal/vitrine-data');
+        const data = await res.json();
+        cachedProfiles = data.profiles || [];
+        atualizarContagemAoVivo();
+      } catch {
+        document.getElementById('liveCountPill').innerText = '● Catálogo Online';
+      }
+    }
+
+    document.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const group = btn.parentElement.dataset.group;
+        const val = btn.dataset.val;
+
+        if (group === 'tags' || group === 'services') {
+          if (state[group].has(val)) {
+            state[group].delete(val);
+            btn.classList.remove('active');
+          } else {
+            state[group].add(val);
+            btn.classList.add('active');
+          }
+        } else {
+          const same = state[group] === val;
+          btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          state[group] = same ? null : val;
+          if (!same) btn.classList.add('active');
+        }
+        atualizarContagemAoVivo();
+      });
+    });
+
+    function aplicarPreset(ageVal, tagsArr) {
+      limparTudo(false);
+      if (ageVal) {
+        state.age = ageVal;
+        const el = document.querySelector(`.chips[data-group="age"] .chip[data-val="${ageVal}"]`);
+        if (el) el.classList.add('active');
+      }
+      (tagsArr || []).forEach(t => {
+        const el = document.querySelector(`.chip[data-val="${t}"]`);
+        if (el) {
+          const grp = el.parentElement.dataset.group;
+          if (grp === 'tags' || grp === 'services') state[grp].add(t);
+          else state[grp] = t;
+          el.classList.add('active');
+        }
+      });
+      atualizarContagemAoVivo();
+    }
+
+    function limparTudo(recalc = true) {
+      state.tags.clear();
+      state.services.clear();
+      state.age = null;
+      state.height = null;
+      state.location = null;
+      state.maxPrice = null;
+      state.media = null;
+      document.getElementById('filterCity').value = '';
+      document.getElementById('filterSort').value = 'ranking';
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (recalc) atualizarContagemAoVivo();
+    }
+
+    function filtrarListaLocal() {
+      let list = [...cachedProfiles];
+      const city = document.getElementById('filterCity').value.trim().toLowerCase();
+
+      if (city) {
+        list = list.filter(p => `${p.city || ''} ${p.state || ''}`.toLowerCase().includes(city));
+      }
+      if (state.tags.size > 0) {
+        list = list.filter(p => {
+          const pTags = (p.physical_tags || []).map(t => String(t).toLowerCase());
+          const bio = `${p.bio || ''} ${p.specialty_tag || ''}`.toLowerCase();
+          return Array.from(state.tags).every(w => pTags.some(t => t.includes(w.toLowerCase())) || bio.includes(w.toLowerCase()));
+        });
+      }
+      if (state.services.size > 0) {
+        list = list.filter(p => {
+          const sTags = (p.services_tags || []).map(t => String(t).toLowerCase());
+          const bio = `${p.bio || ''} ${p.specialty_tag || ''}`.toLowerCase();
+          return Array.from(state.services).every(w => sTags.some(t => t.includes(w.toLowerCase())) || bio.includes(w.toLowerCase()));
+        });
+      }
+      if (state.age) {
+        list = list.filter(p => {
+          const a = Number(p.age || 0);
+          if (!a) return false;
+          if (state.age === 'novinha') return a >= 18 && a <= 23;
+          if (state.age === 'jovem') return a >= 24 && a <= 34;
+          if (state.age === 'coroa') return a >= 35;
+          return true;
+        });
+      }
+      if (state.height) {
+        list = list.filter(p => {
+          const raw = parseFloat(String(p.height || '').replace(',', '.').replace(/[^\d.]/g, ''));
+          const h = raw > 3 ? raw / 100 : raw;
+          if (!h) return false;
+          if (state.height === 'baixa') return h <= 1.62;
+          if (state.height === 'media') return h > 1.62 && h <= 1.72;
+          if (state.height === 'alta') return h > 1.72;
+          return true;
+        });
+      }
+      if (state.location) {
+        list = list.filter(p => `${p.has_location || ''} ${(p.physical_tags || []).join(' ')}`.toLowerCase().includes(state.location.toLowerCase()));
+      }
+      if (state.maxPrice) {
+        list = list.filter(p => p.hourly_rate && Number(p.hourly_rate) <= Number(state.maxPrice));
+      }
+      if (state.media === 'video') list = list.filter(p => p.total_videos > 0);
+      if (state.media === 'diamond') list = list.filter(p => p.is_featured && p.tier === 'diamond');
+      if (state.media === 'vip') list = list.filter(p => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
+
+      return list;
+    }
+
+    function atualizarContagemAoVivo() {
+      const matched = filtrarListaLocal();
+      const count = matched.length;
+      document.getElementById('liveCountPill').innerText = `● ${count} ${count === 1 ? 'modelo disponível' : 'modelos disponíveis'}`;
+      document.getElementById('btnApplyFilters').innerText = count > 0
+        ? `🔍 Ver ${count} ${count === 1 ? 'Modelo Encontrada' : 'Modelos Encontradas'}`
+        : 'Nenhuma modelo com esse filtro (clique para ver todas)';
+
+      const previewBox = document.getElementById('previewBox');
+      const strip = document.getElementById('previewStrip');
+      if (count > 0) {
+        previewBox.style.display = 'block';
+        strip.innerHTML = matched.slice(0, 10).map(p => `
+          <a href="/acompanhante/${p.slug}" class="mini-profile">
+            <img src="${p.avatar_url || p.cover_url || 'https://placehold.co/120x120/18181f/fda4af?text=VIP'}" alt="${p.stage_name}" />
+            <span>${p.stage_name.split(' ')[0]}</span>
+          </a>
+        `).join('');
+      } else {
+        previewBox.style.display = 'none';
+      }
+    }
+
+    function aplicarFiltrosNaVitrine() {
+      const params = new URLSearchParams();
+      const city = document.getElementById('filterCity').value.trim();
+      const sort = document.getElementById('filterSort').value;
+
+      if (city) params.set('city', city);
+      if (state.tags.size > 0) params.set('tags', Array.from(state.tags).join(','));
+      if (state.services.size > 0) params.set('services', Array.from(state.services).join(','));
+      if (state.age) params.set('age', state.age);
+      if (state.height) params.set('height', state.height);
+      if (state.location) params.set('location', state.location);
+      if (state.maxPrice) params.set('maxPrice', state.maxPrice);
+      if (state.media) params.set('media', state.media);
+      if (sort && sort !== 'ranking') params.set('sort', sort);
+
+      const qs = params.toString();
+      window.location.href = '/vitrine' + (qs ? '?' + qs : '');
+    }
+
+    carregarBaseModelos();
+  </script>
+</body>
+</html>

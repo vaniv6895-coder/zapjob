@@ -81,9 +81,7 @@
       box-shadow: 0 8px 24px rgba(225, 29, 72, 0.3);
     }
 
-    /* =========================================================
-       STORIES MODAL INTERATIVO
-       ========================================================= */
+    /* Stories Modal */
     .story-modal {
       position: fixed; inset: 0;
       background: rgba(0, 0, 0, 0.96);
@@ -128,7 +126,7 @@
       text-align: center; z-index: 20;
     }
 
-    /* Menu Sanduíche e Gaveta Lateral */
+    /* Menu Sanduíche */
     .hamburger-btn {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
@@ -198,7 +196,6 @@
       padding: 14px;
       box-shadow: 0 6px 20px rgba(225, 29, 72, 0.28);
     }
-    .drawer-link.primary-cta:hover { opacity: 0.94; }
 
     /* Header */
     .topbar {
@@ -269,11 +266,10 @@
       box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3);
       transition: background 0.15s;
     }
-    .cta-announce:hover { background: #be123c; }
 
     .container { max-width: 1140px; margin: 0 auto; padding: 18px 18px 56px; }
 
-    /* Carrossel de Stories */
+    /* Stories */
     .stories-wrap { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 18px; scrollbar-width: none; }
     .stories-wrap::-webkit-scrollbar { display: none; }
     .story-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--text-primary); flex-shrink: 0; width: 74px; cursor: pointer; }
@@ -312,15 +308,14 @@
       background: rgba(212, 175, 55, 0.1);
       cursor: pointer;
       font-family: inherit;
-      transition: all 0.15s;
     }
-    .lux-btn:hover { background: rgba(212, 175, 55, 0.22); }
 
-    /* Busca e Filtros */
+    /* Busca + Botão Página de Filtros */
     .search-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .search-row input {
       flex: 1;
-      padding: 13px 18px;
+      min-width: 0;
+      padding: 13px 16px;
       border-radius: 14px;
       border: 1px solid var(--border);
       background: var(--bg-surface);
@@ -328,11 +323,30 @@
       font-family: inherit;
       font-size: 13.5px;
       outline: none;
-      transition: border-color 0.15s;
     }
     .search-row input:focus { border-color: var(--accent); }
+    .btn-filters-link {
+      padding: 0 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-weight: 700;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .btn-filters-link:hover, .btn-filters-link.has-active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #fda4af;
+    }
     .search-row button {
-      padding: 0 22px;
+      padding: 0 20px;
       border-radius: 14px;
       border: none;
       background: var(--accent);
@@ -341,9 +355,30 @@
       font-weight: 700;
       font-size: 13px;
       cursor: pointer;
-      transition: background 0.15s;
     }
-    .search-row button:hover { background: #be123c; }
+
+    /* Faixa de Filtros Ativos (vinda de /filtros) */
+    .active-filters-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--bg-surface);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .active-tags-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .active-tag-chip {
+      background: var(--accent-soft);
+      color: #fda4af;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+    }
 
     .pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 16px; scrollbar-width: none; }
     .pills::-webkit-scrollbar { display: none; }
@@ -358,9 +393,7 @@
       white-space: nowrap;
       background: var(--bg-surface);
       cursor: pointer;
-      transition: all 0.15s;
     }
-    .pill:hover { border-color: var(--border-hover); color: var(--text-primary); }
     .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     .section-h1 { font-size: 18px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.02em; }
@@ -407,15 +440,11 @@
       flex: 1; text-align: center; padding: 9px 6px; border-radius: 10px;
       border: 1px solid var(--border); background: var(--bg-elevated);
       color: var(--text-primary); font-size: 12px; font-weight: 600; text-decoration: none;
-      transition: border-color 0.15s;
     }
-    .btn-outline:hover { border-color: var(--border-hover); }
     .btn-wa {
       flex: 1.3; text-align: center; padding: 9px 6px; border-radius: 10px;
       background: #16a34a; color: #fff; font-size: 12px; font-weight: 700; text-decoration: none;
-      transition: background 0.15s;
     }
-    .btn-wa:hover { background: #15803d; }
 
     .empty-box { grid-column: 1/-1; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 44px 20px; text-align: center; color: var(--text-secondary); }
 
@@ -494,6 +523,7 @@
 
     <div class="drawer-section-label" style="margin-top: 18px;">Explorar</div>
     <a href="/vitrine" class="drawer-link">Início / Vitrine</a>
+    <a href="/filtros" class="drawer-link">🎛️ Busca Avançada & Filtros</a>
     <a href="/reels" class="drawer-link">VIP Reels (Vídeos)</a>
     <button onclick="setFilter('diamond'); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">Topo Diamante</button>
 
@@ -532,15 +562,23 @@
     </div>
 
     <form class="search-row" onsubmit="buscarCidade(event)">
-      <input type="text" id="city-input" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande, São Paulo...)" />
+      <input type="text" id="city-input" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande...)" />
+      <a href="/filtros" id="btnFiltersPage" class="btn-filters-link">🎛️ Filtros</a>
       <button type="submit">Buscar</button>
     </form>
+
+    <!-- Faixa exibida quando o visitante vem da página /filtros -->
+    <div class="active-filters-bar" id="activeFiltersBar">
+      <div class="active-tags-list" id="activeTagsList"></div>
+      <a href="/vitrine" style="font-size:12px;color:#fda4af;font-weight:700;text-decoration:none;">✕ Limpar filtros</a>
+    </div>
 
     <div class="pills">
       <button class="pill active" id="pill-all" onclick="setFilter('all')">Todos</button>
       <button class="pill" id="pill-diamond" onclick="setFilter('diamond')">Topo Diamante</button>
       <button class="pill" id="pill-vip" onclick="setFilter('vip')">Destaques VIP</button>
       <button class="pill" id="pill-video" onclick="setFilter('video')">Com Vídeos</button>
+      <a href="/filtros" class="pill" style="text-decoration:none;">Loira • Morena • Ruiva • Silicone +</a>
     </div>
 
     <h1 class="section-h1">Acompanhantes e Modelos em <span id="city-title">Todo o Brasil</span></h1>
@@ -599,17 +637,14 @@
         }
       };
 
-      // Registra abertura da página e origem
       sendTelemetry('session_start', { targetLabel: window.location.pathname });
 
-      // Soma tempo real ativo na tela a cada 10s (pausa se o visitante sair da aba)
       setInterval(() => {
         if (!document.hidden) {
           sendTelemetry('time_ping', { durationMs: 10000 });
         }
       }, 10000);
 
-      // Rastreia cliques em WhatsApp, Perfis, Clube VIP e Reels
       document.addEventListener('click', (e) => {
         const link = e.target.closest('a');
         if (!link) return;
@@ -629,10 +664,52 @@
       });
     })();
 
+    // =========================================================
+    // LEITURA DOS PARÂMETROS DA PÁGINA /filtros
+    // =========================================================
+    const urlParams = new URLSearchParams(location.search);
+    let currentCity = urlParams.get('city') || '';
+    const activeTags = urlParams.get('tags') ? urlParams.get('tags').split(',').map(t => t.trim()).filter(Boolean) : [];
+    const activeServices = urlParams.get('services') ? urlParams.get('services').split(',').map(t => t.trim()).filter(Boolean) : [];
+    const activeAge = urlParams.get('age') || '';
+    const activeHeight = urlParams.get('height') || '';
+    const activeLocation = urlParams.get('location') || '';
+    const activeMaxPrice = urlParams.get('maxPrice') ? Number(urlParams.get('maxPrice')) : 0;
+    const activeMedia = urlParams.get('media') || '';
+    const activeSort = urlParams.get('sort') || 'ranking';
+
+    let currentFilter = activeMedia || 'all';
     let allProfiles = [];
     let storiesList = [];
-    let currentFilter = 'all';
-    let currentCity = new URLSearchParams(location.search).get('city') || '';
+
+    // Registra no Google Trends do Admin os filtros aplicados
+    if (activeTags.length) sendTelemetry('search', { targetLabel: 'Filtro: ' + activeTags.join(', ') });
+    if (activeServices.length) sendTelemetry('search', { targetLabel: 'Serviço: ' + activeServices.join(', ') });
+    if (activeAge) sendTelemetry('search', { targetLabel: 'Idade: ' + activeAge });
+
+    // Exibe a faixa de filtros ativos se veio de /filtros
+    (function renderActiveFiltersSummary() {
+      const chips = [];
+      activeTags.forEach(t => chips.push(t));
+      activeServices.forEach(s => chips.push(s));
+      if (activeAge === 'novinha') chips.push('Novinha (18–23)');
+      if (activeAge === 'jovem') chips.push('24–34 anos');
+      if (activeAge === 'coroa') chips.push('Coroa / Madura (35+)');
+      if (activeHeight === 'baixa') chips.push('Baixinha (≤1,62m)');
+      if (activeHeight === 'media') chips.push('Média (1,63–1,72m)');
+      if (activeHeight === 'alta') chips.push('Alta (+1,72m)');
+      if (activeLocation) chips.push(activeLocation);
+      if (activeMaxPrice) chips.push('Até R$ ' + activeMaxPrice);
+
+      if (chips.length > 0) {
+        document.getElementById('btnFiltersPage').classList.add('has-active');
+        document.getElementById('btnFiltersPage').innerText = `🎛️ Filtros (${chips.length})`;
+        document.getElementById('activeFiltersBar').style.display = 'flex';
+        document.getElementById('activeTagsList').innerHTML =
+          '<span style="font-size:11.5px;color:var(--text-muted);font-weight:700;">Filtrando por:</span>' +
+          chips.map(c => `<span class="active-tag-chip">${c}</span>`).join('');
+      }
+    })();
 
     // Controle dos Stories + Telemetria de Pulo
     let currentStoryIdx = 0;
@@ -659,6 +736,11 @@
       if (currentCity) {
         document.getElementById('city-input').value = currentCity;
         document.getElementById('city-title').innerText = currentCity;
+      }
+      if (activeMedia) {
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        const pillEl = document.getElementById('pill-' + activeMedia);
+        if (pillEl) pillEl.classList.add('active');
       }
 
       const url = '/api/portal/vitrine-data' + (currentCity ? '?city=' + encodeURIComponent(currentCity) : '');
@@ -804,17 +886,74 @@
     }
 
     function renderProfiles() {
-      let list = allProfiles;
+      let list = [...allProfiles];
+
       if (currentFilter === 'diamond') list = list.filter(p => p.is_featured && p.tier === 'diamond');
       else if (currentFilter === 'vip') list = list.filter(p => p.is_featured && (p.tier === 'vip' || p.tier === 'diamond'));
       else if (currentFilter === 'video') list = list.filter(p => p.total_videos > 0);
+
+      if (activeTags.length) {
+        list = list.filter(p => {
+          const pTags = (p.physical_tags || []).map(t => String(t).toLowerCase());
+          const bio = `${p.bio || ''} ${p.specialty_tag || ''}`.toLowerCase();
+          return activeTags.every(w => pTags.some(t => t.includes(w.toLowerCase())) || bio.includes(w.toLowerCase()));
+        });
+      }
+
+      if (activeServices.length) {
+        list = list.filter(p => {
+          const sTags = (p.services_tags || []).map(t => String(t).toLowerCase());
+          const bio = `${p.bio || ''} ${p.specialty_tag || ''}`.toLowerCase();
+          return activeServices.every(w => sTags.some(t => t.includes(w.toLowerCase())) || bio.includes(w.toLowerCase()));
+        });
+      }
+
+      if (activeAge) {
+        list = list.filter(p => {
+          const a = Number(p.age || 0);
+          if (!a) return false;
+          if (activeAge === 'novinha') return a >= 18 && a <= 23;
+          if (activeAge === 'jovem') return a >= 24 && a <= 34;
+          if (activeAge === 'coroa') return a >= 35;
+          return true;
+        });
+      }
+
+      if (activeHeight) {
+        list = list.filter(p => {
+          const raw = parseFloat(String(p.height || '').replace(',', '.').replace(/[^\d.]/g, ''));
+          const h = raw > 3 ? raw / 100 : raw;
+          if (!h) return false;
+          if (activeHeight === 'baixa') return h <= 1.62;
+          if (activeHeight === 'media') return h > 1.62 && h <= 1.72;
+          if (activeHeight === 'alta') return h > 1.72;
+          return true;
+        });
+      }
+
+      if (activeLocation) {
+        list = list.filter(p => `${p.has_location || ''} ${(p.physical_tags || []).join(' ')}`.toLowerCase().includes(activeLocation.toLowerCase()));
+      }
+
+      if (activeMaxPrice) {
+        list = list.filter(p => p.hourly_rate && Number(p.hourly_rate) <= activeMaxPrice);
+      }
+
+      // Ordenação escolhida em /filtros
+      if (activeSort === 'price_asc') {
+        list.sort((a, b) => (Number(a.hourly_rate) || 9999) - (Number(b.hourly_rate) || 9999));
+      } else if (activeSort === 'youngest') {
+        list.sort((a, b) => (Number(a.age) || 99) - (Number(b.age) || 99));
+      } else if (activeSort === 'videos') {
+        list.sort((a, b) => (b.total_videos || 0) - (a.total_videos || 0));
+      }
 
       const grid = document.getElementById('profiles-grid');
       if (!list.length) {
         grid.innerHTML = `
           <div class="empty-box">
-            <p style="font-size:15px;margin-bottom:16px">Nenhum perfil ativo encontrado${currentCity ? ' em <strong>' + currentCity + '</strong>' : ''}.</p>
-            <a href="/minha-conta" style="display:inline-block;background:var(--accent);color:#fff;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px;">Criar Conta Modelo</a>
+            <p style="font-size:15px;margin-bottom:16px">Nenhum perfil ativo encontrado${currentCity ? ' em <strong>' + currentCity + '</strong>' : ''} com esses filtros.</p>
+            <a href="/filtros" style="display:inline-block;background:var(--accent);color:#fff;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px;">Alterar Filtros</a>
           </div>`;
         return;
       }
@@ -831,6 +970,7 @@
 
         const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/121216/71717a?text=VIP';
         const rateTag = p.hourly_rate ? `<span style="font-weight:700;color:#e4e4e7">R$ ${Number(p.hourly_rate).toFixed(0)}/h</span>` : '';
+        const ageTag = p.age ? ` • ${p.age} anos` : '';
 
         return `
           <article class="${cardClass}">
@@ -842,7 +982,7 @@
               </div>
               <img src="${cover}" alt="${p.stage_name}" loading="lazy" />
               <div class="card-gradient">
-                <div class="card-name"><span>${p.stage_name}</span></div>
+                <div class="card-name"><span>${p.stage_name}${ageTag}</span></div>
                 <div class="card-loc">${p.city} - ${p.state}</div>
               </div>
             </a>

@@ -204,13 +204,13 @@ export function registerPortalRoutes(app) {
   });
 
   // =======================================================================
-  // PÁGINA 1: VITRINE SEPARADA (/vitrine) + API DE DADOS E STORIES
+  // PÁGINA 1: VITRINE SEPARADA (/vitrine) + FILTROS (/filtros) + API
   // =======================================================================
   app.get('/api/portal/vitrine-data', async (req, reply) => {
     const city = req.query.city ? String(req.query.city).trim() : null;
     let profiles = await getHomeRanking({ city, limit: 80 });
 
-    const [mediaCountsRes, recentVideosRes] = await Promise.all([
+    const [mediaCountsRes, recentVideosRes, extraAttrsRes] = await Promise.all([
       pool.query(`
         SELECT creator_id,
                COUNT(*)::int AS total_media,
@@ -229,21 +229,36 @@ export function registerPortalRoutes(app) {
         ORDER BY m.created_at DESC
         LIMIT 20
       `),
+      pool.query(`
+        SELECT id, age, height, has_location, physical_tags, services_tags
+        FROM creator_accounts
+      `),
     ]);
 
     const mediaMap = new Map();
     for (const row of mediaCountsRes.rows) mediaMap.set(row.creator_id, row);
+
+    const attrsMap = new Map();
+    for (const row of extraAttrsRes.rows) attrsMap.set(row.id, row);
 
     const videoByCreator = new Map();
     for (const v of recentVideosRes.rows) {
       if (!videoByCreator.has(v.creator_id)) videoByCreator.set(v.creator_id, v);
     }
 
-    profiles = profiles.map((p) => ({
-      ...p,
-      total_media: mediaMap.get(p.id)?.total_media || 0,
-      total_videos: mediaMap.get(p.id)?.total_videos || 0,
-    }));
+    profiles = profiles.map((p) => {
+      const extra = attrsMap.get(p.id) || {};
+      return {
+        ...p,
+        age: p.age ?? extra.age ?? null,
+        height: p.height || extra.height || '',
+        has_location: p.has_location || extra.has_location || '',
+        physical_tags: Array.isArray(p.physical_tags) ? p.physical_tags : (extra.physical_tags || []),
+        services_tags: Array.isArray(p.services_tags) ? p.services_tags : (extra.services_tags || []),
+        total_media: mediaMap.get(p.id)?.total_media || 0,
+        total_videos: mediaMap.get(p.id)?.total_videos || 0,
+      };
+    });
 
     const stories = profiles.slice(0, 15).map((s) => {
       const vid = videoByCreator.get(s.id);
@@ -285,6 +300,12 @@ export function registerPortalRoutes(app) {
 
   app.get('/vitrine', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'vitrine.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/filtros', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'filtro.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
