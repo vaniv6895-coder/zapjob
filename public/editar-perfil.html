@@ -17,6 +17,8 @@
       --accent: #e11d48;
       --accent-hover: #be123c;
       --accent-soft: rgba(225, 29, 72, 0.14);
+      --orange: #ff6b00;
+      --orange-soft: rgba(255, 107, 0, 0.15);
       --text-primary: #fafafa;
       --text-secondary: #a1a1aa;
       --text-muted: #71717a;
@@ -40,7 +42,7 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(9, 9, 11, 0.85);
+      background: rgba(9, 9, 11, 0.88);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
     }
@@ -48,40 +50,66 @@
       max-width: 680px;
       margin: 0 auto;
       height: 60px;
-      padding: 0 18px;
+      padding: 0 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
     }
     .nav-back {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 13px;
       font-weight: 600;
-      padding: 6px 10px;
+      padding: 7px 10px;
       border-radius: var(--radius-sm);
+      background: none;
+      border: none;
+      font-family: inherit;
+      cursor: pointer;
       transition: color 0.15s, background 0.15s;
     }
-    .nav-back:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+    .nav-back:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
     .topbar-title {
       font-size: 14px;
       font-weight: 700;
       letter-spacing: -0.01em;
     }
+    .top-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-dash {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--orange-soft);
+      border: 1px solid rgba(255, 107, 0, 0.42);
+      color: #ff944d;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 11px;
+      border-radius: 99px;
+      text-decoration: none;
+      transition: 0.15s;
+    }
+    .btn-dash:hover { background: var(--orange); color: #fff; }
     .btn-preview {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       background: var(--bg-elevated);
       border: 1px solid var(--border);
       color: var(--text-primary);
       font-family: inherit;
       font-size: 12px;
       font-weight: 600;
-      padding: 7px 13px;
+      padding: 7px 11px;
       border-radius: 99px;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
@@ -457,13 +485,15 @@
 
   <script>
     (function () {
-      const t = sessionStorage.getItem('portal_token');
+      const t = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token');
       if (!t) {
         window.location.replace('/minha-conta');
-      } else if (localStorage.getItem('bio_enabled') !== '1') {
-        window.location.replace('/biometria-facial?mode=register');
-      } else if (sessionStorage.getItem('bio_verified') !== '1') {
-        window.location.replace('/biometria-facial?mode=unlock');
+      } else {
+        sessionStorage.setItem('portal_token', t);
+        localStorage.setItem('portal_token', t);
+        if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+          window.location.replace('/biometria-facial?mode=unlock');
+        }
       }
     })();
   </script>
@@ -472,15 +502,17 @@
 
   <header class="topbar">
     <div class="topbar-inner">
-      <a href="/minha-conta?studio=1" class="nav-back">
+      <button type="button" class="nav-back" onclick="voltarParaStudio()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         Studio
-      </a>
-      <span class="topbar-title">Editar Perfil</span>
-      <button type="button" class="btn-preview" onclick="verPerfilPublico()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        Ver Perfil
       </button>
+      <span class="topbar-title">Editar Perfil</span>
+      <div class="top-right-actions">
+        <a href="/dasbormodelo" class="btn-dash">📊 Desempenho</a>
+        <button type="button" class="btn-preview" onclick="verPerfilPublico()">
+          👁️ Perfil
+        </button>
+      </div>
     </div>
   </header>
 
@@ -759,11 +791,23 @@
   </form>
 
   <script>
-    const token = sessionStorage.getItem('portal_token') || '';
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
     let creatorSlug = '';
     let leftAt = 0;
 
-    // Gravação de áudio direta pelo navegador (estilo WhatsApp)
+    function voltarParaStudio() {
+      if (token) {
+        sessionStorage.setItem('portal_token', token);
+        localStorage.setItem('portal_token', token);
+      }
+      if (document.referrer && document.referrer.includes('/minha-conta')) {
+        window.history.back();
+      } else {
+        window.location.href = '/minha-conta';
+      }
+    }
+
+    // Gravação de áudio direta pelo navegador
     let mediaRecorderAudio = null;
     let audioChunks = [];
     let audioRecordInterval = null;
@@ -828,12 +872,11 @@
       }
     }
 
-    // Saiu da aba / minimizou o navegador por mais de 5s -> reseta sessão e exige Gmail + Bio novamente
+    // Saiu da aba por mais de 30s -> exige verificação novamente
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         leftAt = Date.now();
-      } else if (leftAt && Date.now() - leftAt > 5000) {
-        sessionStorage.removeItem('portal_token');
+      } else if (leftAt && Date.now() - leftAt > 30000) {
         sessionStorage.removeItem('bio_verified');
         window.location.replace('/minha-conta');
       }
@@ -882,7 +925,7 @@
         });
         if (!res.ok) {
           sessionStorage.removeItem('portal_token');
-          sessionStorage.removeItem('bio_verified');
+          localStorage.removeItem('portal_token');
           window.location.replace('/minha-conta');
           return;
         }

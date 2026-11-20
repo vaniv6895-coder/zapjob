@@ -396,7 +396,7 @@
         <button class="nav-item" onclick="scrollSec('sec-videos', this)">🎬 Vídeos em Alta</button>
         <button class="nav-item" onclick="scrollSec('sec-sources', this)">🧭 Origem dos Clientes</button>
         <a href="/minha-conta/editar" class="nav-item">✏️ Editar Meu Perfil</a>
-        <a href="/minha-conta" class="nav-item">⚡ Impulsionar / Studio</a>
+        <button type="button" class="nav-item" onclick="voltarParaStudio()">⚡ Impulsionar / Studio</button>
       </div>
 
       <div class="profile-footer">
@@ -416,9 +416,9 @@
           <p>Acompanhe em tempo real cliques no anúncio, tempo de atenção, vídeos em alta e faturamento VIP.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="top-btn" onclick="carregarMetricasModelo()">↻ Atualizar</button>
+          <button type="button" class="top-btn" onclick="carregarMetricasModelo()">↻ Atualizar</button>
           <a id="btnVerMeuPerfil" href="/vitrine" target="_blank" class="top-btn">👁️ Ver Meu Anúncio</a>
-          <a href="/minha-conta" class="top-btn">← Voltar ao Studio</a>
+          <button type="button" class="top-btn" onclick="voltarParaStudio()">← Voltar ao Studio</button>
         </div>
       </div>
 
@@ -494,7 +494,7 @@
                 <strong id="planStatusText" style="font-size:14.5px;color:#fff;">Perfil Padrão</strong>
               </div>
             </div>
-            <a href="/minha-conta" style="font-size:12px;color:var(--orange-bright);font-weight:700;text-decoration:none;">Turbinar →</a>
+            <a href="javascript:void(0)" onclick="voltarParaStudio()" style="font-size:12px;color:var(--orange-bright);font-weight:700;text-decoration:none;">Turbinar →</a>
           </div>
         </div>
       </div>
@@ -593,15 +593,30 @@
             <span style="font-size:12.5px;color:var(--text-muted);" id="bannerDesc">Perfis no Topo Diamante recebem até 4x mais visitas e mensagens todos os dias.</span>
           </div>
         </div>
-        <a href="/minha-conta" class="btn-orange">Ativar Destaque VIP →</a>
+        <button type="button" onclick="voltarParaStudio()" class="btn-orange">Ativar Destaque VIP →</button>
       </div>
     </main>
   </div>
 
   <script>
-    const token = localStorage.getItem('portal_token');
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
     if (!token) {
-      window.location.href = '/minha-conta';
+      window.location.replace('/minha-conta');
+    } else {
+      sessionStorage.setItem('portal_token', token);
+      localStorage.setItem('portal_token', token);
+    }
+
+    function voltarParaStudio() {
+      if (token) {
+        sessionStorage.setItem('portal_token', token);
+        localStorage.setItem('portal_token', token);
+      }
+      if (document.referrer && document.referrer.includes('/minha-conta')) {
+        window.history.back();
+      } else {
+        window.location.href = '/minha-conta';
+      }
     }
 
     function scrollSec(id, btn) {
@@ -667,8 +682,9 @@
         headers: { Authorization: 'Bearer ' + token },
       });
       if (res.status === 401) {
+        sessionStorage.removeItem('portal_token');
         localStorage.removeItem('portal_token');
-        window.location.href = '/minha-conta';
+        window.location.replace('/minha-conta');
         return;
       }
 
