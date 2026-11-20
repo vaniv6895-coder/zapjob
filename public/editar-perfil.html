@@ -37,6 +37,87 @@
       padding-bottom: 100px;
     }
 
+    /* Menu Hambúrguer & Drawer Lateral */
+    .hamburger-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .hamburger-btn:hover { background: #222228; border-color: rgba(255,255,255,0.2); }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 7, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 9990;
+      display: none;
+    }
+    .drawer-backdrop.open { display: block; }
+    .side-drawer {
+      position: fixed;
+      top: 0;
+      left: -300px;
+      width: 280px;
+      height: 100dvh;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      z-index: 9995;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
+    }
+    .side-drawer.open { left: 0; }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .drawer-title { font-size: 14px; font-weight: 800; color: var(--text-primary); }
+    .drawer-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 10px 0 8px;
+    }
+    .drawer-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .drawer-link:hover { border-color: var(--accent); color: #fff; }
+    .drawer-link.primary-cta {
+      background: linear-gradient(135deg, var(--orange), var(--accent));
+      border: none;
+      color: #fff;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(225, 29, 72, 0.28);
+    }
+
     /* Top Navigation */
     .topbar {
       position: sticky;
@@ -55,6 +136,11 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     .nav-back {
       display: inline-flex;
@@ -96,6 +182,7 @@
       padding: 7px 11px;
       border-radius: 99px;
       text-decoration: none;
+      white-space: nowrap;
       transition: 0.15s;
     }
     .btn-dash:hover { background: var(--orange); color: #fff; }
@@ -112,6 +199,7 @@
       padding: 7px 11px;
       border-radius: 99px;
       cursor: pointer;
+      white-space: nowrap;
       transition: border-color 0.15s, background 0.15s;
     }
     .btn-preview:hover { border-color: rgba(255,255,255,0.2); background: #222228; }
@@ -500,23 +588,43 @@
 </head>
 <body>
 
+  <!-- Menu Lateral Hambúrguer -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
+  <aside id="sideDrawer" class="side-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">💎 GAROTA VIP STUDIO</span>
+      <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <a href="/vip-studio" class="drawer-link primary-cta">💎 Clube VIP Studio</a>
+
+    <div class="drawer-label">Painel & Perfil</div>
+    <button type="button" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;" onclick="toggleDrawer(); voltarParaStudio();">← Creator Studio</button>
+    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho</a>
+    <a id="drawerVipPublicLink" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Clube VIP Público ↗</a>
+    <button type="button" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;" onclick="toggleDrawer(); verPerfilPublico();">👁️ Ver Perfil Público ↗</button>
+
+    <div class="drawer-label">Explorar Plataforma</div>
+    <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
+    <a href="/reels" class="drawer-link">▶ VIP Reels</a>
+  </aside>
+
   <header class="topbar">
     <div class="topbar-inner">
-      <button type="button" class="nav-back" onclick="voltarParaStudio()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        Studio
-      </button>
-      <span class="topbar-title">Editar Perfil</span>
+      <div class="topbar-left">
+        <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Abrir menu">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <button type="button" class="nav-back" onclick="voltarParaStudio()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          Studio
+        </button>
+        <span class="topbar-title">Editar Perfil</span>
+      </div>
       <div class="top-right-actions">
-
-        <div class="top-right-actions">
-          <a href="/vip-studio" class="btn-dash" style="background:linear-gradient(135deg,#ff6b00,#e11d48);color:#fff;border:none;white-space:nowrap;">💎 Editar VIP</a>
-          <a href="/dasbormodelo" class="btn-dash">📊 Desempenho</a>
-          <button type="button" class="btn-preview" onclick="verPerfilPublico()">
-            👁️ Perfil
-          </button>
-        </div>
-        
+        <a href="/vip-studio" class="btn-dash" style="background:linear-gradient(135deg,#ff6b00,#e11d48);color:#fff;border:none;">💎 Editar VIP</a>
         <a href="/dasbormodelo" class="btn-dash">📊 Desempenho</a>
         <button type="button" class="btn-preview" onclick="verPerfilPublico()">
           👁️ Perfil
@@ -804,6 +912,11 @@
     let creatorSlug = '';
     let leftAt = 0;
 
+    function toggleDrawer() {
+      document.getElementById('sideDrawer').classList.toggle('open');
+      document.getElementById('drawerBackdrop').classList.toggle('open');
+    }
+
     function voltarParaStudio() {
       if (token) {
         sessionStorage.setItem('portal_token', token);
@@ -816,7 +929,6 @@
       }
     }
 
-    // Gravação de áudio direta pelo navegador
     let mediaRecorderAudio = null;
     let audioChunks = [];
     let audioRecordInterval = null;
@@ -881,7 +993,6 @@
       }
     }
 
-    // Saiu da aba por mais de 30s -> exige verificação novamente
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         leftAt = Date.now();
@@ -891,7 +1002,6 @@
       }
     });
 
-    // Ativa seleção nos chips
     document.querySelectorAll('.chip').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
@@ -943,6 +1053,9 @@
 
         if (c) {
           creatorSlug = c.slug || '';
+          if (creatorSlug) {
+            document.getElementById('drawerVipPublicLink').href = '/vip/' + creatorSlug;
+          }
           document.getElementById('stageName').value = c.stage_name || '';
           document.getElementById('age').value = c.age || '';
           document.getElementById('whatsapp').value = c.whatsapp || '';
