@@ -12,11 +12,9 @@
       --surface: #101014;
       --elevated: #17171e;
       --border: rgba(255, 255, 255, 0.08);
-      --border-glow: rgba(244, 63, 94, 0.38);
       --pink: #e11d48;
       --purple: #9333ea;
       --orange: #f97316;
-      --gold: #eab308;
       --green: #10b981;
       --text: #fafafa;
       --muted: #a1a1aa;
@@ -24,8 +22,8 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, rgba(225, 29, 72, 0.12), transparent 35%),
-                  radial-gradient(circle at top left, rgba(147, 51, 234, 0.12), transparent 35%),
+      background: radial-gradient(circle at top right, rgba(225, 29, 72, 0.13), transparent 35%),
+                  radial-gradient(circle at top left, rgba(147, 51, 234, 0.13), transparent 35%),
                   var(--bg);
       color: var(--text);
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -33,442 +31,193 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Navbar Glass */
     .navbar {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      background: rgba(7, 7, 9, 0.82);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
+      position: sticky; top: 0; z-index: 40;
+      background: rgba(7, 7, 9, 0.85); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border); padding: 12px 16px;
     }
     .nav-inner {
-      max-width: 960px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      max-width: 1020px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
     }
     .nav-back {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
-      background: var(--elevated);
-      border: 1px solid var(--border);
-      padding: 8px 14px;
-      border-radius: 12px;
-      transition: 0.2s;
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--text); text-decoration: none; font-size: 13px; font-weight: 700;
+      background: var(--elevated); border: 1px solid var(--border);
+      padding: 8px 14px; border-radius: 12px;
     }
-    .nav-back:hover { border-color: rgba(255,255,255,0.2); }
-    .brand-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
+    .brand-pill { font-size: 14px; font-weight: 800; }
     .brand-pill span {
       background: linear-gradient(135deg, #fb7185, #c084fc);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
 
-    .container { max-width: 960px; margin: 0 auto; padding: 18px 16px; }
+    .container { max-width: 1020px; margin: 0 auto; padding: 18px 16px; }
 
-    /* Hero Banner do Perfil VIP */
+    /* Hero */
     .vip-hero-card {
-      position: relative;
-      border-radius: 22px;
-      overflow: hidden;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-      margin-bottom: 18px;
+      position: relative; border-radius: 22px; overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); margin-bottom: 18px;
     }
-    .vip-cover {
-      height: 155px;
-      width: 100%;
-      position: relative;
-      background: linear-gradient(135deg, #2b0918, #190d2e);
-    }
-    .vip-cover img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.85;
-    }
-    .vip-cover::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(7,7,9,0.15) 0%, rgba(16,16,20,0.98) 100%);
-    }
+    .vip-cover { height: 150px; width: 100%; position: relative; background: linear-gradient(135deg, #2b0918, #190d2e); }
+    .vip-cover img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+    .vip-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,7,9,0.15) 0%, rgba(16,16,20,0.98) 100%); }
     .btn-change-cover {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 5;
-      background: rgba(9, 9, 11, 0.72);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.18);
-      color: #fff;
-      font-size: 11.5px;
-      font-weight: 700;
-      padding: 7px 12px;
-      border-radius: 99px;
-      cursor: pointer;
+      position: absolute; top: 12px; right: 12px; z-index: 5;
+      background: rgba(9, 9, 11, 0.75); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18); color: #fff;
+      font-size: 11.5px; font-weight: 700; padding: 7px 12px; border-radius: 99px; cursor: pointer;
     }
-
     .vip-hero-body {
-      padding: 0 20px 20px;
-      margin-top: -46px;
-      position: relative;
-      z-index: 5;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 14px;
+      padding: 0 20px 20px; margin-top: -44px; position: relative; z-index: 5;
+      display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px;
     }
     .vip-identity { display: flex; align-items: flex-end; gap: 14px; }
     .vip-avatar-box {
-      position: relative;
-      width: 88px;
-      height: 88px;
-      border-radius: 50%;
-      padding: 3px;
-      background: linear-gradient(135deg, var(--pink), var(--purple), var(--orange));
-      flex-shrink: 0;
+      position: relative; width: 86px; height: 86px; border-radius: 50%; padding: 3px;
+      background: linear-gradient(135deg, var(--pink), var(--purple), var(--orange)); flex-shrink: 0;
     }
-    .vip-avatar-box img {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid var(--surface);
-      background: #000;
-    }
+    .vip-avatar-box img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--surface); background: #000; }
     .vip-cam-btn {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--pink);
-      border: 2px solid var(--surface);
-      color: #fff;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
+      position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--pink); border: 2px solid var(--surface); color: #fff; font-size: 12px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
     }
     .vip-badge-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(225, 29, 72, 0.16);
-      border: 1px solid rgba(225, 29, 72, 0.35);
-      color: #fda4af;
-      font-size: 10.5px;
-      font-weight: 800;
-      padding: 3px 10px;
-      border-radius: 99px;
-      margin-bottom: 5px;
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(225, 29, 72, 0.16); border: 1px solid rgba(225, 29, 72, 0.35);
+      color: #fda4af; font-size: 10.5px; font-weight: 800; padding: 3px 10px; border-radius: 99px; margin-bottom: 5px;
     }
-    .vip-name { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+    .vip-name { font-size: 20px; font-weight: 800; }
     .vip-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
     .btn-view-vip-page {
-      background: var(--elevated);
-      border: 1px solid var(--border);
-      color: #fff;
-      font-size: 12.5px;
-      font-weight: 700;
-      padding: 10px 16px;
-      border-radius: 12px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      background: var(--elevated); border: 1px solid var(--border); color: #fff;
+      font-size: 12.5px; font-weight: 700; padding: 10px 16px; border-radius: 12px; text-decoration: none;
     }
 
-    /* KPIs em 4 colunas */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
+    /* KPIs */
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
     @media(min-width: 720px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
-    .kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px 16px;
-    }
-    .kpi-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-    .kpi-val { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
+    .kpi-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .kpi-val { font-size: 20px; font-weight: 800; margin-top: 4px; }
     .kpi-hint { font-size: 11px; color: var(--green); margin-top: 2px; font-weight: 600; }
 
-    /* Abas Modernas */
+    /* Abas */
     .studio-tabs {
-      display: flex;
-      gap: 8px;
-      background: var(--surface);
-      padding: 6px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      margin-bottom: 18px;
-      overflow-x: auto;
+      display: flex; gap: 8px; background: var(--surface); padding: 6px;
+      border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; overflow-x: auto;
     }
     .stab {
-      flex: 1;
-      padding: 11px 14px;
-      border-radius: 12px;
-      border: none;
-      background: transparent;
-      color: var(--muted);
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: 0.2s;
+      flex: 1; padding: 11px 14px; border-radius: 12px; border: none;
+      background: transparent; color: var(--muted); font-family: inherit;
+      font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
     }
     .stab.active {
-      background: linear-gradient(135deg, var(--pink), var(--purple));
-      color: #fff;
+      background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff;
       box-shadow: 0 6px 18px rgba(225, 29, 72, 0.32);
     }
-
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
 
-    /* Card de Upload Destacado */
+    /* Cards & Planos */
     .upload-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 20px; margin-bottom: 18px;
     }
-    .upload-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    @media(min-width: 640px) { .upload-row { grid-template-columns: 1fr 1.5fr; } }
+    .config-split { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media(min-width: 860px) { .config-split { grid-template-columns: 1.25fr 0.95fr; } }
 
-    label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    .plans-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 14px 0; }
+    @media(min-width: 600px) { .plans-grid { grid-template-columns: 1fr 1fr; } }
+    .plan-editor-card {
+      background: var(--elevated); border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px;
+    }
+    .plan-editor-title {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12.5px; font-weight: 800; margin-bottom: 8px; color: #fff;
+    }
+    .plan-price-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
     input, select, textarea {
-      width: 100%;
-      background: #0a0a0d;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 13.5px;
-      outline: none;
-      transition: border-color 0.2s;
+      width: 100%; background: #0a0a0d; border: 1px solid var(--border);
+      border-radius: 11px; padding: 10px 12px; color: #fff;
+      font-family: inherit; font-size: 13px; outline: none;
     }
     input:focus, select:focus, textarea:focus { border-color: var(--pink); }
 
+    /* Prévia ao Vivo */
+    .live-preview-shell {
+      background: #09090c; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 22px; overflow: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+    }
+    .lp-topbar {
+      background: rgba(255,255,255,0.03); padding: 9px 14px; font-size: 10.5px;
+      font-weight: 800; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+    }
+    .lp-cover { height: 105px; position: relative; background: #1a1025; }
+    .lp-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .lp-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 20%, #09090c 100%); }
+    .lp-body { padding: 0 16px 18px; margin-top: -34px; position: relative; z-index: 2; }
+    .lp-avatar {
+      width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+      border: 3px solid #09090c;
+    }
+    .lp-bio { font-size: 12px; color: #d4d4d8; line-height: 1.5; margin: 10px 0 12px; white-space: pre-line; }
+    .lp-plan-option {
+      background: var(--elevated); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+    }
+    .lp-plan-option.featured {
+      border-color: rgba(225, 29, 72, 0.55);
+      background: linear-gradient(135deg, rgba(225,29,72,0.14), rgba(147,51,234,0.14));
+    }
+
+    /* Vídeos & Retenção */
     .drop-area {
       border: 1.5px dashed rgba(244, 63, 94, 0.45);
       background: linear-gradient(135deg, rgba(225, 29, 72, 0.06), rgba(147, 51, 234, 0.06));
-      border-radius: 16px;
-      padding: 26px 16px;
-      text-align: center;
-      cursor: pointer;
-      transition: 0.2s;
+      border-radius: 16px; padding: 24px 16px; text-align: center; cursor: pointer;
     }
-    .drop-area:hover {
-      border-color: var(--pink);
-      background: linear-gradient(135deg, rgba(225, 29, 72, 0.12), rgba(147, 51, 234, 0.12));
-    }
-
-    /* Grid de Vídeos com Métricas de Retenção */
-    .videos-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
+    .videos-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
     @media(min-width: 680px) { .videos-grid { grid-template-columns: repeat(2, 1fr); } }
-
     .video-ret-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 14px;
-      display: flex;
-      gap: 14px;
-      align-items: stretch;
-      transition: 0.2s;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 14px; display: flex; gap: 14px;
     }
-    .video-ret-card:hover { border-color: rgba(255,255,255,0.18); }
+    .v-preview { width: 88px; height: 126px; border-radius: 12px; overflow: hidden; background: #000; flex-shrink: 0; position: relative; }
+    .v-preview video { width: 100%; height: 100%; object-fit: cover; }
+    .v-type-pill { position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.78); color: #fff; }
+    .v-stats { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+    .ret-box { background: var(--elevated); border-radius: 12px; padding: 10px; margin-top: 8px; }
+    .ret-top { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; margin-bottom: 6px; }
+    .ret-bar { height: 7px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+    .ret-bar-fill { height: 100%; border-radius: 99px; }
+    .ret-numbers { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 7px; }
 
-    .v-preview {
-      position: relative;
-      width: 92px;
-      height: 132px;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #000;
-      flex-shrink: 0;
-    }
-    .v-preview video, .v-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .v-type-pill {
-      position: absolute;
-      top: 6px;
-      left: 6px;
-      font-size: 9.5px;
-      font-weight: 800;
-      padding: 3px 7px;
-      border-radius: 6px;
-      background: rgba(0, 0, 0, 0.78);
-      color: #fff;
-    }
-
-    .v-stats {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .v-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .v-title {
-      font-size: 14px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .v-vis-tag {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 99px;
-      margin-top: 3px;
-    }
-    .vis-vip { background: rgba(225, 29, 72, 0.18); color: #fda4af; }
-    .vis-pub { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
-
-    .ret-box {
-      background: var(--elevated);
-      border-radius: 12px;
-      padding: 10px;
-      margin-top: 8px;
-    }
-    .ret-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11.5px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-    .ret-bar {
-      height: 7px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 99px;
-      overflow: hidden;
-    }
-    .ret-bar-fill {
-      height: 100%;
-      border-radius: 99px;
-      background: linear-gradient(90deg, var(--orange), var(--pink));
-    }
-    .ret-numbers {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 7px;
-    }
-
-    /* Galeria de Fotos VIP */
-    .photos-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
+    /* Fotos */
+    .photos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     @media(min-width: 680px) { .photos-grid { grid-template-columns: repeat(4, 1fr); } }
-    .photo-tile {
-      position: relative;
-      aspect-ratio: 3/4;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      background: #000;
-    }
+    .photo-tile { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: #000; }
     .photo-tile img { width: 100%; height: 100%; object-fit: cover; }
-    .photo-del {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.75);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fda4af;
-      font-weight: 800;
-      cursor: pointer;
-    }
+    .photo-del { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.2); color: #fda4af; font-weight: 800; cursor: pointer; }
 
     .btn-save {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--pink), var(--purple));
-      color: #fff;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 800;
-      cursor: pointer;
-      margin-top: 12px;
+      width: 100%; padding: 14px; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff;
+      font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; margin-top: 12px;
       box-shadow: 0 10px 25px rgba(225, 29, 72, 0.3);
     }
-
-    .btn-del-mini {
-      background: rgba(225, 29, 72, 0.14);
-      border: 1px solid rgba(225, 29, 72, 0.3);
-      color: #fda4af;
-      border-radius: 8px;
-      padding: 4px 8px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-    }
+    .btn-del-mini { background: rgba(225, 29, 72, 0.14); border: 1px solid rgba(225, 29, 72, 0.3); color: #fda4af; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
 
-  <!-- Navbar -->
   <header class="navbar">
     <div class="nav-inner">
       <a href="/minha-conta/editar" class="nav-back">← Editar Perfil</a>
@@ -478,47 +227,41 @@
   </header>
 
   <main class="container">
-    <!-- Hero Visual do Perfil VIP -->
+    <!-- Hero -->
     <section class="vip-hero-card">
       <div class="vip-cover">
         <img id="heroCoverImg" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80" alt="Capa VIP" />
-        <button type="button" class="btn-change-cover" onclick="document.getElementById('coverInput').click()">
-          📷 Trocar Capa VIP
-        </button>
+        <button type="button" class="btn-change-cover" onclick="document.getElementById('coverInput').click()">📷 Trocar Capa VIP</button>
         <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'cover_url')" />
       </div>
-
       <div class="vip-hero-body">
         <div class="vip-identity">
           <div class="vip-avatar-box">
             <img id="heroAvatarImg" src="https://placehold.co/200x200/17171e/fff?text=VIP" alt="Avatar VIP" />
-            <button type="button" class="vip-cam-btn" onclick="document.getElementById('avatarInput').click()" title="Trocar Foto VIP">📷</button>
+            <button type="button" class="vip-cam-btn" onclick="document.getElementById('avatarInput').click()">📷</button>
             <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'avatar_url')" />
           </div>
           <div>
             <span class="vip-badge-tag">✨ CRIADORA CLUBE VIP</span>
             <h1 class="vip-name" id="heroStageName">Carregando...</h1>
-            <p class="vip-sub" id="heroBioPreview">Gerencie seus vídeos exclusivos e acompanhe a retenção</p>
+            <p class="vip-sub" id="heroBioPreview">Gerencie planos, bio, mídias e retenção</p>
           </div>
         </div>
-
-        <a id="btnVerClubePublico" href="/vitrine" target="_blank" class="btn-view-vip-page">
-          👁️ Ver Página VIP
-        </a>
+        <a id="btnVerClubePublico" href="/vitrine" target="_blank" class="btn-view-vip-page">👁️ Ver Página VIP</a>
       </div>
     </section>
 
-    <!-- 4 KPIs de Retenção e VIP -->
+    <!-- KPIs -->
     <section class="kpi-grid">
       <div class="kpi-card">
-        <div class="kpi-label">Assinatura VIP</div>
-        <div class="kpi-val" id="kpiPrice">R$ 49,90</div>
-        <div class="kpi-hint">Plano mensal ativo</div>
+        <div class="kpi-label">Plano 1 Mês</div>
+        <div class="kpi-val" id="kpiPrice">R$ 25,99</div>
+        <div class="kpi-hint" id="kpiPriceHint">Assinatura mensal</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Retenção Média</div>
         <div class="kpi-val" id="kpiRetention" style="color:#fb923c;">0%</div>
-        <div class="kpi-hint" id="kpiWatchAvg">0s assistidos por vídeo</div>
+        <div class="kpi-hint" id="kpiWatchAvg">0s assistidos em média</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Vídeos Publicados</div>
@@ -532,81 +275,165 @@
       </div>
     </section>
 
-    <!-- Abas de Navegação -->
+    <!-- Abas -->
     <div class="studio-tabs">
-      <button type="button" class="stab active" onclick="switchTab('tab-videos', this)">🎬 Vídeos & Retenção</button>
+      <button type="button" class="stab active" onclick="switchTab('tab-config', this)">⚙️ Planos, Bio & Prévia</button>
+      <button type="button" class="stab" onclick="switchTab('tab-videos', this)">🎬 Vídeos & Retenção</button>
       <button type="button" class="stab" onclick="switchTab('tab-fotos', this)">📸 Fotos VIP & Galeria</button>
-      <button type="button" class="stab" onclick="switchTab('tab-config', this)">⚙️ Preço & Perfil VIP</button>
     </div>
 
-    <!-- ABA 1: SUBIR VÍDEO/FOTO + RETENÇÃO DE CADA VÍDEO -->
-    <div id="tab-videos" class="tab-pane active">
+    <!-- ABA 1: PLANOS (1 MÊS, 2 MESES, TRIMESTRAL, ANUAL) + ANCORAGEM + BIO + PRÉVIA -->
+    <div id="tab-config" class="tab-pane active">
+      <div class="config-split">
+        <div class="upload-box" style="margin-bottom:0;">
+          <h3 style="font-size:15px;font-weight:800;margin-bottom:4px;">💎 Planos de Assinatura & Ancoragem</h3>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+            Edite cada duração com valores quebrados (ex: <strong>25,99</strong>) e preço riscado de ancoragem (ex: <strong>48,99</strong>).
+          </p>
+
+          <div style="margin-bottom:12px;">
+            <label>Nome Exibido no Clube VIP</label>
+            <input type="text" id="vipNameInput" placeholder="Seu nome artístico" oninput="atualizarPreviewAoVivo()" />
+          </div>
+
+          <div class="plans-grid">
+            <!-- 1 Mês -->
+            <div class="plan-editor-card">
+              <div class="plan-editor-title"><span>🔥 1 Mês (Mensal)</span><span style="color:#fda4af;font-size:10.5px;">Principal</span></div>
+              <div class="plan-price-row">
+                <div>
+                  <label>De (Riscado)</label>
+                  <input type="text" inputmode="decimal" id="plan1De" placeholder="48,99" oninput="atualizarPreviewAoVivo()" />
+                </div>
+                <div>
+                  <label>Por (Atual)</label>
+                  <input type="text" inputmode="decimal" id="plan1Por" placeholder="25,99" oninput="atualizarPreviewAoVivo()" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 2 Meses -->
+            <div class="plan-editor-card">
+              <div class="plan-editor-title"><span>⚡ 2 Meses</span></div>
+              <div class="plan-price-row">
+                <div>
+                  <label>De (Riscado)</label>
+                  <input type="text" inputmode="decimal" id="plan2De" placeholder="89,90" oninput="atualizarPreviewAoVivo()" />
+                </div>
+                <div>
+                  <label>Por (Atual)</label>
+                  <input type="text" inputmode="decimal" id="plan2Por" placeholder="44,99" oninput="atualizarPreviewAoVivo()" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Trimestral (3 Meses) -->
+            <div class="plan-editor-card">
+              <div class="plan-editor-title"><span>👑 Trimestral (3 Meses)</span></div>
+              <div class="plan-price-row">
+                <div>
+                  <label>De (Riscado)</label>
+                  <input type="text" inputmode="decimal" id="plan3De" placeholder="129,90" oninput="atualizarPreviewAoVivo()" />
+                </div>
+                <div>
+                  <label>Por (Atual)</label>
+                  <input type="text" inputmode="decimal" id="plan3Por" placeholder="59,99" oninput="atualizarPreviewAoVivo()" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Anual (12 Meses) -->
+            <div class="plan-editor-card">
+              <div class="plan-editor-title"><span>💎 Anual (12 Meses)</span></div>
+              <div class="plan-price-row">
+                <div>
+                  <label>De (Riscado)</label>
+                  <input type="text" inputmode="decimal" id="plan12De" placeholder="399,90" oninput="atualizarPreviewAoVivo()" />
+                </div>
+                <div>
+                  <label>Por (Atual)</label>
+                  <input type="text" inputmode="decimal" id="plan12Por" placeholder="149,99" oninput="atualizarPreviewAoVivo()" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label>Bio & Benefícios Exclusivos do Clube VIP</label>
+            <textarea id="vipBioInput" rows="3" placeholder="Ex: Assine meu VIP para ter acesso a vídeos completos sem cortes, ensaios exclusivos e chat direto..." oninput="atualizarPreviewAoVivo()"></textarea>
+          </div>
+
+          <button type="button" class="btn-save" onclick="salvarConfigVip()">💾 Salvar Planos & Perfil VIP</button>
+        </div>
+
+        <!-- Prévia ao Vivo -->
+        <div>
+          <div class="live-preview-shell">
+            <div class="lp-topbar">
+              <span>📱 Prévia ao Vivo do Assinante</span>
+              <span id="lpBadgeOff" style="background:#10b981;color:#052e16;padding:2px 8px;border-radius:99px;font-size:10px;">OFERTA ATIVA</span>
+            </div>
+            <div class="lp-cover">
+              <img id="lpCoverImg" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80" alt="" />
+            </div>
+            <div class="lp-body">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;">
+                <img id="lpAvatarImg" class="lp-avatar" src="https://placehold.co/200x200/17171e/fff?text=VIP" alt="" />
+                <span style="font-size:11px;color:#fda4af;font-weight:700;background:rgba(225,29,72,0.15);padding:4px 10px;border-radius:99px;" id="lpMediaCount">0 vídeos • 0 fotos</span>
+              </div>
+              <div style="margin-top:8px;">
+                <strong id="lpNameText" style="font-size:16px;display:block;">Modelo VIP</strong>
+                <span style="font-size:11px;color:var(--muted);">Escolha um plano para liberar o acesso VIP</span>
+              </div>
+              <p id="lpBioText" class="lp-bio">Assine meu Clube VIP para desbloquear todas as fotos e vídeos exclusivos sem censura.</p>
+              <div id="lpPlansPreview"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA 2: VÍDEOS & RETENÇÃO -->
+    <div id="tab-videos" class="tab-pane">
       <div class="upload-box">
         <h3 style="font-size:15px;font-weight:800;margin-bottom:4px;">➕ Publicar Novo Vídeo ou Foto</h3>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-          Conteúdos <strong>Exclusivos VIP</strong> aparecem apenas para seus assinantes. Cada vídeo mede automaticamente o tempo de retenção.
-        </p>
-
-        <div class="upload-row">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Conteúdos <strong>Exclusivos VIP</strong> aparecem para assinantes e medem a retenção de cada vídeo.</p>
+        <div class="plans-grid">
           <div>
-            <label>Visibilidade do Conteúdo</label>
+            <label>Visibilidade</label>
             <select id="mediaVisibility">
               <option value="subscriber">🔒 Exclusivo Assinantes Clube VIP</option>
               <option value="public">🌐 Público (Vitrine & Reels)</option>
             </select>
           </div>
           <div>
-            <label>Título ou Legenda</label>
-            <input type="text" id="mediaCaption" placeholder="Ex: Bastidores sem censura 🔥" />
+            <label>Legenda / Título</label>
+            <input type="text" id="mediaCaption" placeholder="Ex: Bastidores do ensaio 🔥" />
           </div>
         </div>
-
         <div class="drop-area" onclick="document.getElementById('vipMediaInput').click()">
-          <div style="font-size:26px;margin-bottom:6px;">🎬</div>
-          <strong style="font-size:14px;color:#fff;display:block;">Toque para enviar Vídeo ou Foto</strong>
-          <span style="font-size:11.5px;color:var(--muted);">MP4, MOV, JPG ou PNG • Upload direto</span>
+          <strong style="font-size:14px;color:#fff;display:block;">🎬 Toque para enviar Vídeo ou Foto</strong>
+          <span style="font-size:11.5px;color:var(--muted);">MP4, MOV, JPG ou PNG</span>
           <input type="file" id="vipMediaInput" accept="image/*,video/*" style="display:none" onchange="subirMidiaVip(this.files[0])" />
         </div>
         <p id="uploadStatus" style="font-size:12px;color:var(--green);font-weight:700;margin-top:10px;"></p>
       </div>
 
-      <h3 style="font-size:15px;font-weight:800;margin-bottom:12px;">⏱️ Desempenho & Retenção por Vídeo</h3>
-      <div class="videos-grid" id="videosRetentionGrid">
-        <p style="font-size:13px;color:var(--muted);">Carregando seus vídeos...</p>
-      </div>
+      <h3 style="font-size:15px;font-weight:800;margin-bottom:12px;">⏱️ Retenção por Vídeo</h3>
+      <div class="videos-grid" id="videosRetentionGrid"></div>
     </div>
 
-    <!-- ABA 2: GALERIA DE FOTOS -->
+    <!-- ABA 3: FOTOS -->
     <div id="tab-fotos" class="tab-pane">
       <div class="upload-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
           <div>
             <h3 style="font-size:15px;font-weight:800;">📸 Suas Fotos Publicadas</h3>
-            <p style="font-size:12px;color:var(--muted);">Fotos exclusivas do Clube VIP e da vitrine</p>
+            <p style="font-size:12px;color:var(--muted);">Galeria exclusiva VIP e pública</p>
           </div>
-          <button type="button" onclick="document.getElementById('vipMediaInput').click()" style="background:var(--pink);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
-            + Nova Foto
-          </button>
+          <button type="button" onclick="document.getElementById('vipMediaInput').click()" style="background:var(--pink);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">+ Nova Foto</button>
         </div>
         <div class="photos-grid" id="photosGalleryGrid"></div>
-      </div>
-    </div>
-
-    <!-- ABA 3: CONFIGURAÇÕES DO PERFIL VIP -->
-    <div id="tab-config" class="tab-pane">
-      <div class="upload-box">
-        <h3 style="font-size:15px;font-weight:800;margin-bottom:4px;">⚙️ Personalizar Clube VIP</h3>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">
-          Ajuste o valor da assinatura mensal e a descrição exibida na página do seu Clube VIP.
-        </p>
-
-        <label>Valor da Assinatura Mensal VIP (R$)</label>
-        <input type="number" step="5" id="vipPriceInput" placeholder="49.90" style="margin-bottom:14px;" />
-
-        <label>Bio & Benefícios do Seu Clube VIP</label>
-        <textarea id="vipBioInput" rows="4" placeholder="Ex: Assine meu Clube VIP para ter acesso a vídeos completos sem cortes, ensaios exclusivos e contato direto..."></textarea>
-
-        <button type="button" class="btn-save" onclick="salvarConfigVip()">💾 Salvar Alterações do VIP</button>
       </div>
     </div>
   </main>
@@ -615,11 +442,65 @@
     const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
     if (!token) window.location.replace('/minha-conta');
 
+    function parseBRL(val) {
+      if (val === null || val === undefined || String(val).trim() === '') return NaN;
+      return parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
+    }
+    function fmtBRL(num) {
+      return Number(num).toFixed(2).replace('.', ',');
+    }
     function switchTab(tabId, btn) {
       document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(tabId).classList.add('active');
+    }
+
+    function readPlansForm() {
+      const defs = [
+        { key: 'm1', label: '1 Mês', deId: 'plan1De', porId: 'plan1Por', fallbackPor: 25.99, fallbackDe: 48.99 },
+        { key: 'm2', label: '2 Meses', deId: 'plan2De', porId: 'plan2Por', fallbackPor: 44.99, fallbackDe: 89.90 },
+        { key: 'm3', label: 'Trimestral', deId: 'plan3De', porId: 'plan3Por', fallbackPor: 59.99, fallbackDe: 129.90 },
+        { key: 'm12', label: 'Anual', deId: 'plan12De', porId: 'plan12Por', fallbackPor: 149.99, fallbackDe: 399.90 },
+      ];
+      return defs.map(d => {
+        const porRaw = parseBRL(document.getElementById(d.porId).value);
+        const deRaw = parseBRL(document.getElementById(d.deId).value);
+        const por = !Number.isNaN(porRaw) && porRaw > 0 ? Number(porRaw.toFixed(2)) : d.fallbackPor;
+        const de = !Number.isNaN(deRaw) && deRaw > por ? Number(deRaw.toFixed(2)) : (document.getElementById(d.deId).value.trim() === '' ? null : d.fallbackDe);
+        return { key: d.key, label: d.label, de, por };
+      });
+    }
+
+    function atualizarPreviewAoVivo() {
+      const name = document.getElementById('vipNameInput').value.trim() || 'Modelo VIP';
+      const bio = document.getElementById('vipBioInput').value.trim() || 'Assine meu Clube VIP para desbloquear todas as fotos e vídeos exclusivos sem censura.';
+      const plans = readPlansForm();
+
+      document.getElementById('lpNameText').innerText = name;
+      document.getElementById('lpBioText').innerText = bio;
+
+      const m1 = plans[0];
+      if (m1.de && m1.de > m1.por) {
+        const off = Math.round(((m1.de - m1.por) / m1.de) * 100);
+        document.getElementById('kpiPrice').innerHTML = `<span style="font-size:11px;color:#a1a1aa;text-decoration:line-through;display:block;">De R$ ${fmtBRL(m1.de)}</span>R$ ${fmtBRL(m1.por)}`;
+        document.getElementById('kpiPriceHint').innerText = `1 Mês • -${off}% OFF`;
+        document.getElementById('lpBadgeOff').innerText = `-${off}% NO 1º MÊS`;
+      } else {
+        document.getElementById('kpiPrice').innerText = 'R$ ' + fmtBRL(m1.por);
+        document.getElementById('kpiPriceHint').innerText = 'Plano 1 Mês';
+        document.getElementById('lpBadgeOff').innerText = 'CLUBE VIP';
+      }
+
+      document.getElementById('lpPlansPreview').innerHTML = plans.map((p, idx) => `
+        <div class="lp-plan-option ${idx === 0 ? 'featured' : ''}">
+          <strong>${p.label}</strong>
+          <div>
+            ${p.de ? `<span style="color:#a1a1aa;text-decoration:line-through;font-size:11px;margin-right:6px;">R$ ${fmtBRL(p.de)}</span>` : ''}
+            <span style="color:#10b981;font-weight:800;font-size:13px;">R$ ${fmtBRL(p.por)}</span>
+          </div>
+        </div>
+      `).join('');
     }
 
     function fileToBase64(file) {
@@ -640,26 +521,42 @@
 
       if (creator) {
         document.getElementById('heroStageName').innerText = creator.stage_name || 'Modelo VIP';
-        document.getElementById('heroBioPreview').innerText = creator.bio ? creator.bio.slice(0, 85) : 'Clube VIP Exclusivo';
-        if (creator.avatar_url) document.getElementById('heroAvatarImg').src = creator.avatar_url;
+        document.getElementById('heroBioPreview').innerText = creator.bio ? creator.bio.slice(0, 80) : 'Clube VIP Exclusivo';
+        document.getElementById('vipNameInput').value = creator.stage_name || '';
+        document.getElementById('vipBioInput').value = creator.bio || '';
+
+        if (creator.avatar_url) {
+          document.getElementById('heroAvatarImg').src = creator.avatar_url;
+          document.getElementById('lpAvatarImg').src = creator.avatar_url;
+        }
         if (creator.cover_url || creator.avatar_url) {
-          document.getElementById('heroCoverImg').src = creator.cover_url || creator.avatar_url;
+          const cUrl = creator.cover_url || creator.avatar_url;
+          document.getElementById('heroCoverImg').src = cUrl;
+          document.getElementById('lpCoverImg').src = cUrl;
         }
         if (creator.slug) {
           document.getElementById('btnVerClubePublico').href = '/vip/' + creator.slug;
         }
 
-        const price = Number(creator.vip_monthly_price || 49.90);
-        document.getElementById('kpiPrice').innerText = 'R$ ' + price.toFixed(2).replace('.', ',');
-        document.getElementById('vipPriceInput').value = price.toFixed(2);
-        document.getElementById('vipBioInput').value = creator.bio || '';
+        const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
+        const p1Por = plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99;
+        const p1De  = plansObj.m1?.de  ?? creator.vip_anchor_price ?? 48.99;
+
+        document.getElementById('plan1Por').value = fmtBRL(p1Por);
+        document.getElementById('plan1De').value  = p1De ? fmtBRL(p1De) : '';
+        document.getElementById('plan2Por').value = fmtBRL(plansObj.m2?.por ?? 44.99);
+        document.getElementById('plan2De').value  = plansObj.m2?.de ? fmtBRL(plansObj.m2.de) : '89,90';
+        document.getElementById('plan3Por').value = fmtBRL(plansObj.m3?.por ?? 59.99);
+        document.getElementById('plan3De').value  = plansObj.m3?.de ? fmtBRL(plansObj.m3.de) : '129,90';
+        document.getElementById('plan12Por').value = fmtBRL(plansObj.m12?.por ?? 149.99);
+        document.getElementById('plan12De').value  = plansObj.m12?.de ? fmtBRL(plansObj.m12.de) : '399,90';
       }
 
       const videos = media.filter(m => m.media_type === 'video');
       const photos = media.filter(m => m.media_type === 'image');
-
       document.getElementById('kpiVideos').innerText = videos.length;
       document.getElementById('kpiPhotos').innerText = photos.length;
+      document.getElementById('lpMediaCount').innerText = `${videos.length} vídeos • ${photos.length} fotos`;
 
       if (videos.length > 0) {
         const avgRet = Math.round(videos.reduce((acc, v) => acc + (v.retentionPct || 0), 0) / videos.length);
@@ -668,77 +565,60 @@
         document.getElementById('kpiWatchAvg').innerText = avgSec + 's assistidos em média';
       }
 
-      // Renderiza Grid de Vídeos com Retenção
-      const vGrid = document.getElementById('videosRetentionGrid');
-      if (!videos.length) {
-        vGrid.innerHTML = '<p style="font-size:13px;color:var(--muted);grid-column:1/-1;">Nenhum vídeo enviado ainda. Use o campo acima para subir seu primeiro vídeo VIP!</p>';
-      } else {
-        vGrid.innerHTML = videos.map(v => {
-          const isVip = v.visibility === 'subscriber';
-          const retColor = v.retentionPct >= 70 ? '#10b981' : v.retentionPct >= 40 ? '#fb923c' : '#f43f5e';
-          return `
-            <article class="video-ret-card">
-              <div class="v-preview">
-                <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
-                <span class="v-type-pill">▶ VÍDEO</span>
-              </div>
-              <div class="v-stats">
-                <div class="v-header">
-                  <div style="min-width:0;">
-                    <div class="v-title">${v.caption || 'Vídeo sem título'}</div>
-                    <span class="v-vis-tag ${isVip ? 'vis-vip' : 'vis-pub'}">${isVip ? '🔒 Exclusivo VIP' : '🌐 Público'}</span>
-                  </div>
-                  <button type="button" class="btn-del-mini" onclick="removerMidia(${v.id})">Excluir</button>
-                </div>
+      atualizarPreviewAoVivo();
 
-                <div class="ret-box">
-                  <div class="ret-top">
-                    <span style="color:var(--muted);">Retenção do público</span>
-                    <span style="color:${retColor};font-weight:800;">${v.retentionPct}%</span>
+      document.getElementById('videosRetentionGrid').innerHTML = !videos.length
+        ? '<p style="font-size:13px;color:var(--muted);grid-column:1/-1;">Nenhum vídeo publicado ainda.</p>'
+        : videos.map(v => {
+            const isVip = v.visibility === 'subscriber';
+            const retColor = v.retentionPct >= 70 ? '#10b981' : v.retentionPct >= 40 ? '#fb923c' : '#f43f5e';
+            return `
+              <article class="video-ret-card">
+                <div class="v-preview">
+                  <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
+                  <span class="v-type-pill">▶ VÍDEO</span>
+                </div>
+                <div class="v-stats">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div style="min-width:0;">
+                      <div style="font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.caption || 'Vídeo VIP'}</div>
+                      <span style="display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;margin-top:3px;background:${isVip ? 'rgba(225,29,72,0.18);color:#fda4af' : 'rgba(16,185,129,0.16);color:#6ee7b7'};">${isVip ? '🔒 VIP' : '🌐 Público'}</span>
+                    </div>
+                    <button type="button" class="btn-del-mini" onclick="removerMidia(${v.id})">Excluir</button>
                   </div>
-                  <div class="ret-bar">
-                    <div class="ret-bar-fill" style="width:${v.retentionPct}%;background:${retColor};"></div>
-                  </div>
-                  <div class="ret-numbers">
-                    <span>⏱️ <strong>${v.avg_watch_sec}s</strong>${v.duration_sec ? ` / ${v.duration_sec}s` : ''}</span>
-                    <span>👁️ ${v.total_plays} plays</span>
-                    <span>✅ ${v.completions} fim</span>
+                  <div class="ret-box">
+                    <div class="ret-top"><span style="color:var(--muted);">Retenção</span><span style="color:${retColor};">${v.retentionPct}%</span></div>
+                    <div class="ret-bar"><div class="ret-bar-fill" style="width:${v.retentionPct}%;background:${retColor};"></div></div>
+                    <div class="ret-numbers">
+                      <span>⏱️ <strong>${v.avg_watch_sec}s</strong>${v.duration_sec ? ` / ${v.duration_sec}s` : ''}</span>
+                      <span>👁️ ${v.total_plays} plays</span>
+                      <span>✅ ${v.completions} fim</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </article>
-          `;
-        }).join('');
-      }
+              </article>`;
+          }).join('');
 
-      // Renderiza Grid de Fotos
-      const pGrid = document.getElementById('photosGalleryGrid');
-      if (!photos.length) {
-        pGrid.innerHTML = '<p style="font-size:12.5px;color:var(--muted);grid-column:1/-1;">Nenhuma foto enviada ainda.</p>';
-      } else {
-        pGrid.innerHTML = photos.map(p => `
-          <div class="photo-tile">
-            <img src="${p.public_url}" loading="lazy" />
-            <span style="position:absolute;bottom:8px;left:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,0.75);color:#fff;">
-              ${p.visibility === 'subscriber' ? '🔒 VIP' : '🌐 Público'}
-            </span>
-            <button type="button" class="photo-del" onclick="removerMidia(${p.id})">✕</button>
-          </div>
-        `).join('');
-      }
+      document.getElementById('photosGalleryGrid').innerHTML = !photos.length
+        ? '<p style="font-size:12.5px;color:var(--muted);grid-column:1/-1;">Nenhuma foto enviada ainda.</p>'
+        : photos.map(p => `
+            <div class="photo-tile">
+              <img src="${p.public_url}" loading="lazy" />
+              <span style="position:absolute;bottom:8px;left:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,0.75);color:#fff;">${p.visibility === 'subscriber' ? '🔒 VIP' : '🌐 Público'}</span>
+              <button type="button" class="photo-del" onclick="removerMidia(${p.id})">✕</button>
+            </div>`).join('');
     }
 
     async function atualizarImagemPerfil(file, fieldName) {
       if (!file) return;
       const st = document.getElementById('uploadStatus');
-      st.innerText = 'Atualizando imagem do perfil VIP...';
+      st.innerText = 'Atualizando imagem...';
       const base64Data = await fileToBase64(file);
       const up = await fetch('/api/creator/upload-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public', base64Data })
       }).then(r => r.json());
-
       if (up.ok) {
         await fetch('/api/portal/me', {
           method: 'PUT',
@@ -755,58 +635,50 @@
       const st = document.getElementById('uploadStatus');
       const visibility = document.getElementById('mediaVisibility').value;
       const caption = document.getElementById('mediaCaption').value.trim();
-
-      st.innerText = '⏳ Enviando arquivo para o estúdio...';
+      st.innerText = '⏳ Enviando arquivo...';
       const base64Data = await fileToBase64(file);
       const up = await fetch('/api/creator/upload-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility, base64Data })
       }).then(r => r.json());
-
-      if (!up.ok) {
-        st.innerText = '';
-        return alert(up.error || 'Erro ao enviar arquivo');
-      }
-
+      if (!up.ok) { st.innerText = ''; return alert(up.error || 'Erro ao enviar'); }
       await fetch('/api/creator/media', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          mediaType: up.mediaType,
-          visibility,
-          r2Key: up.r2Key,
-          publicUrl: up.publicUrl,
-          caption
-        })
+        body: JSON.stringify({ mediaType: up.mediaType, visibility, r2Key: up.r2Key, publicUrl: up.publicUrl, caption })
       });
-
       document.getElementById('mediaCaption').value = '';
-      st.innerText = '✅ Publicado no Clube VIP com sucesso!';
+      st.innerText = '✅ Publicado com sucesso!';
       carregarStudioVip();
     }
 
     async function salvarConfigVip() {
+      const plans = readPlansForm();
+      const m1 = plans[0];
+      const vipPlansMap = {};
+      plans.forEach(p => { vipPlansMap[p.key] = { label: p.label, de: p.de, por: p.por }; });
+
       const res = await fetch('/api/portal/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({
-          vip_monthly_price: Number(document.getElementById('vipPriceInput').value || 49.90),
+          stage_name: document.getElementById('vipNameInput').value.trim() || undefined,
+          vip_monthly_price: m1.por,
+          vip_anchor_price: m1.de,
+          vip_plans: vipPlansMap,
           bio: document.getElementById('vipBioInput').value.trim(),
         })
       });
       if (res.ok) {
-        alert('✅ Configurações do Clube VIP salvas!');
+        alert('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!');
         carregarStudioVip();
       }
     }
 
     async function removerMidia(id) {
       if (!confirm('Remover este conteúdo?')) return;
-      await fetch('/api/creator/media/' + id, {
-        method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + token }
-      });
+      await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
       carregarStudioVip();
     }
 
