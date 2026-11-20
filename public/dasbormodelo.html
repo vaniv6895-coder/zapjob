@@ -151,7 +151,7 @@
       display: flex;
       gap: 18px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       overflow-x: auto;
       scrollbar-width: none;
     }
@@ -178,6 +178,20 @@
       height: 2px;
       background: var(--orange);
       border-radius: 99px;
+    }
+
+    /* Alerta de Anúncio sem Destaque */
+    #adOfflineAlert {
+      display: none;
+      background: linear-gradient(135deg, rgba(225, 29, 72, 0.18), rgba(249, 115, 22, 0.18));
+      border: 1px solid rgba(225, 29, 72, 0.5);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     /* Grid Superior */
@@ -278,7 +292,7 @@
       white-space: nowrap;
     }
 
-    /* Gráfico de Curva Laranja */
+    /* Gráfico de Curva */
     .chart-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -472,6 +486,22 @@
         <button class="tab-btn" onclick="switchTab('subscribers', this)">Assinantes & Tempo</button>
         <button class="tab-btn" onclick="switchTab('videos', this)">Engajamento de Vídeos</button>
         <button class="tab-btn" onclick="switchTab('audience', this)">Público & Horários</button>
+      </div>
+
+      <!-- Alerta quando o anúncio está fora do topo / sem destaque -->
+      <div id="adOfflineAlert">
+        <div>
+          <strong style="font-size:13.5px;color:#fda4af;display:block;">⚠️ Seu anúncio está sem destaque no topo</strong>
+          <span style="font-size:12px;color:#e4e4e7;">Ative seu destaque para voltar ao <strong>1º lugar</strong> na vitrine e ganhar mais cliques.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" onclick="copiarTextoGmailCobranca()" style="background:#17171e;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;">
+            📋 Copiar Texto p/ Gmail
+          </button>
+          <a href="/minha-conta" style="background:#e11d48;color:#fff;text-decoration:none;font-size:12px;font-weight:800;padding:9px 14px;border-radius:10px;white-space:nowrap;">
+            Ficar em 1º Lugar →
+          </a>
+        </div>
       </div>
 
       <!-- BLOCO 1: GAUGE DE CONVERSÃO + TEMPO DE ATENÇÃO / PLANO -->
@@ -683,6 +713,23 @@
       localStorage.setItem('portal_token', token);
     }
 
+    function copiarTextoGmailCobranca() {
+      const nome = document.getElementById('sideName')?.innerText || 'Modelo';
+      const linkPainel = `${window.location.origin}/minha-conta`;
+      const texto =
+`Assunto: Seu anúncio está fora do topo — Volte para o 1º lugar na Garota VIP
+
+Oi ${nome}, tudo bem?
+
+Notamos que o seu destaque na Garota VIP expirou e seu anúncio não está aparecendo nas primeiras posições da vitrine.
+
+Para voltar para o 1º lugar e receber mais cliques no WhatsApp e no Clube VIP, acesse seu painel e ative o destaque:
+${linkPainel}`;
+
+      navigator.clipboard?.writeText(texto);
+      alert('Texto pronto copiado! Agora é só colar no seu Gmail e enviar.');
+    }
+
     function scrollSec(id, btn) {
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
@@ -760,7 +807,6 @@
         document.getElementById('fanCountLabel').innerText = `${fans.length} fãs`;
         document.getElementById('subsTotalBadge').innerText = `${fans.length} assinantes`;
 
-        // Agrupa assinantes por dia para o gráfico
         const byDay = new Map();
         for (let i = 6; i >= 0; i--) {
           const d = new Date(Date.now() - i * 86400000);
@@ -846,6 +892,11 @@
       document.getElementById('planStatusText').innerText = isFeatured
         ? `${c.tier.toUpperCase()} até ${new Date(c.featured_until).toLocaleDateString('pt-BR')}`
         : 'Plano Grátis (Vitrine Geral)';
+
+      const alertBox = document.getElementById('adOfflineAlert');
+      if (alertBox) {
+        alertBox.style.display = isFeatured ? 'none' : 'flex';
+      }
 
       document.getElementById('visibilityStatusPill').innerText = c.active && c.verified ? 'ATIVO NA VITRINE' : 'EM ANÁLISE';
 
