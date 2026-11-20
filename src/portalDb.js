@@ -36,7 +36,12 @@ export async function initPortalDB() {
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS specialty_tag TEXT;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS neighborhood TEXT;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS has_location TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS fifteen_min_rate NUMERIC(10, 2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS half_hour_rate NUMERIC(10, 2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS two_hours_rate NUMERIC(10, 2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS overnight_rate NUMERIC(10, 2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS payment_methods JSONB DEFAULT '["Dinheiro", "Pix"]'::jsonb;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS custom_rates JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS schedule_start TEXT DEFAULT '09:00';
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS schedule_end TEXT DEFAULT '22:00';
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS height TEXT;
@@ -167,7 +172,8 @@ export async function authenticateCreator(email, password) {
 export async function getCreatorById(creatorId) {
   const res = await pool.query(
     `SELECT id, email, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
-            whatsapp, half_hour_rate, hourly_rate, vip_monthly_price, schedule_start, schedule_end,
+            whatsapp, fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
+            payment_methods, custom_rates, vip_monthly_price, schedule_start, schedule_end,
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
             verification_video_url, subscription_price, verified, active, tier, featured_until,
             last_boost_at, created_at
@@ -181,7 +187,8 @@ export async function getCreatorById(creatorId) {
 export async function getCreatorBySlug(slug) {
   const res = await pool.query(
     `SELECT id, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
-            whatsapp, half_hour_rate, hourly_rate, vip_monthly_price, schedule_start, schedule_end,
+            whatsapp, fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
+            payment_methods, custom_rates, vip_monthly_price, schedule_start, schedule_end,
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
             verification_video_url, subscription_price, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
@@ -201,8 +208,13 @@ export async function updateCreatorProfile(creatorId, fields) {
     'state',
     'has_location',
     'whatsapp',
+    'fifteen_min_rate',
     'half_hour_rate',
     'hourly_rate',
+    'two_hours_rate',
+    'overnight_rate',
+    'payment_methods',
+    'custom_rates',
     'schedule_start',
     'schedule_end',
     'height',
@@ -219,6 +231,7 @@ export async function updateCreatorProfile(creatorId, fields) {
     'vip_monthly_price',
   ];
 
+  const jsonFields = new Set(['physical_tags', 'services_tags', 'payment_methods', 'custom_rates']);
   const sets = [];
   const values = [];
   let idx = 1;
@@ -226,7 +239,7 @@ export async function updateCreatorProfile(creatorId, fields) {
   for (const key of allowed) {
     if (fields[key] !== undefined) {
       sets.push(`${key} = $${idx++}`);
-      if (key === 'physical_tags' || key === 'services_tags') {
+      if (jsonFields.has(key)) {
         values.push(JSON.stringify(Array.isArray(fields[key]) ? fields[key] : []));
       } else {
         values.push(fields[key]);
@@ -311,7 +324,7 @@ export async function getHomeRanking({ city = null, state = null, limit = 60 } =
 
   const res = await pool.query(
     `SELECT id, slug, stage_name, specialty_tag, neighborhood, city, state, whatsapp,
-            half_hour_rate, hourly_rate, bio, avatar_url, cover_url,
+            fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate, bio, avatar_url, cover_url,
             subscription_price, vip_monthly_price, tier, featured_until, last_boost_at,
             (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured
      FROM creator_accounts
