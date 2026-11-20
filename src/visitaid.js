@@ -18,7 +18,7 @@ function extractCreatorIdFromToken(rawToken) {
 }
 
 export function registerTelemetryRoutes(app, pool) {
-  // 1. Inicialização automática das tabelas de telemetria, analytics e retenção de vídeos
+  // 1. Inicialização automática das tabelas de telemetria, analytics, retenção e mensagens VIP
   pool.query(`
     CREATE TABLE IF NOT EXISTS portal_analytics_events (
       id SERIAL PRIMARY KEY,
@@ -65,6 +65,20 @@ export function registerTelemetryRoutes(app, pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_media_retention_creator
       ON media_retention_logs (creator_id, media_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS vip_subscriber_messages (
+      id SERIAL PRIMARY KEY,
+      creator_id INT NOT NULL,
+      subscriber_contact VARCHAR(100) NOT NULL,
+      subscriber_name VARCHAR(100) DEFAULT 'Assinante VIP',
+      message_text TEXT NOT NULL,
+      creator_reply TEXT,
+      is_read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      replied_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_vip_messages_creator
+      ON vip_subscriber_messages (creator_id, created_at DESC);
   `).catch(() => {});
 
   // 2. Endpoint silencioso que grava tempo no site, pulos e cliques de cada visitante
@@ -154,6 +168,75 @@ export function registerTelemetryRoutes(app, pool) {
       return reply.send({ ok: true });
     } catch {
       return reply.send({ ok: false });
+    }
+  });
+
+  // 2C. Mensagens dos Assinantes VIP (enviar, listar no VIP Studio e responder)
+  app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
+    try {
+      const { subscriberContact = 'VIP', subscriberName = 'Assinante VIP', messageText = '' } = req.body || {};
+      const cleanMsg = String(messageText || '').trim();
+      if (!cleanMsg) return reply.status(400).send({ error: 'Mensagem vazia' });
+
+      const creatorRes = await pool.query(
+        `SELECT id FROM creator_accounts WHERE slug = $1 LIMIT 1`,
+        [String(req.params.slug || '').trim().toLowerCase()]
+      );
+      const creator = creatorRes.rows[0];
+      if (!creator) return reply.status(404).send({ error: 'Criadora não encontrada' });
+
+      const inserted = await pool.query(
+        `INSERT INTO vip_subscriber_messages (creator_id, subscriber_contact, subscriber_name, message_text)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at`,
+        [creator.id, String(subscriberContact).trim(), String(subscriberName).trim() || 'Assinante VIP', cleanMsg]
+      );
+      return reply.send({ ok: true, message: inserted.rows[0] });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao enviar mensagem VIP' });
+    }
+  });
+
+  app.get('/api/portal/creator/vip-messages', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const res = await pool.query(
+        `SELECT id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at, replied_at
+         FROM vip_subscriber_messages
+         WHERE creator_id = $1
+         ORDER BY created_at DESC
+         LIMIT 80`,
+        [creatorId]
+      );
+      return reply.send({ ok: true, messages: res.rows });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar mensagens VIP' });
+    }
+  });
+
+  app.post('/api/portal/creator/vip-messages/:id/reply', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const replyText = String((req.body && req.body.replyText) || '').trim();
+      await pool.query(
+        `UPDATE vip_subscriber_messages
+         SET is_read = TRUE,
+             creator_reply = COALESCE(NULLIF($3, ''), creator_reply),
+             replied_at = CASE WHEN $3 <> '' THEN NOW() ELSE replied_at END
+         WHERE id = $1 AND creator_id = $2`,
+        [Number(req.params.id), creatorId, replyText]
+      );
+      return reply.send({ ok: true });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao responder mensagem' });
     }
   });
 

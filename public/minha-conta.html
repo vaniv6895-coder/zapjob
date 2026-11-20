@@ -62,7 +62,7 @@
     }
     .card-header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 16px; gap: 10px;
+      margin-bottom: 16px; gap: 10px; flex-wrap: wrap;
     }
     h2, h3 { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
     .subtitle { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
@@ -259,7 +259,6 @@
       }
     })();
   </script>
-  
 </head>
 <body>
   <div class="wrap">
@@ -277,7 +276,10 @@
 
     <div class="top-nav">
       <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
-      <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="/vip-studio" class="quick-ext-link primary">💎 Clube VIP Studio</a>
+        <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
+      </div>
     </div>
 
     <!-- Tela de Login / Cadastro (Entrada Principal via Google) -->
@@ -289,7 +291,6 @@
         </p>
       </div>
 
-      <!-- Slot onde o botão do Google é carregado automaticamente -->
       <div id="google-btn-container" style="display:flex;justify-content:center;margin-bottom:10px;"></div>
 
       <div id="google-divider" style="display:none;text-align:center;font-size:11px;color:#64748b;margin:16px 0;font-weight:700">
@@ -352,6 +353,7 @@
       <div id="tab-perfil" class="studio-section">
         <div class="mode-switcher">
           <a href="/minha-conta/editar" class="quick-ext-link primary">✏️ Editar Perfil Completo</a>
+          <a href="/vip-studio" class="quick-ext-link">💎 VIP Studio</a>
           <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
           <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Ver Perfil ↗</a>
         </div>
@@ -443,7 +445,10 @@
         <div class="card">
           <div class="card-header">
             <h3>💸 Ganhos no Clube VIP</h3>
-            <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
+              <a href="/vip-studio" class="quick-ext-link primary">💎 Abrir VIP Studio</a>
+            </div>
           </div>
           <div class="earn-split">
             <div class="earn-pill">
@@ -526,11 +531,9 @@
   </div>
 
   <script>
-    // Token fica apenas na sessão atual (fechou a aba/site, reseta e pede Gmail -> Bio novamente)
     let token = sessionStorage.getItem('portal_token') || '';
     let currentStateUF = 'MT';
 
-    // Inicializa o botão do Google buscando o Client ID do backend
     async function initGoogleLogin() {
       try {
         const res = await fetch('/api/portal/auth-config');
@@ -563,19 +566,16 @@
       token = data.token;
       sessionStorage.setItem('portal_token', token);
 
-      // Se é cadastro novo sem WhatsApp ou cachê, manda direto para completar o perfil!
       if (!data.creator.whatsapp || !data.creator.hourly_rate) {
         window.location.href = '/minha-conta/editar';
         return;
       }
 
-      // Se nunca cadastrou a biometria facial, manda cadastrar agora!
       if (localStorage.getItem('bio_enabled') !== '1') {
         window.location.href = '/biometria-facial?mode=register';
         return;
       }
 
-      // Se já cadastrou, exige o reconhecimento facial (2FA) a cada nova sessão
       if (sessionStorage.getItem('bio_verified') !== '1') {
         window.location.href = '/biometria-facial?mode=unlock';
         return;
@@ -896,7 +896,6 @@
       alert('Código Pix copiado! Cole no seu aplicativo de pagamento.');
     }
 
-    /* ================= BIOMETRIA FACIAL / PASSKEYS (WEBAUTHN) ================= */
     function b64urlToBuf(b64url) {
       const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
       const bin = atob(b64);
@@ -951,7 +950,6 @@
       loadDashboard();
     }
 
-    /* ================= PROVA DE VIDA FACIAL (CÂMERA AO VIVO) ================= */
     let livenessStream = null;
 
     async function openLivenessModal() {
@@ -1016,7 +1014,6 @@
       setTimeout(() => recorder.stop(), 4000);
     }
 
-    /* ================= RESET DE SESSÃO AO SAIR DO SITE + 2FA BIO ================= */
     let leftAt = 0;
     let isBioLocked = false;
 
@@ -1080,7 +1077,6 @@
       }
     }
 
-    // Saiu da aba / minimizou o navegador por mais de 5s -> reseta o token e volta pro login (Gmail -> Bio)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         leftAt = Date.now();
@@ -1089,7 +1085,6 @@
       }
     });
 
-    // Inicialização: verifica estado da biometria antes de carregar o painel
     if (token) {
       if (localStorage.getItem('bio_enabled') !== '1') {
         window.location.href = '/biometria-facial?mode=register';
