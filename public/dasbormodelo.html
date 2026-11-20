@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Creator Analytics — Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-outer: #08080a;
+      --bg-sidebar: #0c0c0f;
+      --bg-card: #131317;
+      --bg-elevated: #1a1a20;
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 107, 0, 0.35);
+      --orange: #ff6b00;
+      --orange-bright: #ff8533;
+      --orange-soft: rgba(255, 107, 0, 0.14);
+      --green: #10b981;
+      --text-main: #f4f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-outer);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 235px 1fr;
+      min-height: 100vh;
+    }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* Sidebar Esquerda */
+    .sidebar {
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      padding: 22px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 8px 20px;
+    }
+    .brand-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 12px var(--orange);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 13px;
+      border-radius: 11px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: 0.15s;
+    }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
+    .nav-item.active {
+      background: var(--orange-soft);
+      color: var(--orange-bright);
+      border: 1px solid rgba(255, 107, 0, 0.28);
+    }
+
+    .profile-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .profile-footer img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #222;
+      border: 1.5px solid var(--orange);
+    }
+
+    /* Área Principal */
+    .main {
+      padding: 26px 28px 56px;
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    @media (max-width: 600px) { .main { padding: 18px 16px 48px; } }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .header-top h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+    .header-top p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    .top-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 9px 14px;
+      border-radius: 11px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top-btn:hover { border-color: var(--border-hover); }
+
+    /* Sub-abas estilo referência */
+    .tabs-bar {
+      display: flex;
+      gap: 22px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 2px 12px;
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+    }
+    .tab-btn.active { color: #fff; }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--orange);
+      border-radius: 99px;
+    }
+
+    /* Grid Superior: Gauge Laranja + Automação/Status VIP */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+    }
+    .card-kicker {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Gauge Semicircular Laranja */
+    .gauge-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 0 4px;
+    }
+    .gauge-svg { width: 230px; height: 128px; overflow: visible; }
+    .gauge-center {
+      margin-top: -54px;
+      text-align: center;
+    }
+    .gauge-center strong {
+      display: block;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .gauge-center span {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--orange-bright);
+    }
+    .gauge-scale {
+      width: 210px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+    }
+
+    /* Info Rows direitas */
+    .setting-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .setting-ico {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--orange-soft);
+      color: var(--orange);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .toggle-pill {
+      background: var(--orange);
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 99px;
+    }
+
+    /* Gráfico de Curva Laranja */
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+    .chart-svg { width: 100%; height: 175px; display: block; }
+    .chart-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+    }
+
+    /* 3 Cards de KPIs */
+    .kpi-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 720px) { .kpi-3 { grid-template-columns: 1fr; } }
+
+    .kpi-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+    }
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .kpi-num-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .kpi-num { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+    .kpi-delta { font-size: 12px; font-weight: 700; color: var(--orange-bright); }
+    .kpi-delta.green { color: var(--green); }
+    .kpi-foot { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; }
+
+    /* Ranking de Vídeos & Engajamento */
+    .media-rank-list { display: flex; flex-direction: column; gap: 10px; }
+    .media-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 11px 14px;
+    }
+    .media-thumb {
+      width: 46px;
+      height: 58px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #000;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      height: 5px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--orange), #ffb347);
+      border-radius: 99px;
+    }
+
+    /* Banner Laranja Inferior */
+    .cta-banner {
+      background: linear-gradient(135deg, #19130f 0%, #24170e 60%, #141417 100%);
+      border: 1px solid rgba(255, 107, 0, 0.35);
+      border-radius: 18px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .btn-orange {
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(255, 107, 0, 0.32);
+    }
+    .btn-orange:hover { background: var(--orange-bright); }
+  </style>
+</head>
+<body>
+
+  <div class="shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-row">
+          <div class="brand-dot"></div>
+          <strong style="font-size:15px;letter-spacing:-0.02em;">GAROTA <span style="color:var(--orange);">VIP</span></strong>
+        </div>
+
+        <button class="nav-item active" onclick="scrollSec('sec-overview', this)">📊 Visão Geral & Conversão</button>
+        <button class="nav-item" onclick="scrollSec('sec-chart', this)">📈 Evolução & Ganhos</button>
+        <button class="nav-item" onclick="scrollSec('sec-videos', this)">🎬 Vídeos em Alta</button>
+        <button class="nav-item" onclick="scrollSec('sec-sources', this)">🧭 Origem dos Clientes</button>
+        <a href="/minha-conta/editar" class="nav-item">✏️ Editar Meu Perfil</a>
+        <a href="/minha-conta" class="nav-item">⚡ Impulsionar / Studio</a>
+      </div>
+
+      <div class="profile-footer">
+        <img id="sideAvatar" src="https://placehold.co/80x80/18181f/ff6b00?text=VIP" alt="" />
+        <div style="overflow:hidden;">
+          <strong id="sideName" style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Carregando...</strong>
+          <span id="sideTier" style="font-size:11px;color:var(--orange);">Plano Ativo</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main" id="sec-overview">
+      <div class="header-top">
+        <div>
+          <h1>Desempenho & Ganhos</h1>
+          <p>Acompanhe em tempo real cliques no anúncio, tempo de atenção, vídeos em alta e faturamento VIP.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="top-btn" onclick="carregarMetricasModelo()">↻ Atualizar</button>
+          <a id="btnVerMeuPerfil" href="/vitrine" target="_blank" class="top-btn">👁️ Ver Meu Anúncio</a>
+          <a href="/minha-conta" class="top-btn">← Voltar ao Studio</a>
+        </div>
+      </div>
+
+      <!-- Abas Superiores -->
+      <div class="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab('all', this)">Visão Geral</button>
+        <button class="tab-btn" onclick="switchTab('videos', this)">Engajamento de Vídeos</button>
+        <button class="tab-btn" onclick="switchTab('vip', this)">Ganhos Clube VIP</button>
+        <button class="tab-btn" onclick="switchTab('audience', this)">Público & Horários</button>
+      </div>
+
+      <!-- BLOCO 1: GAUGE DE CONVERSÃO + TEMPO DE ATENÇÃO / PLANO -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-kicker">
+            <span>Taxa de Atração & Conversão</span>
+            <span style="color:var(--orange);">Últimos 30 dias</span>
+          </div>
+
+          <div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 240 135">
+              <defs>
+                <linearGradient id="orangeArc" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#ff6b00" />
+                  <stop offset="100%" stop-color="#ff9e44" />
+                </linearGradient>
+              </defs>
+              <!-- Arco Fundo -->
+              <path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="18" stroke-linecap="round" />
+              <!-- Arco Ativo -->
+              <path id="gaugeProgressArc" d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="url(#orangeArc)" stroke-width="18" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" style="transition: stroke-dashoffset 0.8s ease;" />
+            </svg>
+            <div class="gauge-center">
+              <strong id="gaugePercent">0%</strong>
+              <span id="gaugeLabel">Calculando...</span>
+            </div>
+            <div class="gauge-scale">
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:12px;">
+            Percentual de visitantes que abriram seu anúncio e clicaram no <strong>WhatsApp</strong> ou <strong>Clube VIP</strong>.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-kicker">
+            <span>Tempo de Atenção & Visibilidade</span>
+            <span class="toggle-pill" id="visibilityStatusPill">ONLINE</span>
+          </div>
+          <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
+            Quanto mais tempo os visitantes olham suas fotos e vídeos, mais o algoritmo sobe seu perfil na vitrine.
+          </p>
+
+          <div class="setting-box">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="setting-ico">⏱️</div>
+              <div>
+                <span style="font-size:11px;color:var(--text-muted);display:block;">Tempo médio olhando seu perfil</span>
+                <strong id="avgWatchTime" style="font-size:14.5px;color:#fff;">0s por visitante</strong>
+              </div>
+            </div>
+            <span style="font-size:11.5px;color:var(--green);font-weight:700;" id="retentionBadge">Boa retenção</span>
+          </div>
+
+          <div class="setting-box" style="margin-bottom:0;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="setting-ico">💎</div>
+              <div>
+                <span style="font-size:11px;color:var(--text-muted);display:block;">Posição na Garota VIP</span>
+                <strong id="planStatusText" style="font-size:14.5px;color:#fff;">Perfil Padrão</strong>
+              </div>
+            </div>
+            <a href="/minha-conta" style="font-size:12px;color:var(--orange-bright);font-weight:700;text-decoration:none;">Turbinar →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCO 2: GRÁFICO DE EVOLUÇÃO DIÁRIA -->
+      <div class="chart-card" id="sec-chart">
+        <div class="card-kicker">
+          <span>Evolução de Cliques no Anúncio & WhatsApp (14 Dias)</span>
+          <span style="color:var(--text-main);font-weight:700;" id="peakDayLabel">Pico: —</span>
+        </div>
+
+        <svg class="chart-svg" id="clicksChartSvg" viewBox="0 0 700 175" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ff6b00" stop-opacity="0.35" />
+              <stop offset="100%" stop-color="#ff6b00" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          <!-- Linhas guia -->
+          <line x1="0" y1="35" x2="700" y2="35" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
+          <line x1="0" y1="85" x2="700" y2="85" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
+          <line x1="0" y1="135" x2="700" y2="135" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" />
+          <path id="chartAreaPath" d="" fill="url(#chartAreaGrad)" />
+          <path id="chartLinePath" d="" fill="none" stroke="#ff6b00" stroke-width="3" stroke-linecap="round" />
+        </svg>
+        <div class="chart-labels" id="chartDatesRow"></div>
+      </div>
+
+      <!-- BLOCO 3: 3 KPIs PRINCIPAIS (CLIQUES, WHATSAPP E GANHOS VIP) -->
+      <div class="kpi-3">
+        <div class="kpi-box">
+          <div class="kpi-title">👁️ Cliques no Anúncio (30d)</div>
+          <div class="kpi-num-row">
+            <span class="kpi-num" id="kpiViews">0</span>
+            <span class="kpi-delta" id="kpiViewsStories">+0 em stories</span>
+          </div>
+          <div class="kpi-foot">Pessoas que abriram seu perfil</div>
+        </div>
+
+        <div class="kpi-box">
+          <div class="kpi-title">💬 Cliques no WhatsApp</div>
+          <div class="kpi-num-row">
+            <span class="kpi-num" id="kpiWa">0</span>
+            <span class="kpi-delta green" id="kpiWaRate">0% conv.</span>
+          </div>
+          <div class="kpi-foot">Clientes que chamaram direto</div>
+        </div>
+
+        <div class="kpi-box">
+          <div class="kpi-title">💰 Ganhos no Clube VIP</div>
+          <div class="kpi-num-row">
+            <span class="kpi-num" id="kpiVipEarnings">R$ 0,00</span>
+            <span class="kpi-delta" id="kpiVipSubs">0 assinantes</span>
+          </div>
+          <div class="kpi-foot">Assinaturas + Mimos + Conteúdos</div>
+        </div>
+      </div>
+
+      <!-- BLOCO 4: RANKING DE VÍDEOS COM MAIS ENGAJAMENTO + ORIGEM DOS CLIENTES -->
+      <div class="grid-2" id="sec-videos">
+        <div class="card">
+          <div class="card-kicker">
+            <span>🎬 Vídeos & Stories com Mais Engajamento</span>
+            <span style="color:var(--orange);">Top Mídias</span>
+          </div>
+          <div class="media-rank-list" id="topVideosList">
+            <p style="font-size:12.5px;color:var(--text-muted);">Carregando ranking dos seus vídeos...</p>
+          </div>
+        </div>
+
+        <div class="card" id="sec-sources">
+          <div class="card-kicker">
+            <span>🧭 De Onde Vêm Seus Clientes</span>
+            <span style="color:var(--text-muted);">Canais & Horários</span>
+          </div>
+          <div class="media-rank-list" id="sourcesBreakdown"></div>
+
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <span style="font-size:11px;color:var(--text-muted);display:block;">Horário com mais cliques no seu perfil</span>
+              <strong id="bestHourText" style="font-size:14px;color:#fff;">20h às 23h</strong>
+            </div>
+            <span style="background:var(--orange-soft);color:var(--orange-bright);font-size:11px;font-weight:700;padding:5px 10px;border-radius:99px;">
+              🔥 Horário nobre
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BANNER INFERIOR ESTILO REFERÊNCIA -->
+      <div class="cta-banner">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="setting-ico" style="width:42px;height:42px;font-size:18px;">✨</div>
+          <div>
+            <strong style="font-size:15px;display:block;color:#fff;" id="bannerTitle">Multiplique seus cliques no WhatsApp</strong>
+            <span style="font-size:12.5px;color:var(--text-muted);" id="bannerDesc">Perfis no Topo Diamante recebem até 4x mais visitas e mensagens todos os dias.</span>
+          </div>
+        </div>
+        <a href="/minha-conta" class="btn-orange">Ativar Destaque VIP →</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('portal_token');
+    if (!token) {
+      window.location.href = '/minha-conta';
+    }
+
+    function scrollSec(id, btn) {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (tab === 'videos') document.getElementById('sec-videos').scrollIntoView({ behavior: 'smooth' });
+      else if (tab === 'vip') document.getElementById('kpiVipEarnings').scrollIntoView({ behavior: 'smooth' });
+      else if (tab === 'audience') document.getElementById('sec-sources').scrollIntoView({ behavior: 'smooth' });
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function formatTime(sec) {
+      const s = Number(sec || 0);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${m}m ${rem}s`;
+    }
+
+    function renderSmoothChart(series) {
+      const data = series && series.length ? series : [2, 4, 3, 6, 8, 7, 11, 9, 14, 13, 18, 16, 21, 24];
+      const maxVal = Math.max(...data.map(d => Number(d.count || d)), 1);
+      const w = 700;
+      const h = 155;
+      const stepX = w / Math.max(1, data.length - 1);
+
+      const points = data.map((item, idx) => {
+        const val = Number(item.count ?? item);
+        const x = idx * stepX;
+        const y = h - (val / maxVal) * (h - 25) - 10;
+        return [x, y];
+      });
+
+      let lineD = `M ${points[0][0]} ${points[0][1]}`;
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cx = (prev[0] + curr[0]) / 2;
+        lineD += ` C ${cx} ${prev[1]}, ${cx} ${curr[1]}, ${curr[0]} ${curr[1]}`;
+      }
+
+      const areaD = `${lineD} L ${points[points.length - 1][0]} ${h + 20} L 0 ${h + 20} Z`;
+      document.getElementById('chartLinePath').setAttribute('d', lineD);
+      document.getElementById('chartAreaPath').setAttribute('d', areaD);
+
+      if (data[0]?.label) {
+        document.getElementById('chartDatesRow').innerHTML = data
+          .filter((_, idx) => idx % 2 === 0 || idx === data.length - 1)
+          .map(d => `<span>${d.label}</span>`)
+          .join('');
+      }
+    }
+
+    async function carregarMetricasModelo() {
+      const res = await fetch('/api/portal/creator/analytics', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem('portal_token');
+        window.location.href = '/minha-conta';
+        return;
+      }
+
+      const data = await res.json();
+      const c = data.creator || {};
+      const m = data.metrics || {};
+
+      // Perfil lateral e links
+      document.getElementById('sideName').innerText = c.stage_name || 'Modelo VIP';
+      document.getElementById('sideTier').innerText = `Plano ${(c.tier || 'free').toUpperCase()}`;
+      if (c.avatar_url || c.cover_url) {
+        document.getElementById('sideAvatar').src = c.avatar_url || c.cover_url;
+      }
+      if (c.slug) {
+        document.getElementById('btnVerMeuPerfil').href = '/acompanhante/' + c.slug;
+      }
+
+      // Gauge de Conversão
+      const convPct = Math.min(100, Math.max(0, Number(m.conversionRate || 0)));
+      const arcLength = 314;
+      const offset = arcLength - (arcLength * convPct) / 100;
+      document.getElementById('gaugeProgressArc').style.strokeDashoffset = offset;
+      document.getElementById('gaugePercent').innerText = convPct + '%';
+      document.getElementById('gaugeLabel').innerText =
+        convPct >= 25 ? 'Alta Conversão 🔥' : convPct >= 10 ? 'Bom Desempenho' : 'Em Crescimento';
+
+      // Tempo médio e plano
+      document.getElementById('avgWatchTime').innerText = `${formatTime(m.avgWatchSeconds || 0)} por visitante`;
+      document.getElementById('retentionBadge').innerText =
+        (m.avgWatchSeconds || 0) >= 20 ? '🔥 Prende atenção' : '● Normal';
+
+      const isFeatured = c.featured_until && new Date(c.featured_until) > new Date();
+      document.getElementById('planStatusText').innerText = isFeatured
+        ? `${c.tier.toUpperCase()} até ${new Date(c.featured_until).toLocaleDateString('pt-BR')}`
+        : 'Plano Grátis (Vitrine Geral)';
+
+      document.getElementById('visibilityStatusPill').innerText = c.active && c.verified ? 'ATIVO NA VITRINE' : 'EM ANÁLISE';
+
+      // KPIs
+      document.getElementById('kpiViews').innerText = m.profileViews || 0;
+      document.getElementById('kpiViewsStories').innerText = `+${m.storyViews || 0} em stories`;
+      document.getElementById('kpiWa').innerText = m.whatsappClicks || 0;
+      document.getElementById('kpiWaRate').innerText = `${convPct}% conv.`;
+      document.getElementById('kpiVipEarnings').innerText =
+        'R$ ' + Number(m.vipEarnings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpiVipSubs').innerText = `${m.activeSubscribers || 0} assinantes`;
+
+      // Gráfico
+      renderSmoothChart(data.dailySeries || []);
+      document.getElementById('peakDayLabel').innerText = `Melhor dia: ${m.peakCount || 0} cliques`;
+
+      // Ranking de Vídeos & Mídias
+      const videos = data.topMedia || [];
+      document.getElementById('topVideosList').innerHTML = videos.length
+        ? videos.map((v, idx) => {
+            const pct = Math.max(15, Math.min(100, Number(v.scorePct || 50)));
+            return `
+              <div class="media-row">
+                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                  <img class="media-thumb" src="${v.thumb || c.avatar_url || 'https://placehold.co/80x100/000/ff6b00?text=▶'}" alt="" />
+                  <div style="flex:1;min-width:0;">
+                    <strong style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      #${idx + 1} ${v.title || 'Vídeo / Story VIP'}
+                    </strong>
+                    <span style="font-size:11px;color:var(--text-muted);">
+                      ${v.completions || 0} assistidos até o fim • ${v.skips || 0} pulos
+                    </span>
+                    <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+                  </div>
+                </div>
+                <span style="font-size:12px;font-weight:800;color:var(--orange-bright);white-space:nowrap;">
+                  ${v.engagementLabel || '🔥 Alta'}
+                </span>
+              </div>
+            `;
+          }).join('')
+        : '<p style="font-size:12.5px;color:var(--text-muted);">Publique vídeos no seu perfil para acompanhar a retenção de cada um aqui.</p>';
+
+      // Origem dos Clientes
+      const sources = data.sources || [];
+      document.getElementById('sourcesBreakdown').innerHTML = sources.length
+        ? sources.map(s => `
+            <div class="media-row">
+              <strong style="font-size:13px;">${s.source}</strong>
+              <span style="font-size:12px;font-weight:700;color:var(--orange-bright);">${s.count} visitas</span>
+            </div>
+          `).join('')
+        : '<p style="font-size:12.5px;color:var(--text-muted);">Aguardando primeiros acessos ao seu link.</p>';
+
+      if (m.bestHour) {
+        document.getElementById('bestHourText').innerText = m.bestHour;
+      }
+    }
+
+    carregarMetricasModelo();
+  </script>
+</body>
+</html>
