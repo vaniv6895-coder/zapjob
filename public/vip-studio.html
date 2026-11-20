@@ -22,13 +22,14 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
     body {
       background: radial-gradient(circle at top right, rgba(225, 29, 72, 0.13), transparent 35%),
                   radial-gradient(circle at top left, rgba(147, 51, 234, 0.13), transparent 35%),
                   var(--bg);
       color: var(--text);
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      padding-bottom: 70px;
+      padding-bottom: 84px;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -41,9 +42,10 @@
       height: 38px;
       border-radius: 11px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
       transition: 0.15s;
     }
     .hamburger-btn:hover { border-color: var(--border-hover); background: #22222b; }
@@ -60,14 +62,15 @@
       position: fixed;
       top: 0;
       left: -310px;
-      width: 290px;
+      width: min(290px, 84vw);
       height: 100dvh;
       background: var(--surface);
       border-right: 1px solid var(--border);
       z-index: 9995;
-      padding: 22px 18px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
+      overflow-y: auto;
       transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
     }
@@ -76,9 +79,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
+      padding-bottom: 14px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
     .drawer-label {
       font-size: 10.5px;
@@ -117,10 +120,10 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(7, 7, 9, 0.85);
+      background: rgba(7, 7, 9, 0.88);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
+      padding: 10px 12px;
     }
     .nav-inner {
       max-width: 1020px;
@@ -128,82 +131,107 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
     }
-    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .nav-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .nav-back {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       color: var(--text);
       text-decoration: none;
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 700;
       background: var(--elevated);
       border: 1px solid var(--border);
-      padding: 8px 13px;
-      border-radius: 12px;
+      padding: 7px 11px;
+      border-radius: 11px;
       white-space: nowrap;
       cursor: pointer;
     }
-    .brand-pill { font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .brand-pill {
+      font-size: 13.5px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .brand-pill span {
       background: linear-gradient(135deg, #fb7185, #c084fc);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .container { max-width: 1020px; margin: 0 auto; padding: 18px 16px; }
+    .container { max-width: 1020px; margin: 0 auto; padding: 14px 12px; }
+    @media(min-width: 640px) {
+      .navbar { padding: 12px 16px; }
+      .nav-back { font-size: 12.5px; padding: 8px 13px; border-radius: 12px; }
+      .brand-pill { font-size: 14px; }
+      .container { padding: 18px 16px; }
+    }
 
     /* Hero */
     .vip-hero-card {
       position: relative;
-      border-radius: 22px;
+      border-radius: 20px;
       overflow: hidden;
       background: var(--surface);
       border: 1px solid var(--border);
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
-    .vip-cover { height: 150px; width: 100%; position: relative; background: linear-gradient(135deg, #2b0918, #190d2e); }
-    .vip-cover img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+    .vip-cover { height: 140px; width: 100%; position: relative; background: linear-gradient(135deg, #2b0918, #190d2e); }
+    @media(min-width: 640px) { .vip-cover { height: 160px; } }
+    .vip-cover img { width: 100%; height: 100%; object-fit: cover; opacity: 0.88; }
     .vip-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,7,9,0.15) 0%, rgba(16,16,20,0.98) 100%); }
     .btn-change-cover {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       z-index: 5;
-      background: rgba(9, 9, 11, 0.75);
+      background: rgba(9, 9, 11, 0.8);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.2);
       color: #fff;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       padding: 7px 12px;
       border-radius: 99px;
       cursor: pointer;
     }
     .vip-hero-body {
-      padding: 0 20px 20px;
-      margin-top: -44px;
+      padding: 0 14px 16px;
+      margin-top: -40px;
       position: relative;
       z-index: 5;
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 14px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
     }
-    .vip-identity { display: flex; align-items: flex-end; gap: 14px; }
+    @media(min-width: 640px) {
+      .vip-hero-body {
+        padding: 0 20px 20px;
+        margin-top: -44px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px;
+      }
+    }
+    .vip-identity { display: flex; align-items: flex-end; gap: 12px; min-width: 0; }
     .vip-avatar-box {
       position: relative;
-      width: 86px;
-      height: 86px;
+      width: 78px;
+      height: 78px;
       border-radius: 50%;
       padding: 3px;
       background: linear-gradient(135deg, var(--pink), var(--purple), var(--orange));
       flex-shrink: 0;
     }
+    @media(min-width: 640px) { .vip-avatar-box { width: 88px; height: 88px; } }
     .vip-avatar-box img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--surface); background: #000; }
     .vip-cam-btn {
       position: absolute;
@@ -228,13 +256,14 @@
       background: rgba(225, 29, 72, 0.16);
       border: 1px solid rgba(225, 29, 72, 0.35);
       color: #fda4af;
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 800;
-      padding: 3px 10px;
+      padding: 3px 9px;
       border-radius: 99px;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
-    .vip-name { font-size: 20px; font-weight: 800; }
+    .vip-name { font-size: 18px; font-weight: 800; word-break: break-word; }
+    @media(min-width: 640px) { .vip-name { font-size: 20px; } }
     .vip-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .btn-view-vip-page {
       background: var(--elevated);
@@ -245,37 +274,41 @@
       padding: 10px 16px;
       border-radius: 12px;
       text-decoration: none;
+      text-align: center;
       cursor: pointer;
     }
 
     /* KPIs */
-    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
-    @media(min-width: 720px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
-    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
-    .kpi-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-    .kpi-val { font-size: 20px; font-weight: 800; margin-top: 4px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    @media(min-width: 720px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; } }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px; padding: 12px 14px; }
+    .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .kpi-val { font-size: 18px; font-weight: 800; margin-top: 4px; }
+    @media(min-width: 640px) { .kpi-val { font-size: 20px; } }
     .kpi-hint { font-size: 11px; color: var(--green); margin-top: 2px; font-weight: 600; }
 
     /* Abas */
     .studio-tabs {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       background: var(--surface);
       padding: 6px;
       border-radius: 16px;
       border: 1px solid var(--border);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       overflow-x: auto;
+      scrollbar-width: none;
     }
+    .studio-tabs::-webkit-scrollbar { display: none; }
     .stab {
-      flex: 1;
-      padding: 11px 14px;
+      flex: 1 0 auto;
+      padding: 10px 12px;
       border-radius: 12px;
       border: none;
       background: transparent;
       color: var(--muted);
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
@@ -292,14 +325,15 @@
     .upload-box {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 18px;
+      border-radius: 18px;
+      padding: 15px;
+      margin-bottom: 16px;
     }
-    .config-split { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    @media(min-width: 860px) { .config-split { grid-template-columns: 1.25fr 0.95fr; } }
+    @media(min-width: 640px) { .upload-box { padding: 20px; border-radius: 20px; margin-bottom: 18px; } }
+    .config-split { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media(min-width: 860px) { .config-split { grid-template-columns: 1.25fr 0.95fr; gap: 20px; } }
 
-    .plans-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 14px 0; }
+    .plans-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 12px 0; }
     @media(min-width: 600px) { .plans-grid { grid-template-columns: 1fr 1fr; } }
     .plan-editor-card {
       background: var(--elevated);
@@ -311,6 +345,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 6px;
       font-size: 12.5px;
       font-weight: 800;
       margin-bottom: 8px;
@@ -336,35 +371,37 @@
     .live-preview-shell {
       background: #09090c;
       border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 22px;
+      border-radius: 20px;
       overflow: hidden;
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
     }
     .lp-topbar {
       background: rgba(255,255,255,0.03);
-      padding: 9px 14px;
-      font-size: 10.5px;
+      padding: 9px 12px;
+      font-size: 10px;
       font-weight: 800;
       color: var(--muted);
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       border-bottom: 1px solid var(--border);
     }
     .lp-cover { height: 105px; position: relative; background: #1a1025; }
     .lp-cover img { width: 100%; height: 100%; object-fit: cover; }
     .lp-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 20%, #09090c 100%); }
-    .lp-body { padding: 0 16px 18px; margin-top: -34px; position: relative; z-index: 2; }
+    .lp-body { padding: 0 14px 16px; margin-top: -32px; position: relative; z-index: 2; }
     .lp-avatar {
-      width: 64px;
-      height: 64px;
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
       object-fit: cover;
       border: 3px solid #09090c;
+      flex-shrink: 0;
     }
-    .lp-bio { font-size: 12px; color: #d4d4d8; line-height: 1.5; margin: 10px 0 12px; white-space: pre-line; }
+    .lp-bio { font-size: 12px; color: #d4d4d8; line-height: 1.5; margin: 10px 0 12px; white-space: pre-line; word-break: break-word; }
     .lp-plan-option {
       background: var(--elevated);
       border: 1px solid var(--border);
@@ -374,6 +411,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       font-size: 12px;
     }
     .lp-plan-option.featured {
@@ -386,52 +424,79 @@
       border: 1.5px dashed rgba(244, 63, 94, 0.45);
       background: linear-gradient(135deg, rgba(225, 29, 72, 0.06), rgba(147, 51, 234, 0.06));
       border-radius: 16px;
-      padding: 24px 16px;
+      padding: 22px 14px;
       text-align: center;
       cursor: pointer;
     }
-    .videos-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-    @media(min-width: 680px) { .videos-grid { grid-template-columns: repeat(2, 1fr); } }
+    .videos-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media(min-width: 680px) { .videos-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
     .video-ret-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 14px;
+      border-radius: 16px;
+      padding: 12px;
       display: flex;
-      gap: 14px;
+      gap: 12px;
     }
-    .v-preview { width: 88px; height: 126px; border-radius: 12px; overflow: hidden; background: #000; flex-shrink: 0; position: relative; }
+    .v-preview { width: 80px; height: 118px; border-radius: 12px; overflow: hidden; background: #000; flex-shrink: 0; position: relative; }
     .v-preview video { width: 100%; height: 100%; object-fit: cover; }
     .v-type-pill { position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.78); color: #fff; }
     .v-stats { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
-    .ret-box { background: var(--elevated); border-radius: 12px; padding: 10px; margin-top: 8px; }
-    .ret-top { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; margin-bottom: 6px; }
+    .ret-box { background: var(--elevated); border-radius: 12px; padding: 9px; margin-top: 8px; }
+    .ret-top { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
     .ret-bar { height: 7px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
     .ret-bar-fill { height: 100%; border-radius: 99px; }
-    .ret-numbers { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 7px; }
+    .ret-numbers { display: flex; justify-content: space-between; gap: 4px; flex-wrap: wrap; font-size: 10.5px; color: var(--muted); margin-top: 7px; }
 
     /* Fotos */
-    .photos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    @media(min-width: 680px) { .photos-grid { grid-template-columns: repeat(4, 1fr); } }
+    .photos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media(min-width: 520px) { .photos-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media(min-width: 760px) { .photos-grid { grid-template-columns: repeat(4, 1fr); } }
     .photo-tile { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: #000; }
     .photo-tile img { width: 100%; height: 100%; object-fit: cover; }
     .photo-del { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.2); color: #fda4af; font-weight: 800; cursor: pointer; }
 
     .btn-save {
       width: 100%;
-      padding: 14px;
+      padding: 13px;
       border: none;
       border-radius: 14px;
       background: linear-gradient(135deg, var(--pink), var(--purple));
       color: #fff;
       font-family: inherit;
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
       cursor: pointer;
       margin-top: 12px;
       box-shadow: 0 10px 25px rgba(225, 29, 72, 0.3);
     }
-    .btn-del-mini { background: rgba(225, 29, 72, 0.14); border: 1px solid rgba(225, 29, 72, 0.3); color: #fda4af; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .btn-del-mini { background: rgba(225, 29, 72, 0.14); border: 1px solid rgba(225, 29, 72, 0.3); color: #fda4af; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+
+    /* Toast de Upload */
+    .toast-upload {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      background: rgba(16, 16, 20, 0.96);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(225, 29, 72, 0.45);
+      color: #fafafa;
+      padding: 11px 16px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast-upload.show { display: inline-flex; }
   </style>
 </head>
 <body>
@@ -471,8 +536,8 @@
         </button>
         <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <a href="/minha-conta/editar" class="nav-back">✏️ Editar Perfil</a>
+      <div class="nav-actions">
+        <a href="/minha-conta/editar" class="nav-back">✏️ Editar</a>
         <a id="navVerVipBtn" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="nav-back">👁️ Ver VIP</a>
       </div>
     </div>
@@ -484,16 +549,16 @@
       <div class="vip-cover">
         <img id="heroCoverImg" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80" alt="Capa VIP" />
         <button type="button" class="btn-change-cover" onclick="document.getElementById('coverInput').click()">📷 Trocar Capa VIP</button>
-        <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'cover_url')" />
+        <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'cover_url'); this.value='';" />
       </div>
       <div class="vip-hero-body">
         <div class="vip-identity">
           <div class="vip-avatar-box">
             <img id="heroAvatarImg" src="https://placehold.co/200x200/17171e/fff?text=VIP" alt="Avatar VIP" />
             <button type="button" class="vip-cam-btn" onclick="document.getElementById('avatarInput').click()">📷</button>
-            <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'avatar_url')" />
+            <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="atualizarImagemPerfil(this.files[0], 'avatar_url'); this.value='';" />
           </div>
-          <div>
+          <div style="min-width:0;">
             <span class="vip-badge-tag">✨ CRIADORA CLUBE VIP</span>
             <h1 class="vip-name" id="heroStageName">Carregando...</h1>
             <p class="vip-sub" id="heroBioPreview">Gerencie planos, bio, mídias e retenção</p>
@@ -622,13 +687,13 @@
           <div class="live-preview-shell">
             <div class="lp-topbar">
               <span>📱 Prévia ao Vivo do Assinante</span>
-              <span id="lpBadgeOff" style="background:#10b981;color:#052e16;padding:2px 8px;border-radius:99px;font-size:10px;">OFERTA ATIVA</span>
+              <span id="lpBadgeOff" style="background:#10b981;color:#052e16;padding:2px 8px;border-radius:99px;font-size:10px;white-space:nowrap;">OFERTA ATIVA</span>
             </div>
             <div class="lp-cover">
               <img id="lpCoverImg" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&q=80" alt="" />
             </div>
             <div class="lp-body">
-              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                 <img id="lpAvatarImg" class="lp-avatar" src="https://placehold.co/200x200/17171e/fff?text=VIP" alt="" />
                 <span style="font-size:11px;color:#fda4af;font-weight:700;background:rgba(225,29,72,0.15);padding:4px 10px;border-radius:99px;" id="lpMediaCount">0 vídeos • 0 fotos</span>
               </div>
@@ -665,7 +730,7 @@
         <div class="drop-area" onclick="document.getElementById('vipMediaInput').click()">
           <strong style="font-size:14px;color:#fff;display:block;">🎬 Toque para enviar Vídeo ou Foto</strong>
           <span style="font-size:11.5px;color:var(--muted);">MP4, MOV, JPG ou PNG</span>
-          <input type="file" id="vipMediaInput" accept="image/*,video/*" style="display:none" onchange="subirMidiaVip(this.files[0])" />
+          <input type="file" id="vipMediaInput" accept="image/*,video/*" style="display:none" onchange="subirMidiaVip(this.files[0]); this.value='';" />
         </div>
         <p id="uploadStatus" style="font-size:12px;color:var(--green);font-weight:700;margin-top:10px;"></p>
       </div>
@@ -677,7 +742,7 @@
     <!-- ABA 3: FOTOS -->
     <div id="tab-fotos" class="tab-pane">
       <div class="upload-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
           <div>
             <h3 style="font-size:15px;font-weight:800;">📸 Suas Fotos Publicadas</h3>
             <p style="font-size:12px;color:var(--muted);">Galeria exclusiva VIP e pública</p>
@@ -707,11 +772,37 @@
     </div>
   </main>
 
+  <div id="uploadToast" class="toast-upload" role="status" aria-live="polite"></div>
+
   <script>
     const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
     if (!token) window.location.replace('/minha-conta');
 
     let vipCreatorSlug = '';
+    let toastTimer = null;
+
+    function notificarUpload(texto, tipo = 'info') {
+      const toast = document.getElementById('uploadToast');
+      const inlineSt = document.getElementById('uploadStatus');
+      if (inlineSt) inlineSt.innerText = texto;
+      if (!toast) return;
+
+      toast.innerText = texto;
+      toast.style.borderColor =
+        tipo === 'ok'
+          ? 'rgba(16, 185, 129, 0.55)'
+          : tipo === 'err'
+          ? 'rgba(239, 68, 68, 0.6)'
+          : 'rgba(225, 29, 72, 0.5)';
+      toast.classList.add('show');
+
+      clearTimeout(toastTimer);
+      if (tipo !== 'loading') {
+        toastTimer = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3800);
+      }
+    }
 
     function montarUrlVip(slug) {
       const cleanSlug = String(slug || '').trim();
@@ -962,9 +1053,9 @@
             </div>
             <p style="font-size:13px;color:#e4e4e7;line-height:1.45;margin-bottom:10px;">${m.message_text}</p>
             ${m.creator_reply ? `<div style="background:rgba(16,185,129,0.1);border-left:3px solid #10b981;padding:8px 10px;border-radius:8px;font-size:12px;color:#a7f3d0;margin-bottom:10px;"><strong>Sua resposta:</strong> ${m.creator_reply}</div>` : ''}
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="replyInput-${m.id}" placeholder="Escreva uma resposta..." value="${(m.creator_reply || '').replace(/"/g, '&quot;')}" style="flex:1;" />
-              <button type="button" onclick="responderMensagemVip(${m.id})" style="background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;border:none;padding:0 14px;border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="text" id="replyInput-${m.id}" placeholder="Escreva uma resposta..." value="${(m.creator_reply || '').replace(/"/g, '&quot;')}" style="flex:1;min-width:180px;" />
+              <button type="button" onclick="responderMensagemVip(${m.id})" style="background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;border:none;padding:10px 14px;border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
                 Responder
               </button>
             </div>
@@ -986,46 +1077,89 @@
 
     async function atualizarImagemPerfil(file, fieldName) {
       if (!file) return;
-      const st = document.getElementById('uploadStatus');
-      st.innerText = 'Atualizando imagem...';
-      const base64Data = await fileToBase64(file);
-      const up = await fetch('/api/creator/upload-direct', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public', base64Data })
-      }).then(r => r.json());
-      if (up.ok) {
-        await fetch('/api/portal/me', {
+      const ehCapa = fieldName === 'cover_url';
+      notificarUpload(
+        ehCapa ? '⏳ Fazendo upload da sua capa / fundo...' : '⏳ Fazendo upload da sua foto de perfil...',
+        'loading'
+      );
+
+      try {
+        const base64Data = await fileToBase64(file);
+        const upRes = await fetch('/api/creator/upload-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public', base64Data })
+        });
+        const up = await upRes.json();
+
+        if (!upRes.ok || !up.ok) {
+          return notificarUpload('❌ ' + (up.error || 'Falha ao enviar imagem'), 'err');
+        }
+
+        const saveRes = await fetch('/api/portal/me', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
           body: JSON.stringify({ [fieldName]: up.publicUrl })
         });
-        st.innerText = '✅ Imagem atualizada!';
+
+        if (!saveRes.ok) {
+          return notificarUpload('❌ Erro ao salvar imagem no perfil', 'err');
+        }
+
+        if (ehCapa) {
+          document.getElementById('heroCoverImg').src = up.publicUrl;
+          document.getElementById('lpCoverImg').src = up.publicUrl;
+          notificarUpload('✅ Capa / fundo atualizado com sucesso!', 'ok');
+        } else {
+          document.getElementById('heroAvatarImg').src = up.publicUrl;
+          document.getElementById('lpAvatarImg').src = up.publicUrl;
+          notificarUpload('✅ Foto de perfil atualizada com sucesso!', 'ok');
+        }
         carregarStudioVip();
+      } catch {
+        notificarUpload('❌ Erro de conexão durante o upload', 'err');
       }
     }
 
     async function subirMidiaVip(file) {
       if (!file) return;
-      const st = document.getElementById('uploadStatus');
+      const isVideo = String(file.type || '').startsWith('video/');
       const visibility = document.getElementById('mediaVisibility').value;
       const caption = document.getElementById('mediaCaption').value.trim();
-      st.innerText = '⏳ Enviando arquivo...';
-      const base64Data = await fileToBase64(file);
-      const up = await fetch('/api/creator/upload-direct', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility, base64Data })
-      }).then(r => r.json());
-      if (!up.ok) { st.innerText = ''; return alert(up.error || 'Erro ao enviar'); }
-      await fetch('/api/creator/media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ mediaType: up.mediaType, visibility, r2Key: up.r2Key, publicUrl: up.publicUrl, caption })
-      });
-      document.getElementById('mediaCaption').value = '';
-      st.innerText = '✅ Publicado com sucesso!';
-      carregarStudioVip();
+
+      notificarUpload(
+        isVideo ? '⏳ Fazendo upload do seu vídeo...' : '⏳ Fazendo upload da sua foto...',
+        'loading'
+      );
+
+      try {
+        const base64Data = await fileToBase64(file);
+        const upRes = await fetch('/api/creator/upload-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility, base64Data })
+        });
+        const up = await upRes.json();
+
+        if (!upRes.ok || !up.ok) {
+          return notificarUpload('❌ ' + (up.error || 'Erro ao enviar arquivo'), 'err');
+        }
+
+        await fetch('/api/creator/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ mediaType: up.mediaType, visibility, r2Key: up.r2Key, publicUrl: up.publicUrl, caption })
+        });
+
+        document.getElementById('mediaCaption').value = '';
+        notificarUpload(
+          isVideo ? '✅ Vídeo publicado com sucesso!' : '✅ Foto publicada com sucesso!',
+          'ok'
+        );
+        carregarStudioVip();
+      } catch {
+        notificarUpload('❌ Erro ao publicar mídia', 'err');
+      }
     }
 
     async function salvarConfigVip() {
@@ -1046,8 +1180,10 @@
         })
       });
       if (res.ok) {
-        alert('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!');
+        notificarUpload('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!', 'ok');
         carregarStudioVip();
+      } else {
+        notificarUpload('❌ Erro ao salvar configurações VIP', 'err');
       }
     }
 
