@@ -509,15 +509,16 @@
       <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;">✕</button>
     </div>
 
-    <a href="/minha-conta/editar" class="drawer-link primary-cta">✏️ Voltar para Editar Perfil</a>
+    <a href="/vip-mensagens" class="drawer-link primary-cta">💬 Página de Mensagens VIP</a>
 
     <div class="drawer-label">Fluxo do Painel</div>
     <button type="button" onclick="switchTab('tab-config', document.querySelectorAll('.stab')[0]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">⚙️ Planos, Bio & Prévia</button>
     <button type="button" onclick="switchTab('tab-videos', document.querySelectorAll('.stab')[1]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">🎬 Vídeos & Retenção</button>
     <button type="button" onclick="switchTab('tab-fotos', document.querySelectorAll('.stab')[2]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">📸 Fotos VIP & Galeria</button>
-    <button type="button" onclick="switchTab('tab-mensagens', document.querySelectorAll('.stab')[3]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">💬 Mensagens VIP</button>
+    <button type="button" onclick="switchTab('tab-mensagens', document.querySelectorAll('.stab')[3]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">💬 Mensagens (Aba)</button>
 
     <div class="drawer-label">Visualizar & Métricas</div>
+    <a href="/minha-conta/editar" class="drawer-link">✏️ Voltar para Editar Perfil</a>
     <a id="drawerVerVipLink" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="drawer-link">👁️ Ver Página VIP ao Vivo</a>
     <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
     <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
@@ -537,7 +538,7 @@
         <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
       </div>
       <div class="nav-actions">
-        <a href="/minha-conta/editar" class="nav-back">✏️ Editar</a>
+        <a href="/vip-mensagens" class="nav-back">💬 Mensagens</a>
         <a id="navVerVipBtn" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="nav-back">👁️ Ver VIP</a>
       </div>
     </div>
@@ -761,9 +762,12 @@
             <h3 style="font-size:15px;font-weight:800;">💬 Mensagens dos Assinantes VIP</h3>
             <p style="font-size:12px;color:var(--muted);">Acompanhe quem mandou mensagem no seu Clube VIP e responda direto pelo painel</p>
           </div>
-          <button type="button" onclick="carregarMensagensVip()" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
-            🔄 Atualizar
-          </button>
+          <div style="display:flex;gap:8px;">
+            <a href="/vip-mensagens" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;">Abrir Página Completa</a>
+            <button type="button" onclick="carregarMensagensVip()" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
+              🔄 Atualizar
+            </button>
+          </div>
         </div>
         <div id="vipMessagesList" style="display:flex;flex-direction:column;gap:12px;">
           <p style="font-size:13px;color:var(--muted);">Carregando mensagens...</p>
@@ -780,6 +784,14 @@
 
     let vipCreatorSlug = '';
     let toastTimer = null;
+    let cachedCoverUrl = '';
+    let cachedAvatarUrl = '';
+
+    function withCacheBust(url) {
+      if (!url) return '';
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}v=${Date.now()}`;
+    }
 
     function notificarUpload(texto, tipo = 'info') {
       const toast = document.getElementById('uploadToast');
@@ -933,15 +945,20 @@
         document.getElementById('vipNameInput').value = creator.stage_name || '';
         document.getElementById('vipBioInput').value = creator.bio || '';
 
-        if (creator.avatar_url) {
-          document.getElementById('heroAvatarImg').src = creator.avatar_url;
-          document.getElementById('lpAvatarImg').src = creator.avatar_url;
+        const avatarFinal = cachedAvatarUrl || creator.avatar_url || '';
+        if (avatarFinal) {
+          const bustedAvatar = withCacheBust(avatarFinal);
+          document.getElementById('heroAvatarImg').src = bustedAvatar;
+          document.getElementById('lpAvatarImg').src = bustedAvatar;
         }
-        if (creator.cover_url || creator.avatar_url) {
-          const cUrl = creator.cover_url || creator.avatar_url;
-          document.getElementById('heroCoverImg').src = cUrl;
-          document.getElementById('lpCoverImg').src = cUrl;
+
+        const coverFinal = cachedCoverUrl || creator.cover_url || creator.avatar_url || '';
+        if (coverFinal) {
+          const bustedCover = withCacheBust(coverFinal);
+          document.getElementById('heroCoverImg').src = bustedCover;
+          document.getElementById('lpCoverImg').src = bustedCover;
         }
+
         if (creator.slug) {
           aplicarLinksVip(creator.slug);
         }
@@ -984,7 +1001,7 @@
             return `
               <article class="video-ret-card">
                 <div class="v-preview">
-                  <video src="${v.public_url}#t=0.5" muted playsinline preload="metadata"></video>
+                  <video src="${withCacheBust(v.public_url)}#t=0.5" muted playsinline preload="metadata"></video>
                   <span class="v-type-pill">▶ VÍDEO</span>
                 </div>
                 <div class="v-stats">
@@ -1012,7 +1029,7 @@
         ? '<p style="font-size:12.5px;color:var(--muted);grid-column:1/-1;">Nenhuma foto enviada ainda.</p>'
         : photos.map(p => `
             <div class="photo-tile">
-              <img src="${p.public_url}" loading="lazy" />
+              <img src="${withCacheBust(p.public_url)}" loading="lazy" />
               <span style="position:absolute;bottom:8px;left:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,0.75);color:#fff;">${p.visibility === 'subscriber' ? '🔒 VIP' : '🌐 Público'}</span>
               <button type="button" class="photo-del" onclick="removerMidia(${p.id})">✕</button>
             </div>`).join('');
@@ -1092,7 +1109,7 @@
         });
         const up = await upRes.json();
 
-        if (!upRes.ok || !up.ok) {
+        if (!upRes.ok || !up.ok || !up.publicUrl) {
           return notificarUpload('❌ ' + (up.error || 'Falha ao enviar imagem'), 'err');
         }
 
@@ -1106,16 +1123,19 @@
           return notificarUpload('❌ Erro ao salvar imagem no perfil', 'err');
         }
 
+        const bustedUrl = withCacheBust(up.publicUrl);
         if (ehCapa) {
-          document.getElementById('heroCoverImg').src = up.publicUrl;
-          document.getElementById('lpCoverImg').src = up.publicUrl;
-          notificarUpload('✅ Capa / fundo atualizado com sucesso!', 'ok');
+          cachedCoverUrl = up.publicUrl;
+          document.getElementById('heroCoverImg').src = bustedUrl;
+          document.getElementById('lpCoverImg').src = bustedUrl;
+          notificarUpload('✅ Capa / fundo atualizado e salvo!', 'ok');
         } else {
-          document.getElementById('heroAvatarImg').src = up.publicUrl;
-          document.getElementById('lpAvatarImg').src = up.publicUrl;
-          notificarUpload('✅ Foto de perfil atualizada com sucesso!', 'ok');
+          cachedAvatarUrl = up.publicUrl;
+          document.getElementById('heroAvatarImg').src = bustedUrl;
+          document.getElementById('lpAvatarImg').src = bustedUrl;
+          notificarUpload('✅ Foto de perfil atualizada e salva!', 'ok');
         }
-        carregarStudioVip();
+        await carregarStudioVip();
       } catch {
         notificarUpload('❌ Erro de conexão durante o upload', 'err');
       }
@@ -1156,7 +1176,7 @@
           isVideo ? '✅ Vídeo publicado com sucesso!' : '✅ Foto publicada com sucesso!',
           'ok'
         );
-        carregarStudioVip();
+        await carregarStudioVip();
       } catch {
         notificarUpload('❌ Erro ao publicar mídia', 'err');
       }
@@ -1168,20 +1188,24 @@
       const vipPlansMap = {};
       plans.forEach(p => { vipPlansMap[p.key] = { label: p.label, de: p.de, por: p.por }; });
 
+      const payload = {
+        stage_name: document.getElementById('vipNameInput').value.trim() || undefined,
+        vip_monthly_price: m1.por,
+        vip_anchor_price: m1.de,
+        vip_plans: vipPlansMap,
+        bio: document.getElementById('vipBioInput').value.trim(),
+      };
+      if (cachedCoverUrl) payload.cover_url = cachedCoverUrl;
+      if (cachedAvatarUrl) payload.avatar_url = cachedAvatarUrl;
+
       const res = await fetch('/api/portal/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          stage_name: document.getElementById('vipNameInput').value.trim() || undefined,
-          vip_monthly_price: m1.por,
-          vip_anchor_price: m1.de,
-          vip_plans: vipPlansMap,
-          bio: document.getElementById('vipBioInput').value.trim(),
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         notificarUpload('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!', 'ok');
-        carregarStudioVip();
+        await carregarStudioVip();
       } else {
         notificarUpload('❌ Erro ao salvar configurações VIP', 'err');
       }
@@ -1190,7 +1214,7 @@
     async function removerMidia(id) {
       if (!confirm('Remover este conteúdo?')) return;
       await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
-      carregarStudioVip();
+      await carregarStudioVip();
     }
 
     carregarStudioVip();

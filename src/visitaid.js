@@ -171,7 +171,13 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 2C. Mensagens dos Assinantes VIP (somente assinantes ativos podem enviar)
+  // 2C. Página dedicada e rotas de Mensagens dos Assinantes VIP
+  app.get('/vip-mensagens', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'vip-mensagens.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
   app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
     try {
       const {
