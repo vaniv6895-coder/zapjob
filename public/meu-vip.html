@@ -69,6 +69,44 @@
       font-weight: 800;
       cursor: pointer;
     }
+    .nick-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .nick-input {
+      flex: 1 1 180px;
+      min-width: 0;
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 11px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13.5px;
+      outline: none;
+    }
+    .nick-input:focus { border-color: #ec4899; }
+    .btn-save-nick {
+      background: linear-gradient(135deg, #e11d48, #9333ea);
+      color: #fff;
+      border: none;
+      border-radius: 11px;
+      padding: 10px 15px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-save-nick:disabled { opacity: 0.6; cursor: not-allowed; }
+    .nick-feedback {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 16px;
+      font-weight: 600;
+    }
     .sub-item {
       display: flex;
       justify-content: space-between;
@@ -109,7 +147,7 @@
   <header class="topbar">
     <a href="/vitrine">← Vitrine</a>
     <strong style="font-size:14.5px;letter-spacing:0.5px;">💎 MEU CLUBE <span style="color:#ec4899;">VIP</span></strong>
-    <span style="font-size:11px;color:#94a3b8;font-weight:700;">Painel do Fã</span>
+    <a href="/cliente">Conta</a>
   </header>
 
   <main class="container">
@@ -117,7 +155,7 @@
       <div style="font-size:11px;font-weight:800;color:#f472b6;text-transform:uppercase;letter-spacing:0.05em;">
         IDENTIFICAÇÃO DO COMPRADOR
       </div>
-      <h1 style="font-size:19px;font-weight:900;margin-top:4px;">Seu ID de Fã VIP</h1>
+      <h1 id="fanGreeting" style="font-size:19px;font-weight:900;margin-top:4px;">Seu ID de Fã VIP</h1>
       <p style="font-size:12px;color:#cbd5e1;margin-top:4px;line-height:1.45;">
         Seu acesso fica vinculado a este aparelho e seu ID identifica suas assinaturas e desbloqueios.
       </p>
@@ -129,6 +167,23 @@
         </div>
         <button type="button" class="btn-copy" onclick="copiarFanId()">Copiar ID</button>
       </div>
+    </section>
+
+    <section class="card" id="nicknameCard">
+      <h2 style="font-size:15px;font-weight:800;margin-bottom:4px;">✏️ Como você quer ser chamado?</h2>
+      <p style="font-size:12px;color:#94a3b8;">Escolha ou atualize o nome/apelido exibido no seu perfil de fã</p>
+      <form class="nick-form" onsubmit="salvarApelidoPainel(event)">
+        <input
+          type="text"
+          id="panelNicknameInput"
+          class="nick-input"
+          maxlength="60"
+          required
+          placeholder="Ex: João, Marcos, Rei VIP..."
+        />
+        <button type="submit" id="btnSavePanelNick" class="btn-save-nick">Salvar Apelido</button>
+      </form>
+      <p id="nickFeedback" class="nick-feedback" style="color:#94a3b8;"></p>
     </section>
 
     <section class="card">
@@ -150,6 +205,59 @@
 
   <script src="/device-id.js"></script>
   <script>
+    let activeFanCode = '';
+
+    function readSavedFan() {
+      try {
+        const raw = localStorage.getItem('vip_fan_profile');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeSavedFan(fan) {
+      try {
+        localStorage.setItem('vip_fan_profile', JSON.stringify(fan));
+      } catch {}
+    }
+
+    function applyFanIdentityToUI(fan, fallbackCode) {
+      const code = (fan && fan.fan_code) || fallbackCode || 'FAN-VIP';
+      activeFanCode = code;
+      document.getElementById('fanCodeDisplay').innerText = code;
+
+      const nick = (fan && (fan.nickname || fan.full_name)) || '';
+      const input = document.getElementById('panelNicknameInput');
+      if (input && nick && !input.value) {
+        input.value = nick;
+      }
+
+      const greeting = document.getElementById('fanGreeting');
+      if (greeting) {
+        greeting.innerText = nick ? `Olá, ${nick} • Seu ID de Fã VIP` : 'Seu ID de Fã VIP';
+      }
+    }
+
+    function consumeUrlFanAuth() {
+      const params = new URLSearchParams(window.location.search);
+      const fanAuth = params.get('fan_auth');
+      if (!fanAuth) return null;
+      try {
+        const json = atob(fanAuth.replace(/-/g, '+').replace(/_/g, '/'));
+        const parsed = JSON.parse(json);
+        if (parsed && parsed.fan_code) {
+          writeSavedFan(parsed);
+          params.delete('fan_auth');
+          const qs = params.toString();
+          const cleanUrl = window.location.pathname + (qs ? '?' + qs : '');
+          window.history.replaceState({}, '', cleanUrl);
+          return parsed;
+        }
+      } catch {}
+      return null;
+    }
+
     function copiarFanId() {
       const code = document.getElementById('fanCodeDisplay')?.innerText || '';
       if (!code || code === 'Carregando...') return;
@@ -157,7 +265,72 @@
       alert('ID de Fã copiado: ' + code);
     }
 
+    async function salvarApelidoPainel(e) {
+      e.preventDefault();
+      const input = document.getElementById('panelNicknameInput');
+      const btn = document.getElementById('btnSavePanelNick');
+      const fb = document.getElementById('nickFeedback');
+      const nick = String(input?.value || '').trim();
+
+      if (!nick) {
+        fb.style.color = '#fb7185';
+        fb.innerText = 'Digite como você quer ser chamado.';
+        return;
+      }
+
+      const codeToSave = activeFanCode || document.getElementById('fanCodeDisplay')?.innerText || '';
+      if (!codeToSave || codeToSave === 'Carregando...') {
+        fb.style.color = '#fb7185';
+        fb.innerText = 'Aguarde o carregamento do seu ID de Fã.';
+        return;
+      }
+
+      btn.disabled = true;
+      fb.style.color = '#94a3b8';
+      fb.innerText = 'Salvando apelido...';
+
+      try {
+        const res = await fetch('/api/vip/fan-nickname', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fanCode: codeToSave, nickname: nick })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        const current = readSavedFan() || { fan_code: codeToSave };
+        const updatedFan = res.ok && data.fan
+          ? data.fan
+          : { ...current, fan_code: codeToSave, nickname: nick, full_name: nick };
+
+        writeSavedFan(updatedFan);
+        applyFanIdentityToUI(updatedFan, codeToSave);
+
+        if (res.ok && data.ok) {
+          fb.style.color = '#34d399';
+          fb.innerText = 'Apelido salvo com sucesso!';
+        } else {
+          fb.style.color = '#fbbf24';
+          fb.innerText = data.error || 'Salvo neste aparelho.';
+        }
+      } catch {
+        const current = readSavedFan() || { fan_code: codeToSave };
+        const fallbackFan = { ...current, fan_code: codeToSave, nickname: nick, full_name: nick };
+        writeSavedFan(fallbackFan);
+        applyFanIdentityToUI(fallbackFan, codeToSave);
+        fb.style.color = '#fbbf24';
+        fb.innerText = 'Sem conexão com o servidor; apelido salvo neste aparelho.';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
     async function carregarPainelCliente() {
+      const fromUrl = consumeUrlFanAuth();
+      const savedFan = fromUrl || readSavedFan();
+      if (savedFan) {
+        applyFanIdentityToUI(savedFan);
+      }
+
       let deviceHash = '';
       if (typeof window.getDeviceHash === 'function') {
         deviceHash = await window.getDeviceHash();
@@ -168,14 +341,14 @@
 
       const res = await fetch('/api/vip/fan-panel?deviceHash=' + encodeURIComponent(deviceHash));
       if (!res.ok) {
-        document.getElementById('fanCodeDisplay').innerText = 'FAN-VIP';
+        applyFanIdentityToUI(savedFan, savedFan?.fan_code || 'FAN-VIP');
         document.getElementById('fanSubsList').innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Nenhuma assinatura encontrada ainda.</p>';
         document.getElementById('fanUnlocksList').innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Nenhum conteúdo avulso encontrado.</p>';
         return;
       }
 
       const data = await res.json();
-      document.getElementById('fanCodeDisplay').innerText = data.fanCode || 'FAN-VIP';
+      applyFanIdentityToUI(savedFan, data.fanCode || 'FAN-VIP');
 
       const subs = data.subscriptions || [];
       const subsBox = document.getElementById('fanSubsList');
