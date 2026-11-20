@@ -30,13 +30,94 @@
     }
     .wrap { max-width: 620px; margin: 0 auto; padding-bottom: 64px; }
 
+    /* Menu Hambúrguer & Drawer Lateral */
+    .hamburger-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.15s;
+    }
+    .hamburger-btn:hover { border-color: #334155; background: #172033; }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 9990;
+      display: none;
+    }
+    .drawer-backdrop.open { display: block; }
+    .side-drawer {
+      position: fixed;
+      top: 0;
+      left: -300px;
+      width: 285px;
+      height: 100dvh;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      z-index: 9995;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
+    }
+    .side-drawer.open { left: 0; }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .drawer-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 10px 0 8px;
+    }
+    .drawer-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      transition: 0.15s;
+    }
+    .drawer-link:hover { border-color: var(--accent); color: #fff; }
+    .drawer-link.primary-cta {
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      border: none;
+      color: #fff;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(236, 72, 153, 0.28);
+    }
+
     /* Top Bar */
     .top-nav {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px; padding: 8px 4px;
+      margin-bottom: 20px; padding: 8px 4px; gap: 10px;
     }
+    .top-nav-left { display: flex; align-items: center; gap: 10px; }
     .brand {
-      font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+      font-size: 19px; font-weight: 800; letter-spacing: -0.5px;
       background: linear-gradient(135deg, #f472b6, #a78bfa);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       text-decoration: none; display: flex; align-items: center; gap: 6px;
@@ -261,6 +342,27 @@
   </script>
 </head>
 <body>
+  <!-- Menu Lateral Hambúrguer -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
+  <aside id="sideDrawer" class="side-drawer">
+    <div class="drawer-header">
+      <div class="brand">💎 GAROTA VIP</div>
+      <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <a href="/vip-studio" class="drawer-link primary-cta">💎 Clube VIP Studio</a>
+
+    <div class="drawer-label">Painel & Perfil</div>
+    <a href="/minha-conta/editar" class="drawer-link">✏️ Editar Perfil Completo</a>
+    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
+    <a id="drawer-vip-public-link" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Clube VIP Público ↗</a>
+    <a id="drawer-profile-public-link" href="/vitrine" target="_blank" class="drawer-link">👤 Ver Perfil Público ↗</a>
+
+    <div class="drawer-label">Explorar Plataforma</div>
+    <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
+    <a href="/reels" class="drawer-link">▶ VIP Reels</a>
+  </aside>
+
   <div class="wrap">
 
     <!-- Tela de Bloqueio Biométrico (2º Fator após Gmail/Login) -->
@@ -275,11 +377,15 @@
     </div>
 
     <div class="top-nav">
-      <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <a href="/vip-studio" class="quick-ext-link primary">💎 Clube VIP Studio</a>
-        <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
+      <div class="top-nav-left">
+        <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Abrir menu de navegação">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
       </div>
+      <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
     </div>
 
     <!-- Tela de Login / Cadastro (Entrada Principal via Google) -->
@@ -353,8 +459,6 @@
       <div id="tab-perfil" class="studio-section">
         <div class="mode-switcher">
           <a href="/minha-conta/editar" class="quick-ext-link primary">✏️ Editar Perfil Completo</a>
-          <a href="/vip-studio" class="quick-ext-link">💎 VIP Studio</a>
-          <a id="vip-club-link" href="#" target="_blank" class="quick-ext-link">🔥 Clube VIP ↗</a>
           <a id="profile-link" href="#" target="_blank" class="quick-ext-link">Ver Perfil ↗</a>
         </div>
 
@@ -445,10 +549,7 @@
         <div class="card">
           <div class="card-header">
             <h3>💸 Ganhos no Clube VIP</h3>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
-              <a href="/vip-studio" class="quick-ext-link primary">💎 Abrir VIP Studio</a>
-            </div>
+            <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
           </div>
           <div class="earn-split">
             <div class="earn-pill">
@@ -533,6 +634,11 @@
   <script>
     let token = sessionStorage.getItem('portal_token') || '';
     let currentStateUF = 'MT';
+
+    function toggleDrawer() {
+      document.getElementById('sideDrawer').classList.toggle('open');
+      document.getElementById('drawerBackdrop').classList.toggle('open');
+    }
 
     async function initGoogleLogin() {
       try {
@@ -662,7 +768,8 @@
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
       document.getElementById('profile-link').href = '/acompanhante/' + creator.slug;
-      document.getElementById('vip-club-link').href = '/vip/' + creator.slug;
+      document.getElementById('drawer-vip-public-link').href = '/vip/' + creator.slug;
+      document.getElementById('drawer-profile-public-link').href = '/acompanhante/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
         ? '✅ Ativo | ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação';
