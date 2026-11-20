@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Área do Cliente VIP — Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #121216;
+      --elevated: #18181f;
+      --input: #0d0d11;
+      --border: rgba(255, 255, 255, 0.09);
+      --accent: #e11d48;
+      --accent-2: #9333ea;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --green: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100vh;
+      max-width: 100%;
+      overflow-x: hidden;
+      background: radial-gradient(circle at top, #1b0c22 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .topbar {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(12px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .topbar a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .topbar a:hover { color: #fff; }
+    .brand { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+    .brand span {
+      background: linear-gradient(135deg, #fb7185, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .wrap {
+      max-width: 430px;
+      margin: 34px auto;
+      padding: 0 16px 48px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 26px 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(225, 29, 72, 0.14);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      color: #fda4af;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 11px;
+      border-radius: 99px;
+      margin-bottom: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .tab-btn.active {
+      background: var(--elevated);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .btn-google {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: var(--elevated);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      transition: border-color 0.15s;
+    }
+    .btn-google:hover { border-color: rgba(255, 255, 255, 0.32); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      font-size: 11.5px;
+      color: #71717a;
+      font-weight: 600;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #d4d4d8;
+      margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%;
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    .field input:focus { border-color: var(--accent); }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 6px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(225, 29, 72, 0.3);
+    }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error-msg {
+      margin-top: 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #fb7185;
+      text-align: center;
+    }
+
+    .id-box {
+      background: rgba(225, 29, 72, 0.12);
+      border: 1px solid rgba(225, 29, 72, 0.45);
+      border-radius: 16px;
+      padding: 18px 14px;
+      text-align: center;
+      margin: 14px 0 18px;
+    }
+    .id-box span {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fda4af;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .id-box strong {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a href="/vitrine">← Voltar para Vitrine</a>
+    <div class="brand">GAROTA <span>VIP</span></div>
+    <a href="/meu-vip">Painel Fã</a>
+  </header>
+
+  <main class="wrap">
+    <!-- ETAPA 1: CRIAR CONTA OU ENTRAR -->
+    <section class="card" id="stepAuth">
+      <span class="badge">💎 CONTA EXCLUSIVA DO ASSINANTE</span>
+      <h1 id="pageTitle">Criar Conta de Cliente</h1>
+      <p class="sub" id="pageSub">
+        Crie sua conta para gerar seu ID exclusivo, assinar conteúdos VIP e acessar tudo quando quiser.
+      </p>
+
+      <div class="tabs">
+        <button type="button" id="tabRegister" class="tab-btn active" onclick="setAuthMode('register')">Criar Conta</button>
+        <button type="button" id="tabLogin" class="tab-btn" onclick="setAuthMode('login')">Já Tenho Conta</button>
+      </div>
+
+      <button type="button" class="btn-google" onclick="entrarComGoogle()">
+        <strong style="color:#fb7185;font-size:15px;">G</strong> Continuar com Google
+      </button>
+
+      <div class="divider">ou com e-mail / WhatsApp</div>
+
+      <form onsubmit="enviarFormularioCliente(event)">
+        <div class="field">
+          <label for="contactInput">E-mail ou WhatsApp (com DDD)</label>
+          <input type="text" id="contactInput" required placeholder="Ex: joao@email.com ou 65999999999" />
+        </div>
+        <div class="field">
+          <label for="passInput">Senha de acesso</label>
+          <input type="password" id="passInput" required minlength="4" placeholder="Mínimo 4 dígitos" />
+        </div>
+        <button type="submit" id="btnAuthSubmit" class="btn-submit">Criar Minha Conta VIP →</button>
+      </form>
+
+      <p id="authError" class="error-msg"></p>
+    </section>
+
+    <!-- ETAPA 2: EXIBE ID EXCLUSIVO E PERGUNTA COMO QUER SER CHAMADO -->
+    <section class="card" id="stepNickname" style="display:none;">
+      <span class="badge" style="background:rgba(16,185,129,0.14);border-color:rgba(16,185,129,0.4);color:#34d399;">
+        ✓ CONTA ATIVADA
+      </span>
+      <h1>Seu ID Exclusivo VIP</h1>
+      <p class="sub">
+        Este código identifica suas assinaturas e conteúdos desbloqueados na plataforma.
+      </p>
+
+      <div class="id-box">
+        <span>SEU CÓDIGO DE ASSINANTE</span>
+        <strong id="createdFanCode">FAN-000000</strong>
+      </div>
+
+      <form onsubmit="salvarApelidoCliente(event)">
+        <div class="field">
+          <label for="nicknameInput">Como você quer ser chamado?</label>
+          <input type="text" id="nicknameInput" required placeholder="Ex: João, Marcos, Rei VIP..." />
+        </div>
+        <button type="submit" id="btnSaveNick" class="btn-submit">Ir para Meu Painel VIP →</button>
+      </form>
+      <p id="nickError" class="error-msg"></p>
+    </section>
+  </main>
+
+  <script src="/device-id.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo') || '/meu-vip';
+    let authMode = 'register';
+    let currentFan = null;
+
+    function getSavedFan() {
+      try {
+        const raw = localStorage.getItem('vip_fan_profile');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveFan(fan) {
+      currentFan = fan;
+      localStorage.setItem('vip_fan_profile', JSON.stringify(fan));
+    }
+
+    // Se já tem conta completa (com apelido), vai direto para o painel do fã
+    (function initPage() {
+      const fanAuth = params.get('fan_auth');
+      if (fanAuth) {
+        try {
+          const json = atob(fanAuth.replace(/-/g, '+').replace(/_/g, '/'));
+          const fan = JSON.parse(json);
+          if (fan && fan.fan_code) {
+            saveFan(fan);
+            if (fan.nickname) {
+              window.location.replace(returnTo);
+              return;
+            }
+            mostrarEtapaApelido(fan);
+            return;
+          }
+        } catch {}
+      }
+
+      if (params.get('google_setup') === '1') {
+        document.getElementById('authError').innerText = 'Login Google ainda não ativado no servidor. Crie sua conta abaixo com e-mail ou WhatsApp.';
+      }
+
+      const existing = getSavedFan();
+      if (existing && existing.fan_code && existing.nickname) {
+        window.location.replace(returnTo);
+      } else if (existing && existing.fan_code) {
+        mostrarEtapaApelido(existing);
+      }
+    })();
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+      document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+      document.getElementById('pageTitle').innerText = mode === 'register' ? 'Criar Conta de Cliente' : 'Entrar na Conta VIP';
+      document.getElementById('btnAuthSubmit').innerText = mode === 'register' ? 'Criar Minha Conta VIP →' : 'Entrar no Meu Painel →';
+      document.getElementById('authError').innerText = '';
+    }
+
+    function entrarComGoogle() {
+      const target = encodeURIComponent('/cliente?returnTo=' + encodeURIComponent(returnTo));
+      window.location.href = `/api/auth/google/fan?returnTo=${target}`;
+    }
+
+    function mostrarEtapaApelido(fan) {
+      document.getElementById('stepAuth').style.display = 'none';
+      document.getElementById('stepNickname').style.display = 'block';
+      document.getElementById('createdFanCode').innerText = fan.fan_code || 'FAN-VIP';
+      document.getElementById('nicknameInput').value = fan.nickname || fan.full_name || '';
+    }
+
+    async function enviarFormularioCliente(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('authError');
+      const btn = document.getElementById('btnAuthSubmit');
+      errEl.innerText = '';
+      btn.disabled = true;
+
+      let deviceHash = '';
+      if (typeof window.getDeviceHash === 'function') {
+        deviceHash = await window.getDeviceHash();
+      }
+      if (!deviceHash) deviceHash = localStorage.getItem('vip_device_hash') || '';
+
+      const contact = document.getElementById('contactInput').value.trim();
+      const password = document.getElementById('passInput').value.trim();
+      const endpoint = authMode === 'login' ? '/api/vip/fan-login' : '/api/vip/fan-register';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fullName: contact.split('@')[0] || 'Assinante VIP',
+            contact,
+            password,
+            deviceHash
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          errEl.innerText = data.error || 'Verifique os dados informados.';
+          btn.disabled = false;
+          return;
+        }
+
+        saveFan(data.fan);
+        if (authMode === 'login' && data.fan.nickname) {
+          window.location.replace(returnTo);
+        } else {
+          mostrarEtapaApelido(data.fan);
+        }
+      } catch {
+        errEl.innerText = 'Erro de conexão. Tente novamente.';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function salvarApelidoCliente(e) {
+      e.preventDefault();
+      const nick = document.getElementById('nicknameInput').value.trim();
+      if (!nick || !currentFan) return;
+
+      const btn = document.getElementById('btnSaveNick');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/vip/fan-nickname', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fanCode: currentFan.fan_code, nickname: nick })
+        });
+        const data = await res.json();
+        const updated = (res.ok && data.fan) ? data.fan : { ...currentFan, nickname: nick, full_name: nick };
+        saveFan(updated);
+        window.location.replace(returnTo);
+      } catch {
+        saveFan({ ...currentFan, nickname: nick, full_name: nick });
+        window.location.replace(returnTo);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
