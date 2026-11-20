@@ -3,92 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Creator Analytics — Garota VIP</title>
+  <title>Desempenho & Assinantes — Garota VIP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-outer: #08080a;
-      --bg-sidebar: #0c0c0f;
-      --bg-card: #131317;
-      --bg-elevated: #1a1a20;
-      --border: rgba(255, 255, 255, 0.07);
+      --bg-sidebar: #0d0d10;
+      --bg-card: #121216;
+      --bg-elevated: #18181d;
+      --border: rgba(255, 255, 255, 0.08);
       --border-hover: rgba(255, 107, 0, 0.35);
       --orange: #ff6b00;
       --orange-bright: #ff8533;
       --orange-soft: rgba(255, 107, 0, 0.14);
       --green: #10b981;
+      --red: #e11d48;
       --text-main: #f4f4f6;
       --text-muted: #9ca3af;
       --text-dim: #6b7280;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { max-width: 100%; overflow-x: hidden; }
-    body {
+    html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
       background: var(--bg-outer);
       color: var(--text-main);
-      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-font-smoothing: antialiased;
-      min-height: 100vh;
     }
 
     .shell {
       display: grid;
-      grid-template-columns: 235px 1fr;
+      grid-template-columns: 236px minmax(0, 1fr);
       min-height: 100vh;
-    }
-    @media (max-width: 860px) {
-      .shell { grid-template-columns: 1fr; }
-      .sidebar { display: none; }
+      width: 100%;
     }
 
-    /* Sidebar Esquerda */
+    /* Sidebar Desktop */
     .sidebar {
       background: var(--bg-sidebar);
       border-right: 1px solid var(--border);
-      padding: 22px 16px;
+      padding: 20px 14px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-width: 0;
     }
     .brand-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 4px 8px 20px;
+      padding: 4px 8px 18px;
     }
     .brand-dot {
-      width: 11px;
-      height: 11px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: var(--orange);
-      box-shadow: 0 0 12px var(--orange);
+      box-shadow: 0 0 10px var(--orange);
+      flex-shrink: 0;
     }
     .nav-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 11px 13px;
-      border-radius: 11px;
+      padding: 10px 12px;
+      border-radius: 10px;
       color: var(--text-muted);
       font-size: 13px;
       font-weight: 600;
       text-decoration: none;
-      border: none;
+      border: 1px solid transparent;
       background: none;
       width: 100%;
       text-align: left;
       font-family: inherit;
       cursor: pointer;
       margin-bottom: 4px;
-      transition: 0.15s;
+      transition: background 0.15s, color 0.15s;
     }
-    .nav-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
+    .nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.04); }
     .nav-item.active {
       background: var(--orange-soft);
       color: var(--orange-bright);
-      border: 1px solid rgba(255, 107, 0, 0.28);
+      border-color: rgba(255, 107, 0, 0.28);
     }
 
     .profile-footer {
@@ -97,24 +98,102 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
     }
-    .profile-footer img {
-      width: 36px;
-      height: 36px;
+    .avatar-circle {
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      object-fit: cover;
-      background: #222;
+      background: rgba(255, 107, 0, 0.18);
       border: 1.5px solid var(--orange);
+      color: var(--orange-bright);
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
     }
+    .avatar-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Drawer Mobile */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(4px);
+      z-index: 90;
+      display: none;
+    }
+    .drawer-backdrop.open { display: block; }
+    .mobile-drawer {
+      position: fixed;
+      top: 0;
+      left: -280px;
+      width: 270px;
+      max-width: 82vw;
+      height: 100dvh;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      z-index: 95;
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: left 0.22s ease;
+      overflow-y: auto;
+    }
+    .mobile-drawer.open { left: 0; }
 
     /* Área Principal */
     .main {
-      padding: 24px 24px 56px;
+      padding: 24px 26px 56px;
       max-width: 1120px;
       width: 100%;
+      min-width: 0;
       margin: 0 auto;
     }
-    @media (max-width: 600px) { .main { padding: 16px 12px 48px; } }
+
+    .mobile-topbar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      width: 100%;
+    }
+    .menu-toggle-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: minmax(0, 1fr); }
+      .sidebar { display: none; }
+      .mobile-topbar { display: flex; }
+      .main { padding: 16px 14px 48px; }
+    }
 
     .header-top {
       display: flex;
@@ -123,17 +202,40 @@
       gap: 12px;
       flex-wrap: wrap;
       margin-bottom: 16px;
+      min-width: 0;
     }
-    .header-top h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-    @media (min-width: 640px) { .header-top h1 { font-size: 24px; } }
-    .header-top p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .header-copy { min-width: 0; flex: 1 1 240px; }
+    .header-top h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .header-top p {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.45;
+      overflow-wrap: break-word;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: auto;
+    }
+    @media (max-width: 600px) {
+      .header-actions { width: 100%; }
+      .top-btn { flex: 1 1 auto; justify-content: center; }
+    }
 
     .top-btn {
       background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-main);
       padding: 8px 12px;
-      border-radius: 11px;
+      border-radius: 10px;
       font-family: inherit;
       font-size: 12px;
       font-weight: 600;
@@ -143,6 +245,7 @@
       align-items: center;
       gap: 6px;
       white-space: nowrap;
+      transition: border-color 0.15s;
     }
     .top-btn:hover { border-color: var(--border-hover); }
 
@@ -154,6 +257,7 @@
       margin-bottom: 18px;
       overflow-x: auto;
       scrollbar-width: none;
+      max-width: 100%;
     }
     .tabs-bar::-webkit-scrollbar { display: none; }
     .tab-btn {
@@ -161,12 +265,13 @@
       border: none;
       color: var(--text-muted);
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 600;
-      padding: 10px 2px 12px;
+      padding: 10px 2px 11px;
       cursor: pointer;
       position: relative;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .tab-btn.active { color: #fff; }
     .tab-btn.active::after {
@@ -180,43 +285,61 @@
       border-radius: 99px;
     }
 
-    /* Alerta de Anúncio sem Destaque */
-    #adOfflineAlert {
+    /* Alerta de Destaque */
+    .alert-banner {
       display: none;
-      background: linear-gradient(135deg, rgba(225, 29, 72, 0.18), rgba(249, 115, 22, 0.18));
-      border: 1px solid rgba(225, 29, 72, 0.5);
-      border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 18px;
+      background: rgba(225, 29, 72, 0.1);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      border-radius: 14px;
+      padding: 13px 16px;
+      margin-bottom: 16px;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
       flex-wrap: wrap;
+      min-width: 0;
+    }
+    .alert-banner.show { display: flex; }
+    .alert-copy { min-width: 0; flex: 1 1 220px; }
+    .alert-copy strong { font-size: 13px; color: #fda4af; display: block; }
+    .alert-copy span { font-size: 12px; color: #d4d4d8; display: block; margin-top: 2px; }
+    .btn-alert-cta {
+      background: var(--red);
+      color: #fff;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 14px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
-    /* Grid Superior */
+    /* Grids */
     .grid-2 {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
-    @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+    @media (max-width: 820px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 18px;
+      min-width: 0;
     }
-    @media (min-width: 640px) { .card { padding: 22px; } }
+    @media (max-width: 600px) { .card { padding: 15px; border-radius: 14px; } }
+
     .card-kicker {
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -224,52 +347,60 @@
       flex-wrap: wrap;
     }
 
-    /* Gauge Semicircular Laranja */
+    /* Gauge */
     .gauge-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 8px 0 4px;
+      padding: 6px 0 2px;
     }
-    .gauge-svg { width: 220px; height: 124px; overflow: visible; }
-    .gauge-center {
-      margin-top: -52px;
-      text-align: center;
-    }
+    .gauge-svg { width: 100%; max-width: 210px; height: 116px; overflow: visible; }
+    .gauge-center { margin-top: -48px; text-align: center; }
     .gauge-center strong {
       display: block;
-      font-size: 34px;
+      font-size: 30px;
       font-weight: 800;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.02em;
       color: #fff;
     }
     .gauge-center span {
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--orange-bright);
     }
     .gauge-scale {
-      width: 205px;
+      width: 100%;
+      max-width: 196px;
       display: flex;
       justify-content: space-between;
       font-size: 11px;
       color: var(--text-dim);
-      margin-top: 8px;
+      margin-top: 6px;
+    }
+    .gauge-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 10px;
+      line-height: 1.45;
+      overflow-wrap: break-word;
     }
 
-    /* Info Rows direitas */
+    /* Info Rows */
     .setting-box {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 13px 14px;
+      padding: 12px 13px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
       margin-bottom: 10px;
+      min-width: 0;
     }
+    .setting-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
     .setting-ico {
       width: 34px;
       height: 34px;
@@ -279,94 +410,99 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 15px;
+      font-size: 14px;
       flex-shrink: 0;
     }
     .toggle-pill {
-      background: var(--orange);
-      color: #fff;
-      font-size: 10.5px;
+      background: var(--orange-soft);
+      color: var(--orange-bright);
+      border: 1px solid rgba(255, 107, 0, 0.3);
+      font-size: 10px;
       font-weight: 800;
-      padding: 4px 10px;
+      padding: 3px 9px;
       border-radius: 99px;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
-    /* Gráfico de Curva */
+    /* Gráficos */
     .chart-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 18px;
-      margin-bottom: 16px;
+      min-width: 0;
     }
-    @media (min-width: 640px) { .chart-card { padding: 22px; } }
-    .chart-svg { width: 100%; height: 165px; display: block; }
+    @media (max-width: 600px) { .chart-card { padding: 15px; border-radius: 14px; } }
+    .chart-svg { width: 100%; height: 150px; display: block; }
     .chart-labels {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--text-dim);
       margin-top: 8px;
+      gap: 4px;
     }
 
-    /* 3 Cards de KPIs */
+    /* KPIs */
     .kpi-3 {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
-    @media (max-width: 720px) { .kpi-3 { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .kpi-3 { grid-template-columns: minmax(0, 1fr); } }
 
     .kpi-box {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px 18px;
+      border-radius: 14px;
+      padding: 15px 16px;
+      min-width: 0;
     }
     .kpi-title {
       font-size: 11px;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       margin-bottom: 8px;
     }
     .kpi-num-row {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
     }
-    .kpi-num { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
-    .kpi-delta { font-size: 12px; font-weight: 700; color: var(--orange-bright); }
+    .kpi-num { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+    .kpi-delta { font-size: 11.5px; font-weight: 700; color: var(--orange-bright); }
     .kpi-delta.green { color: var(--green); }
-    .kpi-foot { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; }
+    .kpi-foot { font-size: 11.5px; color: var(--text-dim); margin-top: 5px; }
 
-    /* Ranking de Vídeos & Assinantes */
-    .media-rank-list { display: flex; flex-direction: column; gap: 10px; }
+    /* Listas */
+    .media-rank-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .media-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       background: var(--bg-elevated);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 11px 14px;
+      border-radius: 12px;
+      padding: 11px 13px;
+      min-width: 0;
     }
     .media-thumb {
-      width: 46px;
-      height: 58px;
-      border-radius: 10px;
+      width: 44px;
+      height: 54px;
+      border-radius: 9px;
       object-fit: cover;
       background: #000;
       flex-shrink: 0;
     }
     .bar-track {
       height: 5px;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.08);
       border-radius: 99px;
       overflow: hidden;
       margin-top: 6px;
@@ -377,30 +513,29 @@
       border-radius: 99px;
     }
 
-    /* Lista de Assinantes (ID, Nome, Tempo Assistido) */
     .fan-card-item {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 12px 14px;
+      border-radius: 12px;
+      padding: 12px 13px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      min-width: 0;
     }
     .fan-tag {
       background: var(--orange-soft);
       color: var(--orange-bright);
-      border: 1px solid rgba(255, 107, 0, 0.3);
+      border: 1px solid rgba(255, 107, 0, 0.28);
       font-size: 10.5px;
       font-weight: 800;
       padding: 2px 8px;
       border-radius: 99px;
-      margin-left: 6px;
     }
     .fan-watch-pill {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--green);
       background: rgba(16, 185, 129, 0.12);
@@ -409,38 +544,56 @@
       white-space: nowrap;
     }
 
-    /* Banner Laranja Inferior */
-    .cta-banner {
-      background: linear-gradient(135deg, #19130f 0%, #24170e 60%, #141417 100%);
-      border: 1px solid rgba(255, 107, 0, 0.35);
-      border-radius: 18px;
-      padding: 18px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
+    .empty-msg {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
     }
-    .btn-orange {
-      background: var(--orange);
-      color: #fff;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      text-decoration: none;
-      box-shadow: 0 6px 20px rgba(255, 107, 0, 0.32);
-    }
-    .btn-orange:hover { background: var(--orange-bright); }
   </style>
 </head>
 <body>
 
+  <!-- Topbar Mobile -->
+  <div class="mobile-topbar">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      <button type="button" class="menu-toggle-btn" onclick="toggleMobileDrawer(true)" aria-label="Menu">☰</button>
+      <strong style="font-size:14px;white-space:nowrap;">GAROTA <span style="color:var(--orange);">VIP</span></strong>
+    </div>
+    <a href="/vip-studio" class="top-btn" style="padding:6px 10px;font-size:11.5px;">💎 VIP Studio</a>
+  </div>
+
+  <!-- Drawer Mobile -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleMobileDrawer(false)"></div>
+  <aside id="mobileDrawer" class="mobile-drawer">
+    <div>
+      <div class="brand-row" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="brand-dot"></div>
+          <strong style="font-size:14px;">GAROTA <span style="color:var(--orange);">VIP</span></strong>
+        </div>
+        <button type="button" onclick="toggleMobileDrawer(false)" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;">✕</button>
+      </div>
+
+      <button class="nav-item active" onclick="scrollSec('sec-overview', this); toggleMobileDrawer(false);">📊 Visão Geral</button>
+      <button class="nav-item" onclick="scrollSec('sec-chart', this); toggleMobileDrawer(false);">📈 Gráficos</button>
+      <button class="nav-item" onclick="scrollSec('sec-subscribers', this); toggleMobileDrawer(false);">👑 Assinantes & Tempo</button>
+      <button class="nav-item" onclick="scrollSec('sec-videos', this); toggleMobileDrawer(false);">🎬 Vídeos em Alta</button>
+      <button class="nav-item" onclick="scrollSec('sec-sources', this); toggleMobileDrawer(false);">🧭 Origem dos Clientes</button>
+      <a href="/minha-conta/editar" class="nav-item">✏️ Editar Perfil</a>
+      <a href="/vip-studio" class="nav-item">💎 Clube VIP Studio</a>
+    </div>
+
+    <div class="profile-footer">
+      <div class="avatar-circle" id="mobAvatarBox">V</div>
+      <div style="min-width:0;">
+        <strong id="mobName" style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Carregando...</strong>
+        <span id="mobTier" style="font-size:11px;color:var(--orange);">Plano FREE</span>
+      </div>
+    </div>
+  </aside>
+
   <div class="shell">
-    <!-- SIDEBAR -->
+    <!-- Sidebar Desktop -->
     <aside class="sidebar">
       <div>
         <div class="brand-row">
@@ -458,29 +611,29 @@
       </div>
 
       <div class="profile-footer">
-        <img id="sideAvatar" src="https://placehold.co/80x80/18181f/ff6b00?text=VIP" alt="" />
-        <div style="overflow:hidden;">
+        <div class="avatar-circle" id="sideAvatarBox">V</div>
+        <div style="min-width:0;">
           <strong id="sideName" style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Carregando...</strong>
-          <span id="sideTier" style="font-size:11px;color:var(--orange);">Plano Ativo</span>
+          <span id="sideTier" style="font-size:11px;color:var(--orange);">Plano FREE</span>
         </div>
       </div>
     </aside>
 
-    <!-- ÁREA PRINCIPAL -->
+    <!-- Conteúdo Principal -->
     <main class="main" id="sec-overview">
       <div class="header-top">
-        <div>
+        <div class="header-copy">
           <h1>Desempenho & Assinantes</h1>
-          <p>Acompanhe cliques, gráfico de assinantes VIP, tempo assistido nos conteúdos e quem assinou.</p>
+          <p>Cliques no anúncio, gráfico de assinantes VIP, tempo assistido e quem assinou seu conteúdo.</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="header-actions">
           <button type="button" class="top-btn" onclick="carregarMetricasModelo()">↻ Atualizar</button>
-          <a id="btnVerMeuPerfil" href="/vitrine" target="_blank" class="top-btn">👁️ Ver Meu Anúncio</a>
+          <a id="btnVerMeuPerfil" href="/vitrine" target="_blank" class="top-btn">👁️ Ver Anúncio</a>
           <a href="/vip-studio" class="top-btn">💎 VIP Studio</a>
         </div>
       </div>
 
-      <!-- Abas Superiores -->
+      <!-- Sub-abas -->
       <div class="tabs-bar">
         <button class="tab-btn active" onclick="switchTab('all', this)">Visão Geral</button>
         <button class="tab-btn" onclick="switchTab('subscribers', this)">Assinantes & Tempo</button>
@@ -488,28 +641,21 @@
         <button class="tab-btn" onclick="switchTab('audience', this)">Público & Horários</button>
       </div>
 
-      <!-- Alerta quando o anúncio está fora do topo / sem destaque -->
-      <div id="adOfflineAlert">
-        <div>
-          <strong style="font-size:13.5px;color:#fda4af;display:block;">⚠️ Seu anúncio está sem destaque no topo</strong>
-          <span style="font-size:12px;color:#e4e4e7;">Ative seu destaque para voltar ao <strong>1º lugar</strong> na vitrine e ganhar mais cliques.</span>
+      <!-- Alerta quando o anúncio está sem destaque no topo -->
+      <div id="adOfflineAlert" class="alert-banner">
+        <div class="alert-copy">
+          <strong>Seu anúncio está sem destaque no topo</strong>
+          <span>Ative seu destaque para voltar às primeiras posições e ganhar mais cliques.</span>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" onclick="copiarTextoGmailCobranca()" style="background:#17171e;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer;">
-            📋 Copiar Texto p/ Gmail
-          </button>
-          <a href="/minha-conta" style="background:#e11d48;color:#fff;text-decoration:none;font-size:12px;font-weight:800;padding:9px 14px;border-radius:10px;white-space:nowrap;">
-            Ficar em 1º Lugar →
-          </a>
-        </div>
+        <a href="/minha-conta" class="btn-alert-cta">Ativar Destaque →</a>
       </div>
 
-      <!-- BLOCO 1: GAUGE DE CONVERSÃO + TEMPO DE ATENÇÃO / PLANO -->
+      <!-- Bloco 1: Conversão + Tempo de Atenção -->
       <div class="grid-2">
         <div class="card">
           <div class="card-kicker">
-            <span>Taxa de Atração & Conversão</span>
-            <span style="color:var(--orange);">Últimos 30 dias</span>
+            <span>Taxa de Conversão</span>
+            <span style="color:var(--orange);">30 dias</span>
           </div>
 
           <div class="gauge-wrap">
@@ -521,11 +667,11 @@
                 </linearGradient>
               </defs>
               <path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="18" stroke-linecap="round" />
-              <path id="gaugeProgressArc" d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="url(#orangeArc)" stroke-width="18" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" style="transition: stroke-dashoffset 0.8s ease;" />
+              <path id="gaugeProgressArc" d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="url(#orangeArc)" stroke-width="18" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" style="transition: stroke-dashoffset 0.7s ease;" />
             </svg>
             <div class="gauge-center">
               <strong id="gaugePercent">0%</strong>
-              <span id="gaugeLabel">Calculando...</span>
+              <span id="gaugeLabel">Em Crescimento</span>
             </div>
             <div class="gauge-scale">
               <span>0%</span>
@@ -533,56 +679,56 @@
             </div>
           </div>
 
-          <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:12px;">
-            Percentual de visitantes que abriram seu anúncio e clicaram no <strong>WhatsApp</strong> ou <strong>Clube VIP</strong>.
+          <p class="gauge-note">
+            Visitantes que abriram seu perfil e clicaram no WhatsApp ou Clube VIP.
           </p>
         </div>
 
         <div class="card">
           <div class="card-kicker">
-            <span>Tempo de Atenção & Visibilidade</span>
+            <span>Tempo de Atenção & Status</span>
             <span class="toggle-pill" id="visibilityStatusPill">ONLINE</span>
           </div>
-          <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
-            Quanto mais tempo os assinantes e visitantes assistem seus conteúdos, maior é a retenção do seu perfil.
+          <p class="gauge-note" style="text-align:left;margin-top:0;margin-bottom:14px;">
+            O tempo médio de visualização ajuda a medir o interesse nos seus conteúdos.
           </p>
 
           <div class="setting-box">
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div class="setting-left">
               <div class="setting-ico">⏱️</div>
-              <div>
+              <div style="min-width:0;">
                 <span style="font-size:11px;color:var(--text-muted);display:block;">Tempo médio assistido</span>
-                <strong id="avgWatchTime" style="font-size:14.5px;color:#fff;">0s por visitante</strong>
+                <strong id="avgWatchTime" style="font-size:14px;color:#fff;">0s por visitante</strong>
               </div>
             </div>
-            <span style="font-size:11.5px;color:var(--green);font-weight:700;" id="retentionBadge">Retenção</span>
+            <span style="font-size:11px;color:var(--green);font-weight:700;white-space:nowrap;" id="retentionBadge">Normal</span>
           </div>
 
           <div class="setting-box" style="margin-bottom:0;">
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div class="setting-left">
               <div class="setting-ico">💎</div>
-              <div>
-                <span style="font-size:11px;color:var(--text-muted);display:block;">Posição na Garota VIP</span>
-                <strong id="planStatusText" style="font-size:14.5px;color:#fff;">Perfil Padrão</strong>
+              <div style="min-width:0;">
+                <span style="font-size:11px;color:var(--text-muted);display:block;">Plano atual</span>
+                <strong id="planStatusText" style="font-size:14px;color:#fff;">Plano Grátis</strong>
               </div>
             </div>
-            <a href="/vip-studio" style="font-size:12px;color:var(--orange-bright);font-weight:700;text-decoration:none;">VIP Studio →</a>
+            <a href="/vip-studio" style="font-size:12px;color:var(--orange-bright);font-weight:700;text-decoration:none;white-space:nowrap;">Studio →</a>
           </div>
         </div>
       </div>
 
-      <!-- BLOCO 2: GRÁFICOS (CLIQUES + ASSINANTES VIP) -->
+      <!-- Bloco 2: Gráficos (Cliques + Assinantes VIP) -->
       <div class="grid-2" id="sec-chart">
-        <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-card">
           <div class="card-kicker">
-            <span>Evolução de Cliques (14 Dias)</span>
-            <span style="color:var(--text-main);font-weight:700;" id="peakDayLabel">Pico: —</span>
+            <span>Cliques (14 Dias)</span>
+            <span style="color:var(--text-main);font-weight:700;" id="peakDayLabel">Pico: 0</span>
           </div>
 
           <svg class="chart-svg" id="clicksChartSvg" viewBox="0 0 700 175" preserveAspectRatio="none">
             <defs>
               <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#ff6b00" stop-opacity="0.35" />
+                <stop offset="0%" stop-color="#ff6b00" stop-opacity="0.32" />
                 <stop offset="100%" stop-color="#ff6b00" stop-opacity="0.0" />
               </linearGradient>
             </defs>
@@ -595,16 +741,16 @@
           <div class="chart-labels" id="chartDatesRow"></div>
         </div>
 
-        <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-card">
           <div class="card-kicker">
-            <span>Gráfico de Assinantes VIP</span>
+            <span>Assinantes VIP</span>
             <span style="color:var(--green);font-weight:700;" id="subsTotalBadge">0 assinantes</span>
           </div>
 
           <svg class="chart-svg" id="subscribersChartSvg" viewBox="0 0 700 175" preserveAspectRatio="none">
             <defs>
               <linearGradient id="subsAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#10b981" stop-opacity="0.32" />
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.30" />
                 <stop offset="100%" stop-color="#10b981" stop-opacity="0.0" />
               </linearGradient>
             </defs>
@@ -618,88 +764,76 @@
         </div>
       </div>
 
-      <!-- BLOCO 3: 3 KPIs PRINCIPAIS -->
-      <div class="kpi-3" style="margin-top:16px;">
+      <!-- Bloco 3: KPIs -->
+      <div class="kpi-3">
         <div class="kpi-box">
-          <div class="kpi-title">👁️ Cliques no Anúncio (30d)</div>
+          <div class="kpi-title">Cliques no Anúncio (30d)</div>
           <div class="kpi-num-row">
             <span class="kpi-num" id="kpiViews">0</span>
-            <span class="kpi-delta" id="kpiViewsStories">+0 em stories</span>
+            <span class="kpi-delta" id="kpiViewsStories">+0 stories</span>
           </div>
-          <div class="kpi-foot">Pessoas que abriram seu perfil</div>
+          <div class="kpi-foot">Visitas ao seu perfil</div>
         </div>
 
         <div class="kpi-box">
-          <div class="kpi-title">💬 Cliques no WhatsApp</div>
+          <div class="kpi-title">Cliques no WhatsApp</div>
           <div class="kpi-num-row">
             <span class="kpi-num" id="kpiWa">0</span>
             <span class="kpi-delta green" id="kpiWaRate">0% conv.</span>
           </div>
-          <div class="kpi-foot">Clientes que chamaram direto</div>
+          <div class="kpi-foot">Contatos iniciados</div>
         </div>
 
         <div class="kpi-box">
-          <div class="kpi-title">💰 Ganhos no Clube VIP</div>
+          <div class="kpi-title">Ganhos no Clube VIP</div>
           <div class="kpi-num-row">
             <span class="kpi-num" id="kpiVipEarnings">R$ 0,00</span>
             <span class="kpi-delta" id="kpiVipSubs">0 assinantes</span>
           </div>
-          <div class="kpi-foot">Assinaturas + Mimos + Conteúdos</div>
+          <div class="kpi-foot">Assinaturas e conteúdos VIP</div>
         </div>
       </div>
 
-      <!-- BLOCO 4: QUEM ASSINOU (ID DO FÃ, NOME E TEMPO ASSISTIDO) -->
-      <div class="card" id="sec-subscribers" style="margin-bottom:16px;">
+      <!-- Bloco 4: Assinantes (ID, Nome e Tempo Assistido) -->
+      <div class="card" id="sec-subscribers" style="margin-bottom:14px;">
         <div class="card-kicker">
-          <span>👑 Assinantes VIP — ID, Nome & Tempo Assistido</span>
+          <span>Assinantes VIP — ID, Nome & Tempo Assistido</span>
           <span style="color:var(--orange);" id="fanCountLabel">0 fãs</span>
         </div>
         <div class="media-rank-list" id="subscribersListBox">
-          <p style="font-size:12.5px;color:var(--text-muted);">Carregando assinantes VIP...</p>
+          <p class="empty-msg">Carregando assinantes...</p>
         </div>
       </div>
 
-      <!-- BLOCO 5: RANKING DE VÍDEOS COM MAIS ENGAJAMENTO + ORIGEM DOS CLIENTES -->
-      <div class="grid-2" id="sec-videos">
+      <!-- Bloco 5: Vídeos em Alta & Origem -->
+      <div class="grid-2" id="sec-videos" style="margin-bottom:0;">
         <div class="card">
           <div class="card-kicker">
-            <span>🎬 Vídeos & Stories com Mais Engajamento</span>
+            <span>Vídeos & Stories em Alta</span>
             <span style="color:var(--orange);">Top Mídias</span>
           </div>
           <div class="media-rank-list" id="topVideosList">
-            <p style="font-size:12.5px;color:var(--text-muted);">Carregando ranking dos seus vídeos...</p>
+            <p class="empty-msg">Carregando vídeos...</p>
           </div>
         </div>
 
         <div class="card" id="sec-sources">
           <div class="card-kicker">
-            <span>🧭 De Onde Vêm Seus Clientes</span>
-            <span style="color:var(--text-muted);">Canais & Horários</span>
+            <span>Origem dos Clientes</span>
+            <span style="color:var(--text-muted);">Canais</span>
           </div>
           <div class="media-rank-list" id="sourcesBreakdown"></div>
 
-          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
             <div>
-              <span style="font-size:11px;color:var(--text-muted);display:block;">Horário com mais cliques no seu perfil</span>
-              <strong id="bestHourText" style="font-size:14px;color:#fff;">20h às 23h</strong>
+              <span style="font-size:11px;color:var(--text-muted);display:block;">Horário de maior movimento</span>
+              <strong id="bestHourText" style="font-size:13.5px;color:#fff;">20h às 23h</strong>
             </div>
-            <span style="background:var(--orange-soft);color:var(--orange-bright);font-size:11px;font-weight:700;padding:5px 10px;border-radius:99px;">
-              🔥 Horário nobre
+            <span style="background:var(--orange-soft);color:var(--orange-bright);font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px;">
+              Horário nobre
             </span>
           </div>
         </div>
-      </div>
-
-      <!-- BANNER INFERIOR -->
-      <div class="cta-banner">
-        <div style="display:flex;align-items:center;gap:14px;">
-          <div class="setting-ico" style="width:42px;height:42px;font-size:18px;">✨</div>
-          <div>
-            <strong style="font-size:15px;display:block;color:#fff;">Gerencie seus planos e conteúdos VIP</strong>
-            <span style="font-size:12.5px;color:var(--text-muted);">Atualize preços, capa, bio e retenção direto no Clube VIP Studio.</span>
-          </div>
-        </div>
-        <a href="/vip-studio" class="btn-orange">Abrir Clube VIP Studio →</a>
       </div>
     </main>
   </div>
@@ -713,28 +847,15 @@
       localStorage.setItem('portal_token', token);
     }
 
-    function copiarTextoGmailCobranca() {
-      const nome = document.getElementById('sideName')?.innerText || 'Modelo';
-      const linkPainel = `${window.location.origin}/minha-conta`;
-      const texto =
-`Assunto: Seu anúncio está fora do topo — Volte para o 1º lugar na Garota VIP
-
-Oi ${nome}, tudo bem?
-
-Notamos que o seu destaque na Garota VIP expirou e seu anúncio não está aparecendo nas primeiras posições da vitrine.
-
-Para voltar para o 1º lugar e receber mais cliques no WhatsApp e no Clube VIP, acesse seu painel e ative o destaque:
-${linkPainel}`;
-
-      navigator.clipboard?.writeText(texto);
-      alert('Texto pronto copiado! Agora é só colar no seu Gmail e enviar.');
+    function toggleMobileDrawer(open) {
+      document.getElementById('mobileDrawer')?.classList.toggle('open', open);
+      document.getElementById('drawerBackdrop')?.classList.toggle('open', open);
     }
 
     function scrollSec(id, btn) {
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     }
 
     function switchTab(tab, btn) {
@@ -752,6 +873,22 @@ ${linkPainel}`;
       const m = Math.floor(s / 60);
       const rem = s % 60;
       return `${m}m ${rem}s`;
+    }
+
+    function setAvatarDisplay(creator) {
+      const name = (creator?.stage_name || 'VIP').trim();
+      const initial = name.charAt(0).toUpperCase() || 'V';
+      const url = creator?.avatar_url || creator?.cover_url || '';
+
+      ['sideAvatarBox', 'mobAvatarBox'].forEach((boxId) => {
+        const box = document.getElementById(boxId);
+        if (!box) return;
+        if (url) {
+          box.innerHTML = `<img src="${url}" alt="${name}" onerror="this.parentElement.textContent='${initial}'" />`;
+        } else {
+          box.textContent = initial;
+        }
+      });
     }
 
     function renderSmoothCurve(series, lineId, areaId, labelsId) {
@@ -797,7 +934,7 @@ ${linkPainel}`;
           headers: { Authorization: 'Bearer ' + token }
         });
         if (!res.ok) {
-          box.innerHTML = '<p style="font-size:12.5px;color:var(--text-muted);">Nenhum assinante VIP registrado ainda.</p>';
+          box.innerHTML = '<p class="empty-msg">Nenhum assinante VIP registrado ainda.</p>';
           renderSmoothCurve([0, 0, 0, 0, 0, 0, 0], 'subsLinePath', 'subsAreaPath', 'subsDatesRow');
           return;
         }
@@ -821,7 +958,7 @@ ${linkPainel}`;
         renderSmoothCurve(Array.from(byDay.values()), 'subsLinePath', 'subsAreaPath', 'subsDatesRow');
 
         if (!fans.length) {
-          box.innerHTML = '<p style="font-size:12.5px;color:var(--text-muted);">Ainda não há assinantes VIP neste perfil.</p>';
+          box.innerHTML = '<p class="empty-msg">Nenhum assinante VIP neste perfil no momento.</p>';
           return;
         }
 
@@ -829,26 +966,26 @@ ${linkPainel}`;
           const code = f.fanCode || ('FAN-' + String(f.id || idx + 1).padStart(6, '0'));
           const nome = f.buyer_identifier || 'Assinante VIP';
           const isActive = f.status === 'active' && (!f.expires_at || new Date(f.expires_at) > new Date());
-          const tempoAssistido = f.watched_seconds ? formatTime(f.watched_seconds) : formatTime(avgWatchSec || 24 + idx * 12);
+          const tempoAssistido = f.watched_seconds ? formatTime(f.watched_seconds) : formatTime(avgWatchSec || 18);
           const expStr = f.expires_at ? 'Até ' + new Date(f.expires_at).toLocaleDateString('pt-BR') : 'Ativo';
 
           return `
             <div class="fan-card-item">
               <div style="min-width:0;">
                 <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-                  <strong style="font-size:13.5px;color:#fff;">${nome}</strong>
+                  <strong style="font-size:13px;color:#fff;overflow-wrap:break-word;">${nome}</strong>
                   <span class="fan-tag">${code}</span>
                 </div>
-                <span style="font-size:11.5px;color:var(--text-muted);display:block;margin-top:3px;">
-                  ${isActive ? '✅ Assinatura Ativa' : 'Encerrada'} • ${expStr}
+                <span style="font-size:11px;color:var(--text-muted);display:block;margin-top:3px;">
+                  ${isActive ? 'Ativo' : 'Encerrado'} • ${expStr}
                 </span>
               </div>
-              <span class="fan-watch-pill">⏱️ Assistiu ${tempoAssistido}</span>
+              <span class="fan-watch-pill">Assistiu ${tempoAssistido}</span>
             </div>
           `;
         }).join('');
       } catch {
-        box.innerHTML = '<p style="font-size:12.5px;color:var(--text-muted);">Não foi possível carregar os assinantes agora.</p>';
+        box.innerHTML = '<p class="empty-msg">Não foi possível carregar os assinantes agora.</p>';
       }
     }
 
@@ -867,11 +1004,13 @@ ${linkPainel}`;
       const c = data.creator || {};
       const m = data.metrics || {};
 
-      document.getElementById('sideName').innerText = c.stage_name || 'Modelo VIP';
-      document.getElementById('sideTier').innerText = `Plano ${(c.tier || 'free').toUpperCase()}`;
-      if (c.avatar_url || c.cover_url) {
-        document.getElementById('sideAvatar').src = c.avatar_url || c.cover_url;
-      }
+      const tierUpper = (c.tier || 'free').toUpperCase();
+      document.getElementById('sideName').innerText = c.stage_name || 'Perfil VIP';
+      document.getElementById('mobName').innerText = c.stage_name || 'Perfil VIP';
+      document.getElementById('sideTier').innerText = `Plano ${tierUpper}`;
+      document.getElementById('mobTier').innerText = `Plano ${tierUpper}`;
+      setAvatarDisplay(c);
+
       if (c.slug) {
         document.getElementById('btnVerMeuPerfil').href = '/acompanhante/' + c.slug;
       }
@@ -882,26 +1021,24 @@ ${linkPainel}`;
       document.getElementById('gaugeProgressArc').style.strokeDashoffset = offset;
       document.getElementById('gaugePercent').innerText = convPct + '%';
       document.getElementById('gaugeLabel').innerText =
-        convPct >= 25 ? 'Alta Conversão 🔥' : convPct >= 10 ? 'Bom Desempenho' : 'Em Crescimento';
+        convPct >= 25 ? 'Alta Conversão' : convPct >= 10 ? 'Bom Desempenho' : 'Em Crescimento';
 
       document.getElementById('avgWatchTime').innerText = `${formatTime(m.avgWatchSeconds || 0)} por visitante`;
       document.getElementById('retentionBadge').innerText =
-        (m.avgWatchSeconds || 0) >= 20 ? '🔥 Prende atenção' : '● Normal';
+        (m.avgWatchSeconds || 0) >= 20 ? 'Boa retenção' : 'Normal';
 
       const isFeatured = c.featured_until && new Date(c.featured_until) > new Date();
       document.getElementById('planStatusText').innerText = isFeatured
-        ? `${c.tier.toUpperCase()} até ${new Date(c.featured_until).toLocaleDateString('pt-BR')}`
-        : 'Plano Grátis (Vitrine Geral)';
+        ? `${tierUpper} até ${new Date(c.featured_until).toLocaleDateString('pt-BR')}`
+        : 'Plano Grátis';
 
-      const alertBox = document.getElementById('adOfflineAlert');
-      if (alertBox) {
-        alertBox.style.display = isFeatured ? 'none' : 'flex';
-      }
+      document.getElementById('adOfflineAlert')?.classList.toggle('show', !isFeatured);
 
-      document.getElementById('visibilityStatusPill').innerText = c.active && c.verified ? 'ATIVO NA VITRINE' : 'EM ANÁLISE';
+      document.getElementById('visibilityStatusPill').innerText =
+        c.active && c.verified ? 'ATIVO' : 'EM ANÁLISE';
 
       document.getElementById('kpiViews').innerText = m.profileViews || 0;
-      document.getElementById('kpiViewsStories').innerText = `+${m.storyViews || 0} em stories`;
+      document.getElementById('kpiViewsStories').innerText = `+${m.storyViews || 0} stories`;
       document.getElementById('kpiWa').innerText = m.whatsappClicks || 0;
       document.getElementById('kpiWaRate').innerText = `${convPct}% conv.`;
       document.getElementById('kpiVipEarnings').innerText =
@@ -909,7 +1046,7 @@ ${linkPainel}`;
       document.getElementById('kpiVipSubs').innerText = `${m.activeSubscribers || 0} assinantes`;
 
       renderSmoothCurve(data.dailySeries || [], 'chartLinePath', 'chartAreaPath', 'chartDatesRow');
-      document.getElementById('peakDayLabel').innerText = `Melhor dia: ${m.peakCount || 0} cliques`;
+      document.getElementById('peakDayLabel').innerText = `Pico: ${m.peakCount || 0}`;
 
       await carregarAssinantesEDetalhes(m.avgWatchSeconds || 0);
 
@@ -919,35 +1056,35 @@ ${linkPainel}`;
             const pct = Math.max(15, Math.min(100, Number(v.scorePct || 50)));
             return `
               <div class="media-row">
-                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-                  <img class="media-thumb" src="${v.thumb || c.avatar_url || 'https://placehold.co/80x100/000/ff6b00?text=▶'}" alt="" />
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                  <img class="media-thumb" src="${v.thumb || c.avatar_url || 'https://placehold.co/80x100/18181d/ff6b00?text=VIP'}" alt="" />
                   <div style="flex:1;min-width:0;">
-                    <strong style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                      #${idx + 1} ${v.title || 'Vídeo / Story VIP'}
+                    <strong style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      #${idx + 1} ${v.title || 'Vídeo VIP'}
                     </strong>
                     <span style="font-size:11px;color:var(--text-muted);">
-                      ${v.completions || 0} assistidos até o fim • ${v.skips || 0} pulos
+                      ${v.completions || 0} concluídos • ${v.skips || 0} pulos
                     </span>
                     <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
                   </div>
                 </div>
-                <span style="font-size:12px;font-weight:800;color:var(--orange-bright);white-space:nowrap;">
-                  ${v.engagementLabel || '🔥 Alta'}
+                <span style="font-size:11.5px;font-weight:700;color:var(--orange-bright);white-space:nowrap;">
+                  ${v.engagementLabel || 'Ativo'}
                 </span>
               </div>
             `;
           }).join('')
-        : '<p style="font-size:12.5px;color:var(--text-muted);">Publique vídeos no seu perfil para acompanhar a retenção de cada um aqui.</p>';
+        : '<p class="empty-msg">Nenhum vídeo publicado ainda.</p>';
 
       const sources = data.sources || [];
       document.getElementById('sourcesBreakdown').innerHTML = sources.length
         ? sources.map(s => `
             <div class="media-row">
-              <strong style="font-size:13px;">${s.source}</strong>
+              <strong style="font-size:12.5px;">${s.source}</strong>
               <span style="font-size:12px;font-weight:700;color:var(--orange-bright);">${s.count} visitas</span>
             </div>
           `).join('')
-        : '<p style="font-size:12.5px;color:var(--text-muted);">Aguardando primeiros acessos ao seu link.</p>';
+        : '<p class="empty-msg">Aguardando acessos ao seu perfil.</p>';
 
       if (m.bestHour) {
         document.getElementById('bestHourText').innerText = m.bestHour;
