@@ -206,6 +206,15 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
+
+app.get('/cliente', async (req, reply) => {
+  const filePath = path.join(process.cwd(), 'public', 'cliente-conta.html');
+  const html = fs.readFileSync(filePath, 'utf-8');
+  return reply.type('text/html; charset=utf-8').send(html);
+});
+
+
+
   // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações, Conta de Fã e rotas de Mensagens VIP
   app.get('/impulsionar', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'impulsionar.html');
