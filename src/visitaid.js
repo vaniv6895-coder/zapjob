@@ -1,5 +1,6 @@
 ﻿import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 function extractCreatorIdFromToken(rawToken) {
   if (!rawToken) return 0;
@@ -24,7 +25,7 @@ function buildFanCode(seed) {
 }
 
 export function registerTelemetryRoutes(app, pool) {
-  // 1. Inicialização automática das tabelas de telemetria, analytics, retenção, mensagens VIP e avaliações
+  // 1. Inicialização automática das tabelas de telemetria, analytics, retenção, mensagens VIP, avaliações e contas de fãs
   pool.query(`
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_anchor_price NUMERIC(10,2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_plans JSONB DEFAULT '{}'::jsonb;
@@ -101,6 +102,18 @@ export function registerTelemetryRoutes(app, pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_creator_reviews_status
       ON creator_reviews (creator_id, status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS fan_accounts (
+      id SERIAL PRIMARY KEY,
+      fan_code VARCHAR(20) UNIQUE NOT NULL,
+      full_name VARCHAR(100) NOT NULL,
+      nickname VARCHAR(60),
+      contact_identifier VARCHAR(120) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      device_hash VARCHAR(120),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE fan_accounts ADD COLUMN IF NOT EXISTS nickname VARCHAR(60);
   `).catch(() => {});
 
   // 2. Endpoint silencioso que grava tempo no site, pulos e cliques de cada visitante
@@ -193,7 +206,7 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações e rotas de Mensagens dos Assinantes VIP
+  // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações, Conta de Fã e rotas de Mensagens VIP
   app.get('/impulsionar', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'impulsionar.html');
     const html = fs.readFileSync(filePath, 'utf-8');
@@ -210,6 +223,174 @@ export function registerTelemetryRoutes(app, pool) {
     const filePath = path.join(process.cwd(), 'public', 'meu-vip.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.post('/api/vip/fan-nickname', async (req, reply) => {
+    try {
+      const { fanCode = '', nickname = '' } = req.body || {};
+      const cleanCode = String(fanCode).trim().toUpperCase();
+      const cleanNick = String(nickname).trim();
+      if (!cleanCode || !cleanNick) {
+        return reply.status(400).send({ error: 'Informe como deseja ser chamado.' });
+      }
+
+      const res = await pool.query(
+        `UPDATE fan_accounts
+         SET nickname = $2, full_name = $2
+         WHERE fan_code = $1
+         RETURNING id, fan_code, full_name, nickname, contact_identifier`,
+        [cleanCode, cleanNick]
+      );
+
+      if (!res.rows[0]) {
+        return reply.status(404).send({ error: 'Conta de fã não encontrada.' });
+      }
+      return reply.send({ ok: true, fan: res.rows[0] });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao salvar apelido.' });
+    }
+  });
+
+  app.get('/api/auth/google/fan', async (req, reply) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const returnTo = String(req.query.returnTo || '/meu-vip');
+    if (!clientId) {
+      return reply.redirect(`/meu-vip?google_setup=1&returnTo=${encodeURIComponent(returnTo)}`);
+    }
+
+    const redirectUri = `${req.protocol}://${req.headers.host}/api/auth/google/fan/callback`;
+    const state = Buffer.from(JSON.stringify({ returnTo })).toString('base64url');
+    const authUrl =
+      'https://accounts.google.com/o/oauth2/v2/auth' +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      '&response_type=code' +
+      '&scope=openid%20email%20profile' +
+      `&state=${encodeURIComponent(state)}`;
+
+    return reply.redirect(authUrl);
+  });
+
+  app.get('/api/auth/google/fan/callback', async (req, reply) => {
+    try {
+      const code = String(req.query.code || '');
+      let returnTo = '/meu-vip';
+      try {
+        const parsed = JSON.parse(Buffer.from(String(req.query.state || ''), 'base64url').toString('utf8'));
+        if (parsed.returnTo) returnTo = parsed.returnTo;
+      } catch {}
+
+      const redirectUri = `${req.protocol}://${req.headers.host}/api/auth/google/fan/callback`;
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: process.env.GOOGLE_CLIENT_ID || '',
+          client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      });
+      const tokenData = await tokenRes.json();
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: 'Bearer ' + (tokenData.access_token || '') },
+      });
+      const profile = await userRes.json();
+
+      const email = String(profile.email || '').trim().toLowerCase();
+      const googleName = String(profile.name || email.split('@')[0] || 'Assinante VIP').trim();
+      if (!email) return reply.redirect('/meu-vip?erro=google');
+
+      const fanCode = buildFanCode(email);
+      const passHash = crypto.createHash('sha256').update('google_' + email).digest('hex');
+
+      const dbRes = await pool.query(
+        `INSERT INTO fan_accounts (fan_code, full_name, contact_identifier, password_hash)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (contact_identifier) DO UPDATE SET
+           contact_identifier = EXCLUDED.contact_identifier
+         RETURNING id, fan_code, full_name, nickname, contact_identifier`,
+        [fanCode, googleName, email, passHash]
+      );
+
+      const fan = dbRes.rows[0];
+      const fanB64 = Buffer.from(JSON.stringify(fan)).toString('base64url');
+      const sep = returnTo.includes('?') ? '&' : '?';
+      return reply.redirect(`${returnTo}${sep}fan_auth=${encodeURIComponent(fanB64)}`);
+    } catch {
+      return reply.redirect('/meu-vip?erro=google');
+    }
+  });
+
+  app.post('/api/vip/fan-register', async (req, reply) => {
+    try {
+      const { fullName = '', contact = '', password = '', deviceHash = '' } = req.body || {};
+      const cleanName = String(fullName).trim();
+      const cleanContact = String(contact).trim().toLowerCase();
+      const cleanPass = String(password).trim();
+      const cleanDev = String(deviceHash).trim();
+
+      if (!cleanName || !cleanContact || cleanPass.length < 4) {
+        return reply.status(400).send({ error: 'Preencha nome, e-mail/WhatsApp e senha (mín. 4 dígitos).' });
+      }
+
+      const fanCode = buildFanCode(cleanDev || cleanContact);
+      const passHash = crypto.createHash('sha256').update(cleanPass).digest('hex');
+
+      const res = await pool.query(
+        `INSERT INTO fan_accounts (fan_code, full_name, contact_identifier, password_hash, device_hash)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (contact_identifier) DO UPDATE SET
+           full_name = EXCLUDED.full_name,
+           device_hash = COALESCE(NULLIF(EXCLUDED.device_hash, ''), fan_accounts.device_hash)
+         RETURNING id, fan_code, full_name, nickname, contact_identifier`,
+        [fanCode, cleanName, cleanContact, passHash, cleanDev]
+      );
+
+      if (cleanDev) {
+        await pool.query(
+          `UPDATE vip_subscriptions
+           SET buyer_identifier = $1
+           WHERE device_hash = $2 AND (buyer_identifier IS NULL OR buyer_identifier = '')`,
+          [`${cleanName} (${cleanContact})`, cleanDev]
+        ).catch(() => {});
+      }
+
+      return reply.send({ ok: true, fan: res.rows[0] });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao cadastrar conta do cliente.' });
+    }
+  });
+
+  app.post('/api/vip/fan-login', async (req, reply) => {
+    try {
+      const { contact = '', password = '', deviceHash = '' } = req.body || {};
+      const cleanContact = String(contact).trim().toLowerCase();
+      const cleanPass = String(password).trim();
+      const cleanDev = String(deviceHash).trim();
+
+      const passHash = crypto.createHash('sha256').update(cleanPass).digest('hex');
+
+      const res = await pool.query(
+        `SELECT id, fan_code, full_name, nickname, contact_identifier, device_hash
+         FROM fan_accounts
+         WHERE contact_identifier = $1 AND password_hash = $2
+         LIMIT 1`,
+        [cleanContact, passHash]
+      );
+
+      const fan = res.rows[0];
+      if (!fan) return reply.status(401).send({ error: 'E-mail/WhatsApp ou senha incorretos.' });
+
+      if (cleanDev && fan.device_hash !== cleanDev) {
+        await pool.query(`UPDATE fan_accounts SET device_hash = $1 WHERE id = $2`, [cleanDev, fan.id]).catch(() => {});
+      }
+
+      return reply.send({ ok: true, fan });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao entrar na conta.' });
+    }
   });
 
   app.post('/api/portal/reviews/:slug', async (req, reply) => {
