@@ -24,6 +24,18 @@ function buildFanCode(seed) {
   return `FAN-${part}`;
 }
 
+function buildFanGoogleRedirectUri(req) {
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').trim();
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const proto =
+    forwardedProto === 'https' || forwardedProto === 'http'
+      ? forwardedProto
+      : host.includes('localhost') || host.startsWith('127.0.0.1')
+      ? 'http'
+      : 'https';
+  return `${proto}://${host}/api/auth/google/fan/callback`;
+}
+
 export function registerTelemetryRoutes(app, pool) {
   // 1. Inicialização automática das tabelas de telemetria, analytics, retenção, mensagens VIP, avaliações e contas de fãs
   pool.query(`
@@ -206,14 +218,11 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-
-app.get('/cliente', async (req, reply) => {
-  const filePath = path.join(process.cwd(), 'public', 'cliente-conta.html');
-  const html = fs.readFileSync(filePath, 'utf-8');
-  return reply.type('text/html; charset=utf-8').send(html);
-});
-
-
+  app.get('/cliente', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'cliente-conta.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
 
   // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações, Conta de Fã e rotas de Mensagens VIP
   app.get('/impulsionar', async (req, reply) => {
@@ -267,7 +276,7 @@ app.get('/cliente', async (req, reply) => {
       return reply.redirect(`/meu-vip?google_setup=1&returnTo=${encodeURIComponent(returnTo)}`);
     }
 
-    const redirectUri = `${req.protocol}://${req.headers.host}/api/auth/google/fan/callback`;
+    const redirectUri = buildFanGoogleRedirectUri(req);
     const state = Buffer.from(JSON.stringify({ returnTo })).toString('base64url');
     const authUrl =
       'https://accounts.google.com/o/oauth2/v2/auth' +
@@ -289,7 +298,7 @@ app.get('/cliente', async (req, reply) => {
         if (parsed.returnTo) returnTo = parsed.returnTo;
       } catch {}
 
-      const redirectUri = `${req.protocol}://${req.headers.host}/api/auth/google/fan/callback`;
+      const redirectUri = buildFanGoogleRedirectUri(req);
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
