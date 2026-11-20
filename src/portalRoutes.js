@@ -310,6 +310,12 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  app.get('/dasbormodelo', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'dasbormodelo.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
   // Entrega o Client ID do Google para o frontend separado
   app.get('/api/portal/auth-config', async (req, reply) => {
     return reply.send({ googleClientId: process.env.GOOGLE_CLIENT_ID || '' });
