@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { pool } from './db.js';
 import fs from 'fs';
 import path from 'path';
+import { registerTelemetryRoutes } from './visitaid.js';
 import { registerVipFeedRoutes } from './vipFeedRoutes.js';
 
 import axios from 'axios';
@@ -102,7 +103,7 @@ export function registerPortalRoutes(app) {
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
-  
+
   registerVipFeedRoutes(app, requireCreatorAuth);
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);

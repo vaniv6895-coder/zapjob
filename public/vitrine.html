@@ -481,7 +481,7 @@
     </div>
   </div>
 
-  <!-- Menu Sanduíche Lateral (Apenas Criar Conta Modelo + Navegação) -->
+  <!-- Menu Sanduíche Lateral -->
   <div id="drawer-backdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
   <aside id="side-drawer" class="side-drawer">
     <div class="drawer-header">
@@ -523,7 +523,7 @@
     <!-- Barra de Stories -->
     <div class="stories-wrap" id="stories-container"></div>
 
-    <div class="lux-banner">
+    <div class="lux-banner" onclick="sendTelemetry('ad_engage', { targetLabel: 'Banner Topo Diamante' })">
       <div>
         <div class="lux-title">Destaque Luxo & Diamante</div>
         <p class="lux-desc">Os perfis de maior destaque e exclusividade no topo da primeira página.</p>
@@ -562,16 +562,85 @@
   </main>
 
   <script>
+    // =========================================================
+    // TELEMETRIA COMPORTAMENTAL (Tempo de tela, pulos e cliques)
+    // =========================================================
+    (function initTelemetry() {
+      let vid = localStorage.getItem('gv_vid');
+      if (!vid) {
+        vid = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('gv_vid', vid);
+      }
+      const params = new URLSearchParams(window.location.search);
+      const ua = navigator.userAgent;
+      const device = /Mobi|Android|iPhone/i.test(ua) ? 'Celular' : 'Computador';
+      const os = /iPhone|iPad/i.test(ua) ? 'iOS' : /Android/i.test(ua) ? 'Android' : /Windows/i.test(ua) ? 'Windows' : 'Outro';
+
+      window.sendTelemetry = function (actionType, extra = {}) {
+        const payload = JSON.stringify({
+          visitorId: vid,
+          actionType,
+          referrer: document.referrer || '',
+          utmSource: params.get('utm_source') || params.get('src') || '',
+          device,
+          os,
+          ...extra,
+        });
+
+        if (navigator.sendBeacon && actionType === 'time_ping') {
+          navigator.sendBeacon('/api/portal/telemetry', new Blob([payload], { type: 'application/json' }));
+        } else {
+          fetch('/api/portal/telemetry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+          }).catch(() => {});
+        }
+      };
+
+      // Registra abertura da página e origem
+      sendTelemetry('session_start', { targetLabel: window.location.pathname });
+
+      // Soma tempo real ativo na tela a cada 10s (pausa se o visitante sair da aba)
+      setInterval(() => {
+        if (!document.hidden) {
+          sendTelemetry('time_ping', { durationMs: 10000 });
+        }
+      }, 10000);
+
+      // Rastreia cliques em WhatsApp, Perfis, Clube VIP e Reels
+      document.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (!link) return;
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('/r/wa/')) {
+          const slug = href.replace('/r/wa/', '');
+          sendTelemetry('ad_engage', { targetSlug: slug, targetLabel: 'WhatsApp: ' + slug });
+        } else if (href.startsWith('/acompanhante/')) {
+          const slug = href.replace('/acompanhante/', '');
+          sendTelemetry('ad_engage', { targetSlug: slug, targetLabel: 'Perfil: ' + slug });
+        } else if (href.startsWith('/vip/')) {
+          const slug = href.replace('/vip/', '');
+          sendTelemetry('ad_engage', { targetSlug: slug, targetLabel: 'Clube VIP: ' + slug });
+        } else if (href.startsWith('/reels')) {
+          sendTelemetry('ad_engage', { targetLabel: 'Abriu Reels' });
+        }
+      });
+    })();
+
     let allProfiles = [];
     let storiesList = [];
     let currentFilter = 'all';
     let currentCity = new URLSearchParams(location.search).get('city') || '';
 
-    // Controle dos Stories
+    // Controle dos Stories + Telemetria de Pulo
     let currentStoryIdx = 0;
     let storyTimer = null;
     let storyProgress = 0;
     let storyMuted = true;
+    let storyOpenedAt = 0;
+    let currentStoryObj = null;
 
     if (!document.cookie.includes('age_verified=1')) {
       document.getElementById('age-gate').style.display = 'flex';
@@ -636,6 +705,8 @@
       }
       currentStoryIdx = idx;
       const s = storiesList[idx];
+      currentStoryObj = s;
+      storyOpenedAt = Date.now();
 
       document.getElementById('story-progress-row').innerHTML = storiesList.map((_, i) => `
         <div class="story-bar-bg">
@@ -671,12 +742,30 @@
         const bar = document.getElementById('sbar-' + currentStoryIdx);
         if (bar) bar.style.width = Math.min(100, storyProgress) + '%';
         if (storyProgress >= 100) {
-          nextStory();
+          if (currentStoryObj) {
+            sendTelemetry('ad_engage', {
+              targetSlug: currentStoryObj.slug,
+              targetLabel: 'Story Completo: ' + currentStoryObj.name,
+              durationMs: Date.now() - storyOpenedAt,
+            });
+          }
+          openStory(currentStoryIdx + 1);
         }
       }, 100);
     }
 
-    function nextStory() { openStory(currentStoryIdx + 1); }
+    function nextStory() {
+      const watchedMs = Date.now() - (storyOpenedAt || Date.now());
+      if (currentStoryObj && watchedMs < 2500) {
+        sendTelemetry('ad_skip', {
+          targetSlug: currentStoryObj.slug,
+          targetLabel: 'Story: ' + currentStoryObj.name,
+          durationMs: watchedMs,
+        });
+      }
+      openStory(currentStoryIdx + 1);
+    }
+
     function prevStory() { openStory(currentStoryIdx - 1); }
 
     function toggleStoryMute() {
@@ -697,6 +786,10 @@
       document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
       const activePill = document.getElementById('pill-' + f);
       if (activePill) activePill.classList.add('active');
+      if (f !== 'all') {
+        const labels = { diamond: 'Topo Diamante', vip: 'Destaques VIP', video: 'Com Vídeos' };
+        sendTelemetry('search', { targetLabel: 'Categoria: ' + (labels[f] || f) });
+      }
       renderProfiles();
     }
 
@@ -704,6 +797,9 @@
       e.preventDefault();
       currentCity = document.getElementById('city-input').value.trim();
       document.getElementById('city-title').innerText = currentCity || 'Todo o Brasil';
+      if (currentCity) {
+        sendTelemetry('search', { targetLabel: 'Cidade: ' + currentCity });
+      }
       carregarVitrine();
     }
 

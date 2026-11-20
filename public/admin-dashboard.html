@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garota VIP — Command Center Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-outer: #0b0e0c;
+      --bg-main: #111312;
+      --bg-sidebar: #0e100f;
+      --bg-card: #171a18;
+      --border: rgba(255, 255, 255, 0.07);
+      --lime: #a3e635;
+      --lime-bright: #bef264;
+      --lime-soft: rgba(163, 230, 53, 0.14);
+      --green-emerald: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text-main: #f4f4f5;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-outer);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr 310px;
+      min-height: 100vh;
+    }
+    @media (max-width: 1180px) {
+      .app-shell { grid-template-columns: 210px 1fr; }
+      .right-rail { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); }
+    }
+    @media (max-width: 780px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* Sidebar Esquerda */
+    .sidebar {
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      padding: 22px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .admin-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+    }
+    .admin-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--lime), #22c55e);
+      color: #090d0a;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .search-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .search-box input {
+      background: none;
+      border: none;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12.5px;
+      width: 100%;
+      outline: none;
+    }
+    .nav-group-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      padding: 0 10px;
+      margin-bottom: 8px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      transition: all 0.15s;
+      margin-bottom: 4px;
+    }
+    .nav-item:hover { color: var(--text-main); background: rgba(255,255,255,0.04); }
+    .nav-item.active {
+      background: var(--lime);
+      color: #0b0f0c;
+      font-weight: 700;
+    }
+
+    /* Área Central */
+    .main-area {
+      background: var(--bg-main);
+      padding: 22px 26px 48px;
+      overflow-x: hidden;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+    .breadcrumb { font-size: 13px; color: var(--text-muted); }
+    .breadcrumb strong { color: var(--text-main); }
+    .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 8px 13px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-chip:hover { border-color: var(--lime); color: var(--lime); }
+    .btn-chip.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .section-header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+
+    /* KPIs 4 Cards */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 960px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .kpi-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+    .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+    .kpi-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+      margin-top: 8px;
+      color: var(--lime);
+    }
+    .kpi-trend.warn { color: var(--warning); }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .panel-title { font-size: 15px; font-weight: 700; }
+    .panel-sub { font-size: 11.5px; color: var(--text-muted); }
+
+    /* Donut Chart + Legend */
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      flex-wrap: wrap;
+    }
+    .donut-ring {
+      width: 148px;
+      height: 148px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .donut-hole {
+      width: 102px;
+      height: 102px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .donut-hole strong { font-size: 20px; font-weight: 800; color: #fff; }
+    .donut-hole span { font-size: 10.5px; color: var(--text-muted); }
+    .source-list { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 160px; }
+    .source-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+    }
+    .source-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    /* Trends & Comportamento */
+    .trends-list { display: flex; flex-direction: column; gap: 10px; }
+    .trend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 12px;
+    }
+    .trend-bar-bg {
+      height: 6px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    .trend-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green-emerald), var(--lime));
+      border-radius: 99px;
+    }
+    .trend-badge {
+      background: var(--lime-soft);
+      color: var(--lime);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 9px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    .trend-badge.skip {
+      background: rgba(239, 68, 68, 0.16);
+      color: #fca5a5;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 960px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th {
+      text-align: left;
+      color: var(--text-dim);
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .model-cell { display: flex; align-items: center; gap: 10px; }
+    .model-cell img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #222;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .status-expired { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+    .status-free { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+
+    .btn-action-sm {
+      background: var(--lime);
+      color: #090d0a;
+      border: none;
+      padding: 6px 11px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-action-sm:hover { background: var(--lime-bright); }
+    .btn-dark-sm {
+      background: #232724;
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .promo-card {
+      background: radial-gradient(circle at top right, rgba(163, 230, 53, 0.35), rgba(20, 46, 28, 0.9) 55%, #141915 100%);
+      border: 1px solid rgba(163, 230, 53, 0.3);
+      border-radius: 18px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .promo-tag {
+      display: inline-block;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--lime-bright);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 11px;
+      border-radius: 99px;
+      width: fit-content;
+    }
+    .promo-big { font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -0.03em; }
+    .promo-big small { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .btn-lime-full {
+      width: 100%;
+      background: var(--lime);
+      color: #090d0a;
+      border: none;
+      padding: 13px;
+      border-radius: 99px;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    /* Rail Direita */
+    .right-rail {
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border);
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .rail-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+    .feed-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .feed-ico {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .feed-item strong { display: block; color: var(--text-main); font-weight: 600; }
+    .feed-item span { color: var(--text-dim); font-size: 11px; }
+
+    .approval-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px;
+      margin-bottom: 10px;
+    }
+    .approval-card.highlight {
+      background: var(--lime);
+      color: #090d0a;
+      border-color: var(--lime);
+    }
+    .approval-card.highlight .sub-txt { color: #1f291e; }
+  </style>
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- SIDEBAR ESQUERDA -->
+    <aside class="sidebar">
+      <div class="admin-profile">
+        <div class="admin-avatar">GV</div>
+        <div>
+          <strong style="font-size:13.5px;display:block;">Garota VIP</strong>
+          <span style="font-size:11px;color:var(--lime);">Admin Master</span>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <span style="color:var(--text-dim);font-size:13px;">🔍</span>
+        <input type="text" id="modelSearch" placeholder="Filtrar modelo..." oninput="filtrarModelos()" />
+      </div>
+
+      <div>
+        <div class="nav-group-title">Dashboards</div>
+        <button class="nav-item active" onclick="scrollToSection('sec-overview', this)">📊 Visão Geral</button>
+        <button class="nav-item" onclick="scrollToSection('sec-trends', this)">📈 Google Trends / Buscas</button>
+        <button class="nav-item" onclick="scrollToSection('sec-telemetry', this)">🕵️ Telemetria & Pulos</button>
+        <button class="nav-item" onclick="scrollToSection('sec-billing', this)">💰 Renovações & Vitrine</button>
+        <button class="nav-item" onclick="scrollToSection('sec-approvals', this)">🛡️ Aprovações & Vídeos</button>
+      </div>
+
+      <div>
+        <div class="nav-group-title">Atalhos Rápidos</div>
+        <a href="/vitrine" target="_blank" class="nav-item" style="text-decoration:none;">🌐 Abrir Vitrine</a>
+        <a href="/reels" target="_blank" class="nav-item" style="text-decoration:none;">🎬 Abrir Reels</a>
+      </div>
+    </aside>
+
+    <!-- ÁREA CENTRAL -->
+    <main class="main-area" id="sec-overview">
+      <div class="topbar">
+        <div class="breadcrumb">Dashboards / <strong>Overview Executivo</strong></div>
+        <div class="top-actions">
+          <button class="btn-chip" onclick="carregarDashboard()">↻ Atualizar</button>
+          <button class="btn-chip" onclick="seedDemo()">+ Criar Demos</button>
+          <button class="btn-chip danger" onclick="clearDemo()">Limpar Demos</button>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h1>Overview da Plataforma</h1>
+        <span style="font-size:12px;color:var(--text-muted);" id="last-updated">Sincronizado agora</span>
+      </div>
+
+      <!-- 4 KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">Faturamento Destaques</div>
+          <div class="kpi-value" id="kpi-revenue">R$ 0</div>
+          <div class="kpi-trend" id="kpi-revenue-sub">↑ Pix aprovados</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total de Modelos</div>
+          <div class="kpi-value" id="kpi-models">0</div>
+          <div class="kpi-trend" id="kpi-models-sub">0 ativas na vitrine</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Visitas Hoje & Tempo Médio</div>
+          <div class="kpi-value" id="kpi-visits-today">0</div>
+          <div class="kpi-trend" id="kpi-visits-sub">Tempo médio: 0s</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Precisam Pagar / Renovar</div>
+          <div class="kpi-value" id="kpi-to-renew">0</div>
+          <div class="kpi-trend warn">⚠ Fora do topo / expiradas</div>
+        </div>
+      </div>
+
+      <!-- ORIGEM DAS VISITAS + GOOGLE TRENDS (PESQUISAS EM ALTA) -->
+      <div class="analytics-grid" id="sec-trends">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">De onde vêm as visitas</div>
+              <div class="panel-sub">Canais de aquisição e cidades dos visitantes hoje</div>
+            </div>
+          </div>
+
+          <div class="donut-wrap">
+            <div class="donut-ring" id="donutRing" style="background: conic-gradient(#a3e635 0% 45%, #10b981 45% 75%, #3b82f6 75% 90%, #52525b 90% 100%);">
+              <div class="donut-hole">
+                <strong id="donutTotal">0</strong>
+                <span>Visitas Hoje</span>
+              </div>
+            </div>
+            <div class="source-list" id="sourcesList"></div>
+          </div>
+
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Quem mais acessa (Cidades & Dispositivos)</div>
+            <div id="visitorsGeoList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">🔥 Tendências de Busca (Trends)</div>
+              <div class="panel-sub">Tipos de modelos, categorias e cidades mais pesquisadas</div>
+            </div>
+          </div>
+          <div class="trends-list" id="trendsList"></div>
+        </div>
+      </div>
+
+      <!-- RAIO-X DE TELEMETRIA: PROPAGANDAS PULADAS VS CLICADAS -->
+      <div class="analytics-grid" id="sec-telemetry">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">⏭️ Propagandas / Stories Mais Pulados</div>
+              <div class="panel-sub">Anúncios que os visitantes pularam em menos de 2,5 segundos</div>
+            </div>
+          </div>
+          <div class="trends-list" id="skippedList"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">🎯 Maior Retenção e Cliques</div>
+              <div class="panel-sub">Perfis, WhatsApps e Stories que prenderam atenção</div>
+            </div>
+          </div>
+          <div class="trends-list" id="engagedList"></div>
+        </div>
+      </div>
+
+      <!-- SESSÕES INDIVIDUAIS DOS VISITANTES -->
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">🕵️ Metadados dos Visitantes (Sessões ao Vivo)</div>
+            <div class="panel-sub">Quanto tempo cada visitante passou no site, origem, pulos e cliques</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Visitante / Dispositivo</th>
+                <th>Origem & Cidade</th>
+                <th>Tempo no Site</th>
+                <th>Pulos</th>
+                <th>Cliques</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TABELA: MODELOS QUE PRECISAM PAGAR PARA VOLTAR À 1ª PÁGINA -->
+      <div class="bottom-grid" id="sec-billing">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">💳 Modelos pendentes de pagamento / renovação</div>
+              <div class="panel-sub">Planos VIP/Diamante vencidos ou perfis gratuitos fora do topo</div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Modelo</th>
+                  <th>Status na Vitrine</th>
+                  <th>Visitas</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+              <tbody id="renewTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="promo-card" style="margin-bottom:0;">
+          <div>
+            <span class="promo-tag">⚡ Oportunidade de Caixa</span>
+            <h3 style="font-size:18px;margin-top:14px;margin-bottom:6px;">Potencial de Renovação</h3>
+            <p style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">
+              Valor estimado se as modelos com destaque expirado ou plano gratuito ativarem o <strong>VIP 7 Dias (R$ 59,90)</strong>.
+            </p>
+          </div>
+          <div class="promo-big" id="potentialRevenue">R$ 0,00 <small>/ ciclo</small></div>
+          <button class="btn-lime-full" onclick="copiarLinkCobranca()">Copiar Link de Impulsionamento</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- RAIL DIREITA: NOTIFICAÇÕES + APROVAÇÕES DE MODELOS -->
+    <aside class="right-rail" id="sec-approvals">
+      <div>
+        <div class="rail-title">🔔 Notificações Recentes</div>
+        <div id="notificationsFeed"></div>
+      </div>
+
+      <div>
+        <div class="rail-title">🛡️ Todas as Modelos (Aprovar / Pausar)</div>
+        <div id="modelsApprovalList"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const pwd = new URLSearchParams(window.location.search).get('pwd') || '';
+    let allCreatorsCache = [];
+
+    function formatDuration(sec) {
+      const s = Number(sec || 0);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${m}m ${rem}s`;
+    }
+
+    function scrollToSection(id, btn) {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function carregarDashboard() {
+      const res = await fetch('/api/portal/admin/overview?pwd=' + encodeURIComponent(pwd));
+      if (!res.ok) {
+        alert('Sessão admin inválida. Recarregue e digite a senha.');
+        return;
+      }
+      const data = await res.json();
+      allCreatorsCache = data.creators || [];
+
+      // KPIs
+      document.getElementById('kpi-revenue').innerText = 'R$ ' + Number(data.kpis.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpi-revenue-sub').innerText = `↑ ${data.kpis.paidOrders || 0} pagamentos Pix confirmados`;
+      document.getElementById('kpi-models').innerText = data.kpis.totalModels || 0;
+      document.getElementById('kpi-models-sub').innerText = `${data.kpis.activeModels || 0} ativas • ${data.kpis.pendingModels || 0} aguardando`;
+      document.getElementById('kpi-visits-today').innerText = data.kpis.visitsToday || 0;
+      document.getElementById('kpi-visits-sub').innerText = `⏱ Tempo médio: ${formatDuration(data.kpis.avgSeconds)} (${data.kpis.visits7d || 0} em 7d)`;
+      document.getElementById('kpi-to-renew').innerText = data.kpis.needPaymentCount || 0;
+
+      // Origem das Visitas (Donut)
+      const totalToday = Math.max(1, Number(data.kpis.visitsToday || 0));
+      document.getElementById('donutTotal').innerText = data.kpis.visitsToday || 0;
+      const colors = ['#a3e635', '#10b981', '#38bdf8', '#f59e0b', '#6b7280'];
+      const sources = data.sources || [];
+      let currentDeg = 0;
+      const stops = [];
+
+      document.getElementById('sourcesList').innerHTML = sources.map((s, idx) => {
+        const color = colors[idx % colors.length];
+        const pct = Math.round((s.count / totalToday) * 100);
+        const nextDeg = currentDeg + pct;
+        stops.push(`${color} ${currentDeg}% ${nextDeg}%`);
+        currentDeg = nextDeg;
+        return `
+          <div class="source-item">
+            <span><i class="source-dot" style="background:${color}"></i>${s.source}</span>
+            <strong>${s.count} <span style="color:var(--text-dim);font-weight:500;">(${pct}%)</span></strong>
+          </div>
+        `;
+      }).join('') || '<span style="font-size:12px;color:var(--text-dim);">Aguardando primeiras visitas hoje...</span>';
+
+      if (stops.length) {
+        document.getElementById('donutRing').style.background = `conic-gradient(${stops.join(', ')})`;
+      }
+
+      // Quem mais acessa
+      const geo = data.visitorsGeo || [];
+      document.getElementById('visitorsGeoList').innerHTML = geo.map(g => `
+        <span style="background:rgba(255,255,255,0.05);border:1px solid var(--border);padding:4px 10px;border-radius:99px;font-size:11px;">
+          📍 ${g.label} (${g.count})
+        </span>
+      `).join('') || '<span style="font-size:11px;color:var(--text-dim);">Sem dados de localização ainda</span>';
+
+      // Google Trends Interno
+      const trends = data.trends || [];
+      const maxTrend = Math.max(...trends.map(t => t.count), 1);
+      document.getElementById('trendsList').innerHTML = trends.map((t, idx) => {
+        const pct = Math.max(12, Math.round((t.count / maxTrend) * 100));
+        return `
+          <div class="trend-row">
+            <div style="flex:1;">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;">
+                <strong>#${idx + 1} ${t.term}</strong>
+                <span style="color:var(--text-muted);">${t.count} buscas</span>
+              </div>
+              <div class="trend-bar-bg">
+                <div class="trend-bar-fill" style="width:${pct}%"></div>
+              </div>
+            </div>
+            <span class="trend-badge">${t.tag || 'Em alta'}</span>
+          </div>
+        `;
+      }).join('') || '<span style="font-size:12px;color:var(--text-dim);">Nenhuma pesquisa registrada ainda.</span>';
+
+      // Top Propagandas/Stories Pulados
+      const skipped = data.topSkipped || [];
+      document.getElementById('skippedList').innerHTML = skipped.map(s => `
+        <div class="trend-row">
+          <strong style="font-size:12.5px;">${s.target_label}</strong>
+          <span class="trend-badge skip">${s.count} pulos</span>
+        </div>
+      `).join('') || '<span style="font-size:12px;color:var(--text-dim);">Nenhum pulo rápido registrado ainda.</span>';
+
+      // Top Propagandas/Perfis Clicados e Assistidos
+      const engaged = data.topEngaged || [];
+      document.getElementById('engagedList').innerHTML = engaged.map(e => `
+        <div class="trend-row">
+          <strong style="font-size:12.5px;">${e.target_label}</strong>
+          <span class="trend-badge">${e.count} ações</span>
+        </div>
+      `).join('') || '<span style="font-size:12px;color:var(--text-dim);">Aguardando interações dos visitantes...</span>';
+
+      // Tabela Individual de Visitantes (Metadados)
+      const sessions = data.sessions || [];
+      document.getElementById('sessionsTableBody').innerHTML = sessions.map(s => `
+        <tr>
+          <td>
+            <strong style="color:#fff;display:block;">#${s.visitor_id.slice(-6).toUpperCase()}</strong>
+            <span style="font-size:11px;color:var(--text-dim);">${s.device_type || 'Celular'} • ${s.os_name || ''}</span>
+          </td>
+          <td>
+            <strong style="color:var(--lime);">${s.last_source}</strong>
+            <span style="display:block;font-size:11px;color:var(--text-dim);">📍 ${s.visitor_city || 'Brasil'}</span>
+          </td>
+          <td><strong>${formatDuration(s.total_seconds)}</strong></td>
+          <td><span style="color:#fca5a5;font-weight:700;">${s.ads_skipped || 0}</span></td>
+          <td><span style="color:var(--lime);font-weight:700;">${s.ads_clicked || 0}</span></td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);text-align:center;padding:16px;">Nenhuma sessão capturada ainda.</td></tr>';
+
+      // Tabela: Modelos que precisam pagar para voltar à 1ª página
+      const renewList = data.needPaymentModels || [];
+      const potential = renewList.length * 59.90;
+      document.getElementById('potentialRevenue').innerHTML = `R$ ${potential.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <small>/ ciclo</small>`;
+
+      document.getElementById('renewTableBody').innerHTML = renewList.map(m => {
+        const isExpired = m.featured_until && new Date(m.featured_until) < new Date();
+        const badge = isExpired
+          ? '<span class="status-pill status-expired">Destaque Vencido</span>'
+          : '<span class="status-pill status-free">Plano Grátis (Fora do Topo)</span>';
+        const waClean = String(m.whatsapp || '').replace(/\D/g, '');
+        const waMsg = encodeURIComponent(`Oi ${m.stage_name}! Seu destaque na primeira página do Garota VIP expirou. Ative agora no seu Studio para voltar ao topo 🔥`);
+        const waHref = waClean ? `https://wa.me/55${waClean.replace(/^55/, '')}?text=${waMsg}` : '#';
+
+        return `
+          <tr>
+            <td>
+              <div class="model-cell">
+                <img src="${m.avatar_url || m.cover_url || 'https://placehold.co/80x80/1f2937/a3e635?text=VIP'}" />
+                <div>
+                  <strong style="display:block;color:#fff;">${m.stage_name}</strong>
+                  <span style="font-size:11px;color:var(--text-dim);">${m.city}-${m.state}</span>
+                </div>
+              </div>
+            </td>
+            <td>${badge}</td>
+            <td><strong>${m.views_count || 0}</strong></td>
+            <td>
+              ${waClean ? `<a href="${waHref}" target="_blank" class="btn-action-sm">Cobrar WhatsApp</a>` : '<span style="font-size:11px;color:var(--text-dim);">Sem WA</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="4" style="color:var(--text-dim);text-align:center;padding:20px;">Todas as modelos estão com destaque em dia!</td></tr>';
+
+      // Notificações Recentes
+      const notifs = data.notifications || [];
+      document.getElementById('notificationsFeed').innerHTML = notifs.map(n => `
+        <div class="feed-item">
+          <div class="feed-ico">${n.icon || '⚡'}</div>
+          <div>
+            <strong>${n.title}</strong>
+            <span>${n.time}</span>
+          </div>
+        </div>
+      `).join('');
+
+      renderApprovalsList(allCreatorsCache);
+      document.getElementById('last-updated').innerText = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderApprovalsList(list) {
+      document.getElementById('modelsApprovalList').innerHTML = list.map(c => `
+        <div class="approval-card ${!c.verified ? 'highlight' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="overflow:hidden;">
+              <strong style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${c.id} ${c.stage_name}</strong>
+              <span class="sub-txt" style="font-size:11px;color:var(--text-muted);">${c.city}-${c.state} • ${c.tier.toUpperCase()}</span>
+            </div>
+            <button onclick="toggleApprove(${c.id}, ${!c.verified})" class="${c.verified ? 'btn-dark-sm' : 'btn-action-sm'}" style="${!c.verified ? 'background:#090d0a;color:#a3e635;' : ''}">
+              ${c.verified ? '✅ Ativa' : '⏳ Aprovar'}
+            </button>
+          </div>
+          ${c.verification_video_url ? `<a href="${c.verification_video_url}" target="_blank" style="display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:${!c.verified ? '#090d0a' : '#a3e635'};text-decoration:none;">🎥 Ver Vídeo Facial ↗</a>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function filtrarModelos() {
+      const q = document.getElementById('modelSearch').value.toLowerCase().trim();
+      if (!q) return renderApprovalsList(allCreatorsCache);
+      renderApprovalsList(allCreatorsCache.filter(c =>
+        (c.stage_name || '').toLowerCase().includes(q) ||
+        (c.city || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q)
+      ));
+    }
+
+    async function toggleApprove(id, status) {
+      await fetch('/api/portal/admin/approve?pwd=' + encodeURIComponent(pwd), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: id, verified: status, active: status }),
+      });
+      carregarDashboard();
+    }
+
+    async function seedDemo() {
+      await fetch('/api/portal/admin/seed?pwd=' + encodeURIComponent(pwd), { method: 'POST' });
+      carregarDashboard();
+    }
+
+    async function clearDemo() {
+      if (!confirm('Remover todas as modelos de demonstração?')) return;
+      await fetch('/api/portal/admin/clear-demo?pwd=' + encodeURIComponent(pwd), { method: 'POST' });
+      carregarDashboard();
+    }
+
+    function copiarLinkCobranca() {
+      const url = window.location.origin + '/minha-conta';
+      navigator.clipboard.writeText(url);
+      alert('Link do Creator Studio copiado! Envie para a modelo renovar o destaque.');
+    }
+
+    carregarDashboard();
+  </script>
+</body>
+</html>

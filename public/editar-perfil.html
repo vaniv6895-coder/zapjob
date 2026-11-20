@@ -320,6 +320,22 @@
       transition: all 0.15s;
     }
     .btn-secondary:hover { background: #24242b; border-color: rgba(255,255,255,0.2); }
+    .btn-record {
+      background: rgba(225, 29, 72, 0.15);
+      border: 1px solid rgba(225, 29, 72, 0.45);
+      color: #fda4af;
+    }
+    .btn-record:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-record.recording {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      animation: pulseRec 1.2s infinite;
+    }
+    @keyframes pulseRec {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.72; }
+    }
 
     /* Gallery Dropzone & Grid */
     .dropzone {
@@ -631,19 +647,24 @@
         <div class="panel-header">
           <div>
             <h2 class="panel-title">Áudio de Apresentação</h2>
-            <p class="panel-desc">Uma gravação curta de voz aumenta a confiança e os contatos.</p>
+            <p class="panel-desc">Grave sua voz direto pelo microfone ou envie um arquivo pronto.</p>
           </div>
         </div>
 
         <div class="voice-card">
           <div class="voice-info">
             <span class="voice-status" id="audioLabel">Nenhum áudio cadastrado</span>
-            <span class="voice-hint">Formatos MP3, M4A, OGG ou WAV</span>
+            <span class="voice-hint" id="recTimer">Toque em Gravar e fale sua apresentação</span>
             <audio id="audioPlayerPreview" controls style="height: 32px; margin-top: 4px; display: none; max-width: 100%;"></audio>
           </div>
-          <button type="button" class="btn-secondary" onclick="document.getElementById('inputAudioFile').click()">
-            Selecionar áudio
-          </button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <button type="button" class="btn-secondary btn-record" id="btnRecordAudio" onclick="toggleGravacaoAudio()">
+              🎙️ Gravar
+            </button>
+            <button type="button" class="btn-secondary" onclick="document.getElementById('inputAudioFile').click()">
+              Arquivo
+            </button>
+          </div>
           <input type="file" id="inputAudioFile" accept="audio/*" style="display:none" onchange="uploadArquivoUnico('audio', this.files[0])" />
         </div>
       </div>
@@ -741,6 +762,71 @@
     const token = sessionStorage.getItem('portal_token') || '';
     let creatorSlug = '';
     let leftAt = 0;
+
+    // Gravação de áudio direta pelo navegador (estilo WhatsApp)
+    let mediaRecorderAudio = null;
+    let audioChunks = [];
+    let audioRecordInterval = null;
+    let audioRecordSeconds = 0;
+
+    async function toggleGravacaoAudio() {
+      const btn = document.getElementById('btnRecordAudio');
+      const timerEl = document.getElementById('recTimer');
+
+      if (mediaRecorderAudio && mediaRecorderAudio.state === 'recording') {
+        mediaRecorderAudio.stop();
+        clearInterval(audioRecordInterval);
+        btn.innerText = '🎙️ Gravar';
+        btn.classList.remove('recording');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        audioRecordSeconds = 0;
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
+
+        mediaRecorderAudio = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+
+        mediaRecorderAudio.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorderAudio.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const finalType = mediaRecorderAudio.mimeType || 'audio/webm';
+          const ext = finalType.includes('mp4') ? 'm4a' : 'webm';
+          const blob = new Blob(audioChunks, { type: finalType });
+          const file = new File([blob], `apresentacao.${ext}`, { type: finalType });
+
+          timerEl.innerText = 'Enviando áudio gravado...';
+          await uploadArquivoUnico('audio', file);
+          timerEl.innerText = 'Áudio gravado e salvo';
+        };
+
+        mediaRecorderAudio.start();
+        btn.innerText = '⏹ Parar e Salvar';
+        btn.classList.add('recording');
+        timerEl.innerText = 'Gravando... 00:00';
+
+        audioRecordInterval = setInterval(() => {
+          audioRecordSeconds++;
+          const mins = String(Math.floor(audioRecordSeconds / 60)).padStart(2, '0');
+          const secs = String(audioRecordSeconds % 60).padStart(2, '0');
+          timerEl.innerText = `Gravando... ${mins}:${secs}`;
+        }, 1000);
+      } catch (err) {
+        alert('Permita o acesso ao microfone no navegador para gravar o áudio.');
+      }
+    }
 
     // Saiu da aba / minimizou o navegador por mais de 5s -> reseta sessão e exige Gmail + Bio novamente
     document.addEventListener('visibilitychange', () => {
