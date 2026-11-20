@@ -17,9 +17,18 @@ function extractCreatorIdFromToken(rawToken) {
   return 0;
 }
 
+function buildFanCode(seed) {
+  const clean = String(seed || 'VIP').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const part = (clean.slice(-6) || '9X4K2M').padStart(6, '0');
+  return `FAN-${part}`;
+}
+
 export function registerTelemetryRoutes(app, pool) {
   // 1. Inicialização automática das tabelas de telemetria, analytics, retenção e mensagens VIP
   pool.query(`
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_anchor_price NUMERIC(10,2);
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_plans JSONB DEFAULT '{}'::jsonb;
+
     CREATE TABLE IF NOT EXISTS portal_analytics_events (
       id SERIAL PRIMARY KEY,
       event_type VARCHAR(40) NOT NULL,
@@ -171,11 +180,103 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 2C. Página dedicada e rotas de Mensagens dos Assinantes VIP
+  // 2C. Página dedicada, ID de Fã e rotas de Mensagens dos Assinantes VIP
   app.get('/vip-mensagens', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'vip-mensagens.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/meu-vip', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'meu-vip.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/api/vip/fan-panel', async (req, reply) => {
+    try {
+      const deviceHash = String(req.query.deviceHash || '').trim();
+      if (!deviceHash) {
+        return reply.status(400).send({ ok: false, error: 'deviceHash obrigatório' });
+      }
+
+      const fanCode = buildFanCode(deviceHash);
+
+      const subsRes = await pool.query(
+        `SELECT s.id,
+                s.creator_id,
+                s.buyer_identifier,
+                s.device_hash,
+                s.status,
+                s.created_at,
+                s.expires_at,
+                c.stage_name AS creator_name,
+                c.slug AS creator_slug,
+                c.avatar_url AS creator_avatar,
+                c.city AS creator_city
+         FROM vip_subscriptions s
+         LEFT JOIN creator_accounts c ON c.id = s.creator_id
+         WHERE s.device_hash = $1
+         ORDER BY s.id DESC`,
+        [deviceHash]
+      ).catch(() => ({ rows: [] }));
+
+      let unlocks = [];
+      try {
+        const uRes = await pool.query(
+          `SELECT u.id, u.post_id, u.amount, u.created_at, u.used_at,
+                  p.caption, p.media_type, c.stage_name AS creator_name, c.slug AS creator_slug
+           FROM vip_post_unlocks u
+           LEFT JOIN vip_posts p ON p.id = u.post_id
+           LEFT JOIN creator_accounts c ON c.id = p.creator_id
+           WHERE u.device_hash = $1
+           ORDER BY u.id DESC
+           LIMIT 50`,
+          [deviceHash]
+        );
+        unlocks = uRes.rows || [];
+      } catch {
+        unlocks = [];
+      }
+
+      return reply.send({
+        ok: true,
+        fanCode,
+        deviceHash,
+        subscriptions: subsRes.rows || [],
+        unlocks,
+      });
+    } catch {
+      return reply.status(500).send({ ok: false, error: 'Erro ao carregar painel do fã' });
+    }
+  });
+
+  app.get('/api/portal/creator/vip-subscribers', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const res = await pool.query(
+        `SELECT id, buyer_identifier, device_hash, status, created_at, expires_at
+         FROM vip_subscriptions
+         WHERE creator_id = $1
+         ORDER BY id DESC
+         LIMIT 100`,
+        [creatorId]
+      ).catch(() => ({ rows: [] }));
+
+      const fans = (res.rows || []).map((row) => ({
+        ...row,
+        fanCode: buildFanCode(row.device_hash || row.buyer_identifier || row.id),
+        deviceShort: String(row.device_hash || '').slice(0, 8).toUpperCase(),
+      }));
+
+      return reply.send({ ok: true, fans });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar assinantes VIP' });
+    }
   });
 
   app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
@@ -218,15 +319,17 @@ export function registerTelemetryRoutes(app, pool) {
         });
       }
 
-      const finalContact = String(subscriberContact || activeSub.buyer_identifier || 'Assinante VIP').trim();
+      const fanCode = buildFanCode(cleanDev);
+      const finalContact = String(subscriberContact || activeSub.buyer_identifier || fanCode).trim();
+      const finalName = `${String(subscriberName).trim() || 'Assinante VIP'} (${fanCode})`;
 
       const inserted = await pool.query(
         `INSERT INTO vip_subscriber_messages (creator_id, subscriber_contact, subscriber_name, message_text)
          VALUES ($1, $2, $3, $4)
          RETURNING id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at`,
-        [creator.id, finalContact, String(subscriberName).trim() || 'Assinante VIP', cleanMsg]
+        [creator.id, finalContact, finalName, cleanMsg]
       );
-      return reply.send({ ok: true, message: inserted.rows[0] });
+      return reply.send({ ok: true, fanCode, message: inserted.rows[0] });
     } catch {
       return reply.status(500).send({ error: 'Erro ao enviar mensagem VIP' });
     }
@@ -440,11 +543,7 @@ export function registerTelemetryRoutes(app, pool) {
       if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
 
       const [creatorRes, mediaRes, retentionRes] = await Promise.all([
-        pool.query(
-          `SELECT id, slug, stage_name, avatar_url, cover_url, bio, vip_monthly_price, vip_anchor_price, vip_plans, subscription_price
-           FROM creator_accounts WHERE id = $1`,
-          [creatorId]
-        ),
+        pool.query(`SELECT * FROM creator_accounts WHERE id = $1 LIMIT 1`, [creatorId]),
         pool.query(
           `SELECT id, media_type, visibility, public_url, caption, created_at
            FROM creator_media
@@ -462,7 +561,7 @@ export function registerTelemetryRoutes(app, pool) {
            WHERE creator_id = $1
            GROUP BY media_id`,
           [creatorId]
-        ),
+        ).catch(() => ({ rows: [] })),
       ]);
 
       const retMap = new Map();

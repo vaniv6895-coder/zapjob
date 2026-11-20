@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meu Clube VIP — Painel do Fã</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body {
+      background: radial-gradient(circle at top, #180b1e 0%, #06080f 55%);
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding-bottom: 60px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .topbar {
+      background: rgba(11, 15, 25, 0.88);
+      backdrop-filter: blur(14px);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(236, 72, 153, 0.22);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar a { text-decoration: none; color: #cbd5e1; font-weight: 700; font-size: 13px; }
+    .topbar a:hover { color: #fff; }
+    .container { max-width: 580px; margin: 0 auto; padding: 18px 14px; }
+    .card {
+      background: #0f1523;
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .fan-banner {
+      background: linear-gradient(135deg, #270c26 0%, #1c1033 100%);
+      border: 1.5px solid rgba(236, 72, 153, 0.55);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .fan-id-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      background: rgba(6, 8, 15, 0.65);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 14px;
+      border-radius: 12px;
+    }
+    .fan-code-val { font-size: 16px; font-weight: 900; color: #f472b6; letter-spacing: 0.04em; }
+    .btn-copy {
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 7px 12px;
+      font-size: 11.5px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .sub-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .sub-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #ec4899; flex-shrink: 0; }
+    .status-pill {
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 99px;
+      display: inline-block;
+      margin-top: 4px;
+    }
+    .status-active { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+    .status-inactive { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
+    .btn-open-vip {
+      text-decoration: none;
+      background: #17171e;
+      border: 1px solid rgba(236, 72, 153, 0.45);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 12px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/vitrine">← Vitrine</a>
+    <strong style="font-size:14.5px;letter-spacing:0.5px;">💎 MEU CLUBE <span style="color:#ec4899;">VIP</span></strong>
+    <span style="font-size:11px;color:#94a3b8;font-weight:700;">Painel do Fã</span>
+  </header>
+
+  <main class="container">
+    <section class="fan-banner">
+      <div style="font-size:11px;font-weight:800;color:#f472b6;text-transform:uppercase;letter-spacing:0.05em;">
+        IDENTIFICAÇÃO DO COMPRADOR
+      </div>
+      <h1 style="font-size:19px;font-weight:900;margin-top:4px;">Seu ID de Fã VIP</h1>
+      <p style="font-size:12px;color:#cbd5e1;margin-top:4px;line-height:1.45;">
+        Seu acesso fica vinculado a este aparelho e seu ID identifica suas assinaturas e desbloqueios.
+      </p>
+
+      <div class="fan-id-row">
+        <div>
+          <span style="font-size:10.5px;color:#94a3b8;display:block;font-weight:700;">ID DO FÃ</span>
+          <strong id="fanCodeDisplay" class="fan-code-val">Carregando...</strong>
+        </div>
+        <button type="button" class="btn-copy" onclick="copiarFanId()">Copiar ID</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="font-size:15px;font-weight:800;margin-bottom:4px;">👑 Minhas Assinaturas VIP</h2>
+      <p style="font-size:12px;color:#94a3b8;">Perfis VIP que você assinou neste aparelho</p>
+      <div id="fanSubsList">
+        <p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Carregando assinaturas...</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="font-size:15px;font-weight:800;margin-bottom:4px;">🔥 Conteúdos Avulsos (1x)</h2>
+      <p style="font-size:12px;color:#94a3b8;">Desbloqueios avulsos realizados neste aparelho</p>
+      <div id="fanUnlocksList">
+        <p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Carregando desbloqueios...</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/device-id.js"></script>
+  <script>
+    function copiarFanId() {
+      const code = document.getElementById('fanCodeDisplay')?.innerText || '';
+      if (!code || code === 'Carregando...') return;
+      navigator.clipboard?.writeText(code);
+      alert('ID de Fã copiado: ' + code);
+    }
+
+    async function carregarPainelCliente() {
+      let deviceHash = '';
+      if (typeof window.getDeviceHash === 'function') {
+        deviceHash = await window.getDeviceHash();
+      }
+      if (!deviceHash) {
+        deviceHash = localStorage.getItem('vip_device_hash') || 'local-device';
+      }
+
+      const res = await fetch('/api/vip/fan-panel?deviceHash=' + encodeURIComponent(deviceHash));
+      if (!res.ok) {
+        document.getElementById('fanCodeDisplay').innerText = 'FAN-VIP';
+        document.getElementById('fanSubsList').innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Nenhuma assinatura encontrada ainda.</p>';
+        document.getElementById('fanUnlocksList').innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Nenhum conteúdo avulso encontrado.</p>';
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById('fanCodeDisplay').innerText = data.fanCode || 'FAN-VIP';
+
+      const subs = data.subscriptions || [];
+      const subsBox = document.getElementById('fanSubsList');
+      if (!subs.length) {
+        subsBox.innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Você ainda não possui assinatura VIP ativa neste aparelho.</p>';
+      } else {
+        subsBox.innerHTML = subs.map((s) => {
+          const isActive = s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date());
+          const expStr = s.expires_at ? 'Até ' + new Date(s.expires_at).toLocaleDateString('pt-BR') : 'Ativo';
+          const vipHref = s.creator_slug ? '/vip/' + encodeURIComponent(s.creator_slug) : '/vitrine';
+          return `
+            <div class="sub-item">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                <img class="sub-avatar" src="${s.creator_avatar || 'https://placehold.co/80x80'}" alt="" />
+                <div style="min-width:0;">
+                  <strong style="display:block;font-size:13.5px;color:#fff;">${s.creator_name || 'Criadora VIP'}</strong>
+                  <span style="font-size:11px;color:#94a3b8;">${s.creator_city || 'Brasil'} • ${expStr}</span>
+                  <div>
+                    <span class="status-pill ${isActive ? 'status-active' : 'status-inactive'}">
+                      ${isActive ? '✅ Assinatura Ativa' : 'Encerrada'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <a class="btn-open-vip" href="${vipHref}">Abrir VIP →</a>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const unlocks = data.unlocks || [];
+      const unlocksBox = document.getElementById('fanUnlocksList');
+      if (!unlocks.length) {
+        unlocksBox.innerHTML = '<p style="font-size:12.5px;color:#94a3b8;margin-top:10px;">Nenhum desbloqueio avulso 1x registrado.</p>';
+      } else {
+        unlocksBox.innerHTML = unlocks.map((u) => {
+          const dt = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '';
+          const vipHref = u.creator_slug ? '/vip/' + encodeURIComponent(u.creator_slug) : '/vitrine';
+          return `
+            <div class="sub-item">
+              <div style="min-width:0;">
+                <strong style="display:block;font-size:13px;color:#fff;">${u.caption || 'Conteúdo Avulso VIP'}</strong>
+                <span style="font-size:11px;color:#94a3b8;">${u.creator_name || 'Criadora'} • ${dt} • R$ ${Number(u.amount || 0).toFixed(2).replace('.', ',')}</span>
+              </div>
+              <a class="btn-open-vip" href="${vipHref}">Ver VIP →</a>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    carregarPainelCliente();
+  </script>
+</body>
+</html>
