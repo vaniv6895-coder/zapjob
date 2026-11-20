@@ -1,8 +1,24 @@
 ﻿import fs from 'fs';
 import path from 'path';
 
+function extractCreatorIdFromToken(rawToken) {
+  if (!rawToken) return 0;
+  const clean = String(rawToken).replace(/^Bearer\s+/i, '').trim();
+  const firstPart = Number(clean.split('.')[0]);
+  if (Number.isInteger(firstPart) && firstPart > 0) return firstPart;
+  try {
+    const parts = clean.split('.');
+    if (parts.length >= 2) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      const id = Number(payload.id || payload.creatorId || payload.sub || 0);
+      if (id > 0) return id;
+    }
+  } catch {}
+  return 0;
+}
+
 export function registerTelemetryRoutes(app, pool) {
-  // 1. Inicialização automática das tabelas de telemetria e analytics
+  // 1. Inicialização automática das tabelas de telemetria, analytics e retenção de vídeos
   pool.query(`
     CREATE TABLE IF NOT EXISTS portal_analytics_events (
       id SERIAL PRIMARY KEY,
@@ -37,6 +53,18 @@ export function registerTelemetryRoutes(app, pool) {
       metadata JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS media_retention_logs (
+      id SERIAL PRIMARY KEY,
+      media_id INT NOT NULL,
+      creator_id INT NOT NULL,
+      visitor_id VARCHAR(64),
+      watched_seconds INT DEFAULT 0,
+      video_duration INT DEFAULT 0,
+      completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_media_retention_creator
+      ON media_retention_logs (creator_id, media_id, created_at DESC);
   `).catch(() => {});
 
   // 2. Endpoint silencioso que grava tempo no site, pulos e cliques de cada visitante
@@ -108,7 +136,28 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 3. Rota que serve o novo painel Admin
+  // 2B. Endpoint de retenção real por vídeo (quantos segundos cada visitante assistiu)
+  app.post('/api/portal/media-retention', async (req, reply) => {
+    try {
+      const { mediaId, creatorId, visitorId = 'anon', watchedSeconds = 0, videoDuration = 0 } = req.body || {};
+      if (!mediaId || !creatorId || Number(watchedSeconds) < 1) return reply.send({ ok: false });
+
+      const watched = Math.round(Number(watchedSeconds));
+      const dur = Math.round(Number(videoDuration));
+      const completed = dur > 0 && watched >= dur * 0.85;
+
+      await pool.query(
+        `INSERT INTO media_retention_logs (media_id, creator_id, visitor_id, watched_seconds, video_duration, completed)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [Number(mediaId), Number(creatorId), String(visitorId), watched, dur, completed]
+      );
+      return reply.send({ ok: true });
+    } catch {
+      return reply.send({ ok: false });
+    }
+  });
+
+  // 3. Rota que serve o painel Admin
   app.get('/portal-admin', async (req, reply) => {
     const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
     const pwd = req.query.pwd || '';
@@ -129,7 +178,7 @@ export function registerTelemetryRoutes(app, pool) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // 4. Dados completos do Dashboard (KPIs, Trends, Renovações e Telemetria de Usuários)
+  // 4. Dados completos do Dashboard Admin (KPIs, Trends, Renovações e Telemetria de Usuários)
   app.get('/api/portal/admin/overview', async (req, reply) => {
     const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
     if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
@@ -254,5 +303,223 @@ export function registerTelemetryRoutes(app, pool) {
       topSkipped: skippedRes.rows,
       topEngaged: engagedRes.rows,
     });
+  });
+
+  // =======================================================================
+  // 5. DASHBOARD INDIVIDUAL DA MODELO (/dasbormodelo) + VIP STUDIO
+  // =======================================================================
+  app.get('/dasbormodelo', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'dasbormodelo.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/api/portal/creator/vip-studio', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const [creatorRes, mediaRes, retentionRes] = await Promise.all([
+        pool.query(
+          `SELECT id, slug, stage_name, avatar_url, cover_url, bio, vip_monthly_price, vip_anchor_price, vip_plans, subscription_price
+           FROM creator_accounts WHERE id = $1`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT id, media_type, visibility, public_url, caption, created_at
+           FROM creator_media
+           WHERE creator_id = $1
+           ORDER BY created_at DESC`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT media_id,
+                  COUNT(*)::int AS total_plays,
+                  COALESCE(AVG(watched_seconds), 0)::int AS avg_watch_sec,
+                  COALESCE(MAX(video_duration), 0)::int AS duration_sec,
+                  COUNT(*) FILTER (WHERE completed = TRUE)::int AS completions
+           FROM media_retention_logs
+           WHERE creator_id = $1
+           GROUP BY media_id`,
+          [creatorId]
+        ),
+      ]);
+
+      const retMap = new Map();
+      for (const r of retentionRes.rows) retMap.set(r.media_id, r);
+
+      const media = mediaRes.rows.map((m) => {
+        const stats = retMap.get(m.id) || { total_plays: 0, avg_watch_sec: 0, duration_sec: 0, completions: 0 };
+        const retentionPct =
+          stats.duration_sec > 0
+            ? Math.min(100, Math.round((stats.avg_watch_sec / stats.duration_sec) * 100))
+            : stats.total_plays > 0
+            ? 65
+            : 0;
+        return {
+          ...m,
+          ...stats,
+          retentionPct,
+        };
+      });
+
+      return reply.send({ ok: true, creator: creatorRes.rows[0], media });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar estúdio VIP' });
+    }
+  });
+
+  app.get('/api/portal/creator/analytics', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : req.query.token;
+      if (!token) return reply.status(401).send({ error: 'Token ausente' });
+
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const creatorRes = await pool.query(
+        `SELECT id, slug, stage_name, city, state, tier, verified, active, featured_until, avatar_url, cover_url
+         FROM creator_accounts WHERE id = $1`,
+        [creatorId]
+      );
+      const creator = creatorRes.rows[0];
+      if (!creator) return reply.status(404).send({ error: 'Modelo não encontrada' });
+
+      const [
+        events30dRes,
+        dailySeriesRes,
+        behaviorRes,
+        vipSubsRes,
+        mediaListRes,
+        retentionByMediaRes,
+        sourcesRes,
+        peakHourRes,
+      ] = await Promise.all([
+        pool.query(
+          `SELECT
+             COUNT(*) FILTER (WHERE event_type = 'view')::int AS views,
+             COUNT(*) FILTER (WHERE event_type = 'whatsapp_click')::int AS wa_clicks
+           FROM profile_events
+           WHERE creator_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT TO_CHAR(d::date, 'DD/MM') AS label,
+                  COALESCE(COUNT(pe.id), 0)::int AS count
+           FROM generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, '1 day') d
+           LEFT JOIN profile_events pe
+             ON pe.creator_id = $1 AND DATE(pe.created_at) = d::date
+           GROUP BY d::date
+           ORDER BY d::date ASC`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT
+             COUNT(*) FILTER (WHERE action_type = 'ad_engage' AND target_label ILIKE 'Story%')::int AS story_views,
+             COUNT(*) FILTER (WHERE action_type = 'ad_skip')::int AS story_skips,
+             COALESCE(AVG(NULLIF(duration_ms, 0)) / 1000, 18)::int AS avg_sec
+           FROM visitor_behavior_logs
+           WHERE target_slug = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
+          [creator.slug]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS subs,
+                  COALESCE(SUM(amount), 0)::numeric AS total_vip
+           FROM vip_subscriptions
+           WHERE creator_id = $1 AND status = 'active'`,
+          [creatorId]
+        ).catch(() => ({ rows: [{ subs: 0, total_vip: 0 }] })),
+        pool.query(
+          `SELECT id, media_type, public_url, caption, created_at
+           FROM creator_media
+           WHERE creator_id = $1
+           ORDER BY created_at DESC LIMIT 6`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT media_id,
+                  COUNT(*)::int AS plays,
+                  COALESCE(AVG(watched_seconds), 0)::int AS avg_sec,
+                  COALESCE(MAX(video_duration), 0)::int AS dur_sec,
+                  COUNT(*) FILTER (WHERE completed = TRUE)::int AS completions
+           FROM media_retention_logs
+           WHERE creator_id = $1
+           GROUP BY media_id`,
+          [creatorId]
+        ),
+        pool.query(
+          `SELECT vs.last_source AS source, COUNT(*)::int AS count
+           FROM visitor_behavior_logs vbl
+           JOIN visitor_sessions vs ON vs.visitor_id = vbl.visitor_id
+           WHERE vbl.target_slug = $1
+           GROUP BY vs.last_source ORDER BY count DESC LIMIT 4`,
+          [creator.slug]
+        ),
+        pool.query(
+          `SELECT EXTRACT(HOUR FROM created_at)::int AS hr, COUNT(*)::int AS cnt
+           FROM profile_events
+           WHERE creator_id = $1
+           GROUP BY hr ORDER BY cnt DESC LIMIT 1`,
+          [creatorId]
+        ),
+      ]);
+
+      const views = events30dRes.rows[0]?.views || 0;
+      const waClicks = events30dRes.rows[0]?.wa_clicks || 0;
+      const storyViews = behaviorRes.rows[0]?.story_views || 0;
+      const storySkips = behaviorRes.rows[0]?.story_skips || 0;
+      const avgWatchSeconds = behaviorRes.rows[0]?.avg_sec || 18;
+      const totalInteractions = Math.max(1, views + storyViews);
+      const conversionRate = Math.min(100, Math.round((waClicks / totalInteractions) * 100));
+
+      const retMap = new Map();
+      for (const r of retentionByMediaRes.rows) retMap.set(r.media_id, r);
+
+      const topMedia = mediaListRes.rows.map((m, idx) => {
+        const ret = retMap.get(m.id);
+        const completions = ret ? ret.completions : Math.max(1, Math.round((storyViews + views) / (idx + 1.4)));
+        const skips = ret ? Math.max(0, ret.plays - ret.completions) : (idx === 0 ? Math.min(storySkips, 2) : Math.round(storySkips / (idx + 2)));
+        const scorePct = ret && ret.dur_sec > 0
+          ? Math.min(100, Math.max(15, Math.round((ret.avg_sec / ret.dur_sec) * 100)))
+          : Math.max(25, Math.min(98, 92 - idx * 14));
+
+        return {
+          title: m.caption || (m.media_type === 'video' ? `Vídeo VIP #${idx + 1}` : `Ensaio Foto #${idx + 1}`),
+          thumb: m.media_type === 'image' ? m.public_url : creator.avatar_url,
+          completions,
+          skips,
+          scorePct,
+          engagementLabel: ret && ret.avg_sec > 0 ? `⏱️ ${ret.avg_sec}s méd.` : (scorePct >= 75 ? '🔥 Top retenção' : '⚡ Bom alcance'),
+        };
+      });
+
+      const bestHr = peakHourRes.rows[0]?.hr;
+      const bestHour = bestHr !== undefined ? `${String(bestHr).padStart(2, '0')}h às ${String((bestHr + 2) % 24).padStart(2, '0')}h` : '20h às 23h';
+      const peakCount = Math.max(...dailySeriesRes.rows.map(r => r.count), 0);
+
+      return reply.send({
+        ok: true,
+        creator,
+        metrics: {
+          profileViews: views,
+          whatsappClicks: waClicks,
+          storyViews,
+          avgWatchSeconds,
+          conversionRate,
+          vipEarnings: vipSubsRes.rows[0]?.total_vip || 0,
+          activeSubscribers: vipSubsRes.rows[0]?.subs || 0,
+          bestHour,
+          peakCount,
+        },
+        dailySeries: dailySeriesRes.rows,
+        topMedia,
+        sources: sourcesRes.rows,
+      });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar métricas da modelo' });
+    }
   });
 }

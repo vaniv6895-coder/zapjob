@@ -12,6 +12,7 @@
       --surface: #101014;
       --elevated: #17171e;
       --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.18);
       --pink: #e11d48;
       --purple: #9333ea;
       --orange: #f97316;
@@ -31,69 +32,218 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Menu Hambúrguer & Drawer Lateral */
+    .hamburger-btn {
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.15s;
+    }
+    .hamburger-btn:hover { border-color: var(--border-hover); background: #22222b; }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 7, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 9990;
+      display: none;
+    }
+    .drawer-backdrop.open { display: block; }
+    .side-drawer {
+      position: fixed;
+      top: 0;
+      left: -310px;
+      width: 290px;
+      height: 100dvh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      z-index: 9995;
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
+    }
+    .side-drawer.open { left: 0; }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+    }
+    .drawer-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 12px 0 8px;
+    }
+    .drawer-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      transition: 0.15s;
+    }
+    .drawer-link:hover { border-color: var(--border-hover); }
+    .drawer-link.primary-cta {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      border: none;
+      color: #fff;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(225, 29, 72, 0.3);
+    }
+
+    /* Navbar */
     .navbar {
-      position: sticky; top: 0; z-index: 40;
-      background: rgba(7, 7, 9, 0.85); backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border); padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(7, 7, 9, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
     }
     .nav-inner {
-      max-width: 1020px; margin: 0 auto;
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      max-width: 1020px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
     .nav-back {
-      display: inline-flex; align-items: center; gap: 6px;
-      color: var(--text); text-decoration: none; font-size: 13px; font-weight: 700;
-      background: var(--elevated); border: 1px solid var(--border);
-      padding: 8px 14px; border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 700;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      padding: 8px 13px;
+      border-radius: 12px;
+      white-space: nowrap;
     }
-    .brand-pill { font-size: 14px; font-weight: 800; }
+    .brand-pill { font-size: 14px; font-weight: 800; white-space: nowrap; }
     .brand-pill span {
       background: linear-gradient(135deg, #fb7185, #c084fc);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .container { max-width: 1020px; margin: 0 auto; padding: 18px 16px; }
 
     /* Hero */
     .vip-hero-card {
-      position: relative; border-radius: 22px; overflow: hidden;
-      background: var(--surface); border: 1px solid var(--border);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); margin-bottom: 18px;
+      position: relative;
+      border-radius: 22px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      margin-bottom: 18px;
     }
     .vip-cover { height: 150px; width: 100%; position: relative; background: linear-gradient(135deg, #2b0918, #190d2e); }
     .vip-cover img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
     .vip-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,7,9,0.15) 0%, rgba(16,16,20,0.98) 100%); }
     .btn-change-cover {
-      position: absolute; top: 12px; right: 12px; z-index: 5;
-      background: rgba(9, 9, 11, 0.75); backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.18); color: #fff;
-      font-size: 11.5px; font-weight: 700; padding: 7px 12px; border-radius: 99px; cursor: pointer;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+      background: rgba(9, 9, 11, 0.75);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 99px;
+      cursor: pointer;
     }
     .vip-hero-body {
-      padding: 0 20px 20px; margin-top: -44px; position: relative; z-index: 5;
-      display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px;
+      padding: 0 20px 20px;
+      margin-top: -44px;
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
     }
     .vip-identity { display: flex; align-items: flex-end; gap: 14px; }
     .vip-avatar-box {
-      position: relative; width: 86px; height: 86px; border-radius: 50%; padding: 3px;
-      background: linear-gradient(135deg, var(--pink), var(--purple), var(--orange)); flex-shrink: 0;
+      position: relative;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, var(--pink), var(--purple), var(--orange));
+      flex-shrink: 0;
     }
     .vip-avatar-box img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--surface); background: #000; }
     .vip-cam-btn {
-      position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%;
-      background: var(--pink); border: 2px solid var(--surface); color: #fff; font-size: 12px;
-      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--pink);
+      border: 2px solid var(--surface);
+      color: #fff;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
     }
     .vip-badge-tag {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: rgba(225, 29, 72, 0.16); border: 1px solid rgba(225, 29, 72, 0.35);
-      color: #fda4af; font-size: 10.5px; font-weight: 800; padding: 3px 10px; border-radius: 99px; margin-bottom: 5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(225, 29, 72, 0.16);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      color: #fda4af;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 99px;
+      margin-bottom: 5px;
     }
     .vip-name { font-size: 20px; font-weight: 800; }
     .vip-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .btn-view-vip-page {
-      background: var(--elevated); border: 1px solid var(--border); color: #fff;
-      font-size: 12.5px; font-weight: 700; padding: 10px 16px; border-radius: 12px; text-decoration: none;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      color: #fff;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: 12px;
+      text-decoration: none;
     }
 
     /* KPIs */
@@ -106,16 +256,31 @@
 
     /* Abas */
     .studio-tabs {
-      display: flex; gap: 8px; background: var(--surface); padding: 6px;
-      border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; overflow-x: auto;
+      display: flex;
+      gap: 8px;
+      background: var(--surface);
+      padding: 6px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      overflow-x: auto;
     }
     .stab {
-      flex: 1; padding: 11px 14px; border-radius: 12px; border: none;
-      background: transparent; color: var(--muted); font-family: inherit;
-      font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+      flex: 1;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
     }
     .stab.active {
-      background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: #fff;
       box-shadow: 0 6px 18px rgba(225, 29, 72, 0.32);
     }
     .tab-pane { display: none; }
@@ -123,8 +288,11 @@
 
     /* Cards & Planos */
     .upload-box {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 20px; margin-bottom: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 18px;
     }
     .config-split { display: grid; grid-template-columns: 1fr; gap: 20px; }
     @media(min-width: 860px) { .config-split { grid-template-columns: 1.25fr 0.95fr; } }
@@ -132,46 +300,79 @@
     .plans-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 14px 0; }
     @media(min-width: 600px) { .plans-grid { grid-template-columns: 1fr 1fr; } }
     .plan-editor-card {
-      background: var(--elevated); border: 1px solid var(--border);
-      border-radius: 14px; padding: 12px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
     }
     .plan-editor-title {
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 12.5px; font-weight: 800; margin-bottom: 8px; color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
     }
     .plan-price-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
     label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
     input, select, textarea {
-      width: 100%; background: #0a0a0d; border: 1px solid var(--border);
-      border-radius: 11px; padding: 10px 12px; color: #fff;
-      font-family: inherit; font-size: 13px; outline: none;
+      width: 100%;
+      background: #0a0a0d;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
     }
     input:focus, select:focus, textarea:focus { border-color: var(--pink); }
 
     /* Prévia ao Vivo */
     .live-preview-shell {
-      background: #09090c; border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 22px; overflow: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+      background: #09090c;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
     }
     .lp-topbar {
-      background: rgba(255,255,255,0.03); padding: 9px 14px; font-size: 10.5px;
-      font-weight: 800; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
-      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      padding: 9px 14px;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
     }
     .lp-cover { height: 105px; position: relative; background: #1a1025; }
     .lp-cover img { width: 100%; height: 100%; object-fit: cover; }
     .lp-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 20%, #09090c 100%); }
     .lp-body { padding: 0 16px 18px; margin-top: -34px; position: relative; z-index: 2; }
     .lp-avatar {
-      width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
       border: 3px solid #09090c;
     }
     .lp-bio { font-size: 12px; color: #d4d4d8; line-height: 1.5; margin: 10px 0 12px; white-space: pre-line; }
     .lp-plan-option {
-      background: var(--elevated); border: 1px solid var(--border);
-      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
-      display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
     }
     .lp-plan-option.featured {
       border-color: rgba(225, 29, 72, 0.55);
@@ -182,13 +383,20 @@
     .drop-area {
       border: 1.5px dashed rgba(244, 63, 94, 0.45);
       background: linear-gradient(135deg, rgba(225, 29, 72, 0.06), rgba(147, 51, 234, 0.06));
-      border-radius: 16px; padding: 24px 16px; text-align: center; cursor: pointer;
+      border-radius: 16px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
     }
     .videos-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
     @media(min-width: 680px) { .videos-grid { grid-template-columns: repeat(2, 1fr); } }
     .video-ret-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 18px; padding: 14px; display: flex; gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      display: flex;
+      gap: 14px;
     }
     .v-preview { width: 88px; height: 126px; border-radius: 12px; overflow: hidden; background: #000; flex-shrink: 0; position: relative; }
     .v-preview video { width: 100%; height: 100%; object-fit: cover; }
@@ -208,9 +416,17 @@
     .photo-del { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.2); color: #fda4af; font-weight: 800; cursor: pointer; }
 
     .btn-save {
-      width: 100%; padding: 14px; border: none; border-radius: 14px;
-      background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff;
-      font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; margin-top: 12px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 12px;
       box-shadow: 0 10px 25px rgba(225, 29, 72, 0.3);
     }
     .btn-del-mini { background: rgba(225, 29, 72, 0.14); border: 1px solid rgba(225, 29, 72, 0.3); color: #fda4af; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
@@ -218,11 +434,44 @@
 </head>
 <body>
 
+  <!-- Menu Lateral Hambúrguer -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
+  <aside id="sideDrawer" class="side-drawer">
+    <div class="drawer-header">
+      <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
+      <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <a href="/minha-conta/editar" class="drawer-link primary-cta">✏️ Voltar para Editar Perfil</a>
+
+    <div class="drawer-label">Fluxo do Painel</div>
+    <button type="button" onclick="switchTab('tab-config', document.querySelectorAll('.stab')[0]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">⚙️ Planos, Bio & Prévia</button>
+    <button type="button" onclick="switchTab('tab-videos', document.querySelectorAll('.stab')[1]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">🎬 Vídeos & Retenção</button>
+    <button type="button" onclick="switchTab('tab-fotos', document.querySelectorAll('.stab')[2]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">📸 Fotos VIP & Galeria</button>
+
+    <div class="drawer-label">Visualizar & Métricas</div>
+    <a id="drawerVerVipLink" href="/vitrine" target="_blank" class="drawer-link">👁️ Ver Página VIP ao Vivo</a>
+    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
+    <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
+    <a href="/reels" class="drawer-link">▶ VIP Reels</a>
+
+    <div style="margin-top:auto;font-size:11px;color:var(--muted);text-align:center;padding-top:12px;border-top:1px solid var(--border);">
+      Estúdio exclusivo da criadora VIP
+    </div>
+  </aside>
+
   <header class="navbar">
     <div class="nav-inner">
-      <a href="/minha-conta/editar" class="nav-back">← Editar Perfil</a>
-      <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
-      <a href="/dasbormodelo" class="nav-back">📊 Métricas</a>
+      <div class="nav-left">
+        <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Abrir menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="/minha-conta/editar" class="nav-back">✏️ Editar Perfil</a>
+        <a id="navVerVipBtn" href="/vitrine" target="_blank" class="nav-back">👁️ Ver VIP</a>
+      </div>
     </div>
   </header>
 
@@ -297,7 +546,6 @@
           </div>
 
           <div class="plans-grid">
-            <!-- 1 Mês -->
             <div class="plan-editor-card">
               <div class="plan-editor-title"><span>🔥 1 Mês (Mensal)</span><span style="color:#fda4af;font-size:10.5px;">Principal</span></div>
               <div class="plan-price-row">
@@ -312,7 +560,6 @@
               </div>
             </div>
 
-            <!-- 2 Meses -->
             <div class="plan-editor-card">
               <div class="plan-editor-title"><span>⚡ 2 Meses</span></div>
               <div class="plan-price-row">
@@ -327,7 +574,6 @@
               </div>
             </div>
 
-            <!-- Trimestral (3 Meses) -->
             <div class="plan-editor-card">
               <div class="plan-editor-title"><span>👑 Trimestral (3 Meses)</span></div>
               <div class="plan-price-row">
@@ -342,7 +588,6 @@
               </div>
             </div>
 
-            <!-- Anual (12 Meses) -->
             <div class="plan-editor-card">
               <div class="plan-editor-title"><span>💎 Anual (12 Meses)</span></div>
               <div class="plan-price-row">
@@ -439,8 +684,13 @@
   </main>
 
   <script>
-    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
     if (!token) window.location.replace('/minha-conta');
+
+    function toggleDrawer() {
+      document.getElementById('sideDrawer').classList.toggle('open');
+      document.getElementById('drawerBackdrop').classList.toggle('open');
+    }
 
     function parseBRL(val) {
       if (val === null || val === undefined || String(val).trim() === '') return NaN;
@@ -452,7 +702,7 @@
     function switchTab(tabId, btn) {
       document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
+      if (btn) btn.classList.add('active');
       document.getElementById(tabId).classList.add('active');
     }
 
@@ -535,7 +785,10 @@
           document.getElementById('lpCoverImg').src = cUrl;
         }
         if (creator.slug) {
-          document.getElementById('btnVerClubePublico').href = '/vip/' + creator.slug;
+          const vipUrl = '/vip/' + creator.slug;
+          document.getElementById('btnVerClubePublico').href = vipUrl;
+          document.getElementById('navVerVipBtn').href = vipUrl;
+          document.getElementById('drawerVerVipLink').href = vipUrl;
         }
 
         const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
