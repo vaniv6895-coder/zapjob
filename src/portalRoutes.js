@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+﻿import crypto from 'crypto';
 import { pool } from './db.js';
 import fs from 'fs';
 import path from 'path';
@@ -312,6 +312,12 @@ export function registerPortalRoutes(app) {
 
   app.get('/dasbormodelo', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'dasbormodelo.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/vip-studio', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'vip-studio.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
