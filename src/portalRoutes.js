@@ -309,14 +309,7 @@ export function registerPortalRoutes(app) {
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
-
-  app.get('/dasbormodelo', async (req, reply) => {
-    const filePath = path.join(process.cwd(), 'public', 'dasbormodelo.html');
-    const html = fs.readFileSync(filePath, 'utf-8');
-    return reply.type('text/html; charset=utf-8').send(html);
-  });
-
-  app.get('/vip-studio', async (req, reply) => {
+app.get('/vip-studio', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'vip-studio.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
@@ -371,3 +364,4 @@ export function registerPortalRoutes(app) {
     return reply.send({ ok: true });
   });
 }
+
