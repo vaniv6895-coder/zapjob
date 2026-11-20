@@ -24,7 +24,7 @@ function buildFanCode(seed) {
 }
 
 export function registerTelemetryRoutes(app, pool) {
-  // 1. Inicialização automática das tabelas de telemetria, analytics, retenção e mensagens VIP
+  // 1. Inicialização automática das tabelas de telemetria, analytics, retenção, mensagens VIP e avaliações
   pool.query(`
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_anchor_price NUMERIC(10,2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_plans JSONB DEFAULT '{}'::jsonb;
@@ -88,6 +88,19 @@ export function registerTelemetryRoutes(app, pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_vip_messages_creator
       ON vip_subscriber_messages (creator_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS creator_reviews (
+      id SERIAL PRIMARY KEY,
+      creator_id INT NOT NULL,
+      reviewer_name VARCHAR(80) DEFAULT 'Cliente',
+      rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+      comment_text TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      moderated_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_creator_reviews_status
+      ON creator_reviews (creator_id, status, created_at DESC);
   `).catch(() => {});
 
   // 2. Endpoint silencioso que grava tempo no site, pulos e cliques de cada visitante
@@ -180,7 +193,13 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  // 2C. Página dedicada, ID de Fã e rotas de Mensagens dos Assinantes VIP
+  // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações e rotas de Mensagens dos Assinantes VIP
+  app.get('/impulsionar', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'impulsionar.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
   app.get('/vip-mensagens', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'vip-mensagens.html');
     const html = fs.readFileSync(filePath, 'utf-8');
@@ -191,6 +210,96 @@ export function registerTelemetryRoutes(app, pool) {
     const filePath = path.join(process.cwd(), 'public', 'meu-vip.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.post('/api/portal/reviews/:slug', async (req, reply) => {
+    try {
+      const slug = String(req.params.slug || '').trim().toLowerCase();
+      const { reviewerName = 'Cliente', rating = 5, commentText = '' } = req.body || {};
+
+      const cleanComment = String(commentText || '').trim();
+      const stars = Math.min(5, Math.max(1, Number(rating) || 5));
+      if (!cleanComment) return reply.status(400).send({ error: 'Escreva um comentário para avaliar.' });
+
+      const creatorRes = await pool.query(
+        `SELECT id FROM creator_accounts WHERE slug = $1 LIMIT 1`,
+        [slug]
+      );
+      const creator = creatorRes.rows[0];
+      if (!creator) return reply.status(404).send({ error: 'Perfil não encontrado.' });
+
+      await pool.query(
+        `INSERT INTO creator_reviews (creator_id, reviewer_name, rating, comment_text, status)
+         VALUES ($1, $2, $3, $4, 'pending')`,
+        [creator.id, String(reviewerName).trim() || 'Cliente', stars, cleanComment]
+      );
+
+      return reply.send({
+        ok: true,
+        message: 'Avaliação enviada! Ela será publicada no perfil após aprovação da criadora.'
+      });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao enviar avaliação.' });
+    }
+  });
+
+  app.get('/api/portal/reviews/:slug', async (req, reply) => {
+    try {
+      const slug = String(req.params.slug || '').trim().toLowerCase();
+      const res = await pool.query(
+        `SELECT r.id, r.reviewer_name, r.rating, r.comment_text, r.created_at
+         FROM creator_reviews r
+         JOIN creator_accounts c ON c.id = r.creator_id
+         WHERE c.slug = $1 AND r.status = 'approved'
+         ORDER BY r.moderated_at DESC NULLS LAST, r.created_at DESC
+         LIMIT 50`,
+        [slug]
+      );
+      return reply.send({ ok: true, reviews: res.rows });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar avaliações.' });
+    }
+  });
+
+  app.get('/api/portal/creator/reviews', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const res = await pool.query(
+        `SELECT id, reviewer_name, rating, comment_text, status, created_at
+         FROM creator_reviews
+         WHERE creator_id = $1 AND status <> 'rejected'
+         ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC
+         LIMIT 80`,
+        [creatorId]
+      );
+      return reply.send({ ok: true, reviews: res.rows });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao carregar avaliações da criadora.' });
+    }
+  });
+
+  app.post('/api/portal/creator/reviews/:id/moderate', async (req, reply) => {
+    try {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+      const creatorId = extractCreatorIdFromToken(token);
+      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
+
+      const action = req.body?.action === 'approve' ? 'approved' : 'rejected';
+      await pool.query(
+        `UPDATE creator_reviews
+         SET status = $3, moderated_at = NOW()
+         WHERE id = $1 AND creator_id = $2`,
+        [Number(req.params.id), creatorId, action]
+      );
+      return reply.send({ ok: true });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao moderar avaliação.' });
+    }
   });
 
   app.get('/api/vip/fan-panel', async (req, reply) => {

@@ -29,7 +29,9 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
       background-color: var(--bg-page);
       color: var(--text-primary);
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -49,6 +51,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
       transition: background 0.15s, border-color 0.15s;
     }
     .hamburger-btn:hover { background: #222228; border-color: rgba(255,255,255,0.2); }
@@ -65,7 +68,7 @@
       position: fixed;
       top: 0;
       left: -300px;
-      width: 280px;
+      width: min(280px, 84vw);
       height: 100dvh;
       background: var(--bg-surface);
       border-right: 1px solid var(--border);
@@ -73,6 +76,7 @@
       padding: 20px 16px;
       display: flex;
       flex-direction: column;
+      overflow-y: auto;
       transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
     }
@@ -130,44 +134,31 @@
     .topbar-inner {
       max-width: 680px;
       margin: 0 auto;
-      height: 60px;
-      padding: 0 14px;
+      min-height: 60px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-wrap: wrap;
     }
     .topbar-left {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      min-width: 0;
     }
-    .nav-back {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 7px 10px;
-      border-radius: var(--radius-sm);
-      background: none;
-      border: none;
-      font-family: inherit;
-      cursor: pointer;
-      transition: color 0.15s, background 0.15s;
-    }
-    .nav-back:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
     .topbar-title {
       font-size: 14px;
       font-weight: 700;
       letter-spacing: -0.01em;
+      white-space: nowrap;
     }
     .top-right-actions {
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
     .btn-dash {
       display: inline-flex;
@@ -177,9 +168,9 @@
       border: 1px solid rgba(255, 107, 0, 0.42);
       color: #ff944d;
       font-family: inherit;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 700;
-      padding: 7px 11px;
+      padding: 6px 10px;
       border-radius: 99px;
       text-decoration: none;
       white-space: nowrap;
@@ -194,9 +185,9 @@
       border: 1px solid var(--border);
       color: var(--text-primary);
       font-family: inherit;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
-      padding: 7px 11px;
+      padding: 6px 10px;
       border-radius: 99px;
       cursor: pointer;
       white-space: nowrap;
@@ -207,11 +198,14 @@
     /* Layout Container */
     .container {
       max-width: 680px;
-      margin: 24px auto;
-      padding: 0 18px;
+      margin: 18px auto 24px;
+      padding: 0 14px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 18px;
+    }
+    @media (min-width: 640px) {
+      .container { margin: 24px auto; padding: 0 18px; gap: 20px; }
     }
 
     /* Section Card */
@@ -221,9 +215,10 @@
       border-radius: var(--radius-lg);
       overflow: hidden;
     }
-    .panel-body { padding: 24px; }
+    .panel-body { padding: 18px; }
+    @media (min-width: 640px) { .panel-body { padding: 24px; } }
     .panel-header {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       display: flex;
       align-items: baseline;
       justify-content: space-between;
@@ -244,10 +239,11 @@
     /* Profile Identity Header (Cover + Avatar) */
     .cover-stage {
       position: relative;
-      height: 185px;
+      height: 165px;
       background: linear-gradient(135deg, #18181f 0%, #271522 100%);
       overflow: hidden;
     }
+    @media (min-width: 640px) { .cover-stage { height: 185px; } }
     .cover-stage img {
       width: 100%;
       height: 100%;
@@ -261,20 +257,20 @@
     }
     .btn-cover-edit {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 12px;
+      right: 12px;
       z-index: 2;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: rgba(9, 9, 11, 0.72);
+      background: rgba(9, 9, 11, 0.75);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.14);
       color: #fff;
       font-family: inherit;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
-      padding: 8px 14px;
+      padding: 7px 12px;
       border-radius: 99px;
       cursor: pointer;
       transition: all 0.15s;
@@ -282,21 +278,24 @@
     .btn-cover-edit:hover { background: var(--accent); border-color: var(--accent); }
 
     .identity-bar {
-      padding: 0 24px 24px;
+      padding: 0 18px 18px;
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      gap: 16px;
-      margin-top: -48px;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: -44px;
       position: relative;
       z-index: 3;
     }
+    @media (min-width: 640px) { .identity-bar { padding: 0 24px 24px; gap: 16px; margin-top: -48px; } }
     .avatar-holder {
       position: relative;
-      width: 96px;
-      height: 96px;
+      width: 86px;
+      height: 86px;
       flex-shrink: 0;
     }
+    @media (min-width: 640px) { .avatar-holder { width: 96px; height: 96px; } }
     .avatar-holder img {
       width: 100%;
       height: 100%;
@@ -333,7 +332,7 @@
     /* Form Controls */
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    @media (max-width: 520px) {
+    @media (max-width: 560px) {
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
     }
 
@@ -394,7 +393,7 @@
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 500;
-      padding: 8px 14px;
+      padding: 8px 13px;
       border-radius: 99px;
       cursor: pointer;
       transition: all 0.15s ease;
@@ -415,9 +414,15 @@
       border-radius: var(--radius-md);
       padding: 14px 16px;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
+      flex-direction: column;
+      gap: 12px;
+    }
+    @media (min-width: 560px) {
+      .voice-card {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
     }
     .voice-info { display: flex; flex-direction: column; gap: 6px; overflow: hidden; flex: 1; }
     .voice-status { font-size: 13px; font-weight: 600; color: var(--text-primary); }
@@ -458,7 +463,7 @@
       border: 1.5px dashed rgba(255, 255, 255, 0.15);
       border-radius: var(--radius-md);
       background: var(--bg-input);
-      padding: 24px 16px;
+      padding: 22px 16px;
       text-align: center;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
@@ -472,10 +477,11 @@
 
     .media-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
       margin-top: 16px;
     }
+    @media (min-width: 520px) { .media-grid { grid-template-columns: repeat(3, 1fr); } }
     .media-card {
       position: relative;
       aspect-ratio: 3/4;
@@ -539,18 +545,19 @@
       left: 0;
       right: 0;
       z-index: 45;
-      background: rgba(18, 18, 22, 0.88);
+      background: rgba(18, 18, 22, 0.9);
       backdrop-filter: blur(16px);
       border-top: 1px solid var(--border);
-      padding: 12px 18px;
+      padding: 12px 14px;
     }
+    @media (min-width: 640px) { .save-dock { padding: 12px 18px; } }
     .save-dock-inner {
       max-width: 680px;
       margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 12px;
     }
     .save-hint { font-size: 12px; color: var(--text-muted); font-weight: 500; }
     .btn-primary {
@@ -558,11 +565,12 @@
       color: #fff;
       border: none;
       font-family: inherit;
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 700;
-      padding: 12px 24px;
+      padding: 11px 20px;
       border-radius: var(--radius-md);
       cursor: pointer;
+      white-space: nowrap;
       transition: background 0.15s, transform 0.1s;
       box-shadow: 0 4px 16px rgba(225, 29, 72, 0.32);
     }
@@ -598,10 +606,10 @@
 
     <a href="/vip-studio" class="drawer-link primary-cta">💎 Clube VIP Studio</a>
 
-    <div class="drawer-label">Painel & Perfil</div>
-    <button type="button" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;" onclick="toggleDrawer(); voltarParaStudio();">← Creator Studio</button>
-    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho</a>
-    <a id="drawerVipPublicLink" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Clube VIP Público ↗</a>
+    <div class="drawer-label">Painéis da Criadora</div>
+    <a href="/vip-mensagens" class="drawer-link">💬 Mensagens VIP</a>
+    <a href="/impulsionar" class="drawer-link">⚡ Impulsionar Perfil</a>
+    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Assinantes</a>
     <button type="button" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;" onclick="toggleDrawer(); verPerfilPublico();">👁️ Ver Perfil Público ↗</button>
 
     <div class="drawer-label">Explorar Plataforma</div>
@@ -617,18 +625,12 @@
             <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-        <button type="button" class="nav-back" onclick="voltarParaStudio()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          Studio
-        </button>
         <span class="topbar-title">Editar Perfil</span>
       </div>
       <div class="top-right-actions">
-        <a href="/vip-studio" class="btn-dash" style="background:linear-gradient(135deg,#ff6b00,#e11d48);color:#fff;border:none;">💎 Editar VIP</a>
-        <a href="/dasbormodelo" class="btn-dash">📊 Desempenho</a>
-        <button type="button" class="btn-preview" onclick="verPerfilPublico()">
-          👁️ Perfil
-        </button>
+        <a href="/vip-studio" class="btn-dash" style="background:linear-gradient(135deg,#ff6b00,#e11d48);color:#fff;border:none;">💎 VIP Studio</a>
+        <a href="/impulsionar" class="btn-dash">⚡ Impulsionar</a>
+        <button type="button" class="btn-preview" onclick="verPerfilPublico()">👁️ Perfil</button>
       </div>
     </div>
   </header>
@@ -806,7 +808,7 @@
             <span class="voice-hint" id="recTimer">Toque em Gravar e fale sua apresentação</span>
             <audio id="audioPlayerPreview" controls style="height: 32px; margin-top: 4px; display: none; max-width: 100%;"></audio>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn-secondary btn-record" id="btnRecordAudio" onclick="toggleGravacaoAudio()">
               🎙️ Gravar
             </button>
@@ -915,18 +917,6 @@
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
       document.getElementById('drawerBackdrop').classList.toggle('open');
-    }
-
-    function voltarParaStudio() {
-      if (token) {
-        sessionStorage.setItem('portal_token', token);
-        localStorage.setItem('portal_token', token);
-      }
-      if (document.referrer && document.referrer.includes('/minha-conta')) {
-        window.history.back();
-      } else {
-        window.location.href = '/minha-conta';
-      }
     }
 
     let mediaRecorderAudio = null;
@@ -1053,9 +1043,6 @@
 
         if (c) {
           creatorSlug = c.slug || '';
-          if (creatorSlug) {
-            document.getElementById('drawerVipPublicLink').href = '/vip/' + creatorSlug;
-          }
           document.getElementById('stageName').value = c.stage_name || '';
           document.getElementById('age').value = c.age || '';
           document.getElementById('whatsapp').value = c.whatsapp || '';
@@ -1101,9 +1088,9 @@
 
     function verPerfilPublico() {
       if (creatorSlug) {
-        window.open('/acompanhante/' + creatorSlug, '_blank');
+        window.open('/acompanhante/' + encodeURIComponent(creatorSlug), '_blank');
       } else {
-        alert('Aguarde o carregamento do perfil.');
+        window.location.href = '/vitrine';
       }
     }
 
