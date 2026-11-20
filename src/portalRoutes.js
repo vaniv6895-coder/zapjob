@@ -91,6 +91,9 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
+  // Ativa telemetria, analytics, trends e o novo painel /portal-admin
+  registerTelemetryRoutes(app, pool);
+
   // Rota para a página separada de edição de perfil
   app.get('/minha-conta/editar', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'editar-perfil.html');
@@ -296,76 +299,6 @@ export function registerPortalRoutes(app) {
     const filePath = path.join(process.cwd(), 'public', 'minha-conta.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
-  });
-
-  // =======================================================================
-  // PÁGINA 4: ADMIN PARA VOCÊ APROVAR AS MODELOS (/portal-admin)
-  // =======================================================================
-  app.get('/portal-admin', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    const pwd = req.query.pwd || '';
-    if (pwd !== PANEL_PASSWORD) {
-      return reply.status(401).type('text/html; charset=utf-8').send(`
-        <body style="background:#090d16;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
-          <form method="GET" style="background:#111827;padding:24px;border-radius:14px;border:1px solid #1f2937">
-            <h3 style="color:#fff;margin-bottom:10px">Admin do Portal</h3>
-            <input type="password" name="pwd" placeholder="Senha do painel" style="padding:10px;border-radius:8px;border:1px solid #334155;background:#0b101d;color:#fff;width:100%;margin-bottom:10px" />
-            <button style="padding:10px 16px;border-radius:8px;background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;border:none;font-weight:bold;width:100%;cursor:pointer">Entrar</button>
-          </form>
-        </body>
-      `);
-    }
-
-    const res = await pool.query(`SELECT id, stage_name, email, city, state, whatsapp, tier, verified, active, verification_video_url, created_at FROM creator_accounts ORDER BY created_at DESC LIMIT 100`);
-    const rows = res.rows
-      .map(
-        (c) => `
-      <div style="background:#111827;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid #1f2937;display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div>
-          <strong style="color:#fff">#${c.id} ${c.stage_name}</strong> (${c.city}-${c.state})<br/>
-          <small style="color:#94a3b8">${c.email} | WA: ${c.whatsapp || '-'} | Plano: ${c.tier}</small><br/>
-          ${c.verification_video_url ? `<a href="${c.verification_video_url}" target="_blank" style="display:inline-block;margin-top:4px;font-size:11px;color:#38bdf8;font-weight:bold;text-decoration:none;">🎥 Assistir Vídeo de Verificação ↗</a>` : '<span style="font-size:11px;color:#ef4444;">Sem vídeo de verificação</span>'}
-        </div>
-        <button onclick="toggle(${c.id}, ${!c.verified})" style="padding:8px 12px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;background:${c.verified ? '#22c55e' : '#f59e0b'};color:#000">
-          ${c.verified ? '✅ Aprovada' : '⏳ Aprovar'}
-        </button>
-      </div>`
-      )
-      .join('');
-
-    return reply.type('text/html; charset=utf-8').send(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Admin Portal</title></head>
-<body style="background:#090d16;color:#f8fafc;font-family:-apple-system,sans-serif;padding:16px;max-width:600px;margin:0 auto">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
-    <h2 style="color:#fff">🛡️ Admin do Portal</h2>
-    <div style="display:flex;gap:6px">
-      <button onclick="seedDemo()" style="background:#1f2937;color:#fff;border:1px solid #374151;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">+ Demos</button>
-      <button onclick="clearDemo()" style="background:#dc2626;color:#fff;border:none;padding:9px 12px;border-radius:8px;font-weight:bold;cursor:pointer">Limpar Demos</button>
-    </div>
-  </div>
-  <p style="color:#94a3b8;font-size:13px;margin-bottom:14px">Clique para ativar ou pausar cada modelo na primeira página.</p>
-  ${rows}
-  <script>
-    async function toggle(id, status) {
-      await fetch('/api/portal/admin/approve?pwd=${encodeURIComponent(pwd)}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId: id, verified: status, active: status }),
-      });
-      location.reload();
-    }
-    async function seedDemo() {
-      await fetch('/api/portal/admin/seed?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
-      location.reload();
-    }
-    async function clearDemo() {
-      await fetch('/api/portal/admin/clear-demo?pwd=${encodeURIComponent(pwd)}', { method: 'POST' });
-      location.reload();
-    }
-  </script>
-</body>
-</html>`);
   });
 
   app.post('/api/portal/admin/approve', async (req, reply) => {
