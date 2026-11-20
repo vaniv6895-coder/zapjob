@@ -933,49 +933,73 @@
     }
 
     async function carregarStudioVip() {
+      let creator = null;
+      let media = [];
+
       const res = await fetch('/api/portal/creator/vip-studio', {
         headers: { Authorization: 'Bearer ' + token }
       });
-      if (!res.ok) return;
-      const { creator, media = [] } = await res.json();
 
-      if (creator) {
-        document.getElementById('heroStageName').innerText = creator.stage_name || 'Modelo VIP';
-        document.getElementById('heroBioPreview').innerText = creator.bio ? creator.bio.slice(0, 80) : 'Clube VIP Exclusivo';
-        document.getElementById('vipNameInput').value = creator.stage_name || '';
-        document.getElementById('vipBioInput').value = creator.bio || '';
-
-        const avatarFinal = cachedAvatarUrl || creator.avatar_url || '';
-        if (avatarFinal) {
-          const bustedAvatar = withCacheBust(avatarFinal);
-          document.getElementById('heroAvatarImg').src = bustedAvatar;
-          document.getElementById('lpAvatarImg').src = bustedAvatar;
+      if (res.ok) {
+        const data = await res.json();
+        creator = data.creator || null;
+        media = data.media || [];
+      } else {
+        const [meRes, medRes] = await Promise.all([
+          fetch('/api/portal/me', { headers: { Authorization: 'Bearer ' + token } }),
+          fetch('/api/creator/media', { headers: { Authorization: 'Bearer ' + token } }),
+        ]);
+        if (meRes.status === 401) {
+          window.location.replace('/minha-conta');
+          return;
         }
-
-        const coverFinal = cachedCoverUrl || creator.cover_url || creator.avatar_url || '';
-        if (coverFinal) {
-          const bustedCover = withCacheBust(coverFinal);
-          document.getElementById('heroCoverImg').src = bustedCover;
-          document.getElementById('lpCoverImg').src = bustedCover;
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          creator = meData.creator || meData;
         }
-
-        if (creator.slug) {
-          aplicarLinksVip(creator.slug);
+        if (medRes.ok) {
+          const medData = await medRes.json();
+          media = medData.items || medData.media || [];
         }
-
-        const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
-        const p1Por = plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99;
-        const p1De  = plansObj.m1?.de  ?? creator.vip_anchor_price ?? 48.99;
-
-        document.getElementById('plan1Por').value = fmtBRL(p1Por);
-        document.getElementById('plan1De').value  = p1De ? fmtBRL(p1De) : '';
-        document.getElementById('plan2Por').value = fmtBRL(plansObj.m2?.por ?? 44.99);
-        document.getElementById('plan2De').value  = plansObj.m2?.de ? fmtBRL(plansObj.m2.de) : '89,90';
-        document.getElementById('plan3Por').value = fmtBRL(plansObj.m3?.por ?? 59.99);
-        document.getElementById('plan3De').value  = plansObj.m3?.de ? fmtBRL(plansObj.m3.de) : '129,90';
-        document.getElementById('plan12Por').value = fmtBRL(plansObj.m12?.por ?? 149.99);
-        document.getElementById('plan12De').value  = plansObj.m12?.de ? fmtBRL(plansObj.m12.de) : '399,90';
       }
+
+      if (!creator) return;
+
+      document.getElementById('heroStageName').innerText = creator.stage_name || 'Modelo VIP';
+      document.getElementById('heroBioPreview').innerText = creator.bio ? creator.bio.slice(0, 80) : 'Clube VIP Exclusivo';
+      document.getElementById('vipNameInput').value = creator.stage_name || '';
+      document.getElementById('vipBioInput').value = creator.bio || '';
+
+      const avatarFinal = cachedAvatarUrl || creator.avatar_url || '';
+      if (avatarFinal) {
+        const bustedAvatar = withCacheBust(avatarFinal);
+        document.getElementById('heroAvatarImg').src = bustedAvatar;
+        document.getElementById('lpAvatarImg').src = bustedAvatar;
+      }
+
+      const coverFinal = cachedCoverUrl || creator.cover_url || creator.avatar_url || '';
+      if (coverFinal) {
+        const bustedCover = withCacheBust(coverFinal);
+        document.getElementById('heroCoverImg').src = bustedCover;
+        document.getElementById('lpCoverImg').src = bustedCover;
+      }
+
+      if (creator.slug) {
+        aplicarLinksVip(creator.slug);
+      }
+
+      const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
+      const p1Por = plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99;
+      const p1De  = plansObj.m1?.de  ?? creator.vip_anchor_price ?? 48.99;
+
+      document.getElementById('plan1Por').value = fmtBRL(p1Por);
+      document.getElementById('plan1De').value  = p1De ? fmtBRL(p1De) : '';
+      document.getElementById('plan2Por').value = fmtBRL(plansObj.m2?.por ?? 44.99);
+      document.getElementById('plan2De').value  = plansObj.m2?.de ? fmtBRL(plansObj.m2.de) : '89,90';
+      document.getElementById('plan3Por').value = fmtBRL(plansObj.m3?.por ?? 59.99);
+      document.getElementById('plan3De').value  = plansObj.m3?.de ? fmtBRL(plansObj.m3.de) : '129,90';
+      document.getElementById('plan12Por').value = fmtBRL(plansObj.m12?.por ?? 149.99);
+      document.getElementById('plan12De').value  = plansObj.m12?.de ? fmtBRL(plansObj.m12.de) : '399,90';
 
       const videos = media.filter(m => m.media_type === 'video');
       const photos = media.filter(m => m.media_type === 'image');
@@ -997,7 +1021,12 @@
         ? '<p style="font-size:13px;color:var(--muted);grid-column:1/-1;">Nenhum vídeo publicado ainda.</p>'
         : videos.map(v => {
             const isVip = v.visibility === 'subscriber';
-            const retColor = v.retentionPct >= 70 ? '#10b981' : v.retentionPct >= 40 ? '#fb923c' : '#f43f5e';
+            const plays = v.total_plays || 0;
+            const avgSec = v.avg_watch_sec || 0;
+            const durSec = v.duration_sec || 0;
+            const completions = v.completions || 0;
+            const retPct = v.retentionPct ?? (plays > 0 ? 65 : 0);
+            const retColor = retPct >= 70 ? '#10b981' : retPct >= 40 ? '#fb923c' : '#f43f5e';
             return `
               <article class="video-ret-card">
                 <div class="v-preview">
@@ -1013,12 +1042,12 @@
                     <button type="button" class="btn-del-mini" onclick="removerMidia(${v.id})">Excluir</button>
                   </div>
                   <div class="ret-box">
-                    <div class="ret-top"><span style="color:var(--muted);">Retenção</span><span style="color:${retColor};">${v.retentionPct}%</span></div>
-                    <div class="ret-bar"><div class="ret-bar-fill" style="width:${v.retentionPct}%;background:${retColor};"></div></div>
+                    <div class="ret-top"><span style="color:var(--muted);">Retenção</span><span style="color:${retColor};">${retPct}%</span></div>
+                    <div class="ret-bar"><div class="ret-bar-fill" style="width:${retPct}%;background:${retColor};"></div></div>
                     <div class="ret-numbers">
-                      <span>⏱️ <strong>${v.avg_watch_sec}s</strong>${v.duration_sec ? ` / ${v.duration_sec}s` : ''}</span>
-                      <span>👁️ ${v.total_plays} plays</span>
-                      <span>✅ ${v.completions} fim</span>
+                      <span>⏱️ <strong>${avgSec}s</strong>${durSec ? ` / ${durSec}s` : ''}</span>
+                      <span>👁️ ${plays} plays</span>
+                      <span>✅ ${completions} fim</span>
                     </div>
                   </div>
                 </div>
