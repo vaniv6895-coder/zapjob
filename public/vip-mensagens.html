@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mensagens VIP — Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070709;
+      --surface: #101014;
+      --elevated: #17171e;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.18);
+      --pink: #e11d48;
+      --purple: #9333ea;
+      --green: #10b981;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body {
+      background: radial-gradient(circle at top right, rgba(225, 29, 72, 0.13), transparent 35%),
+                  radial-gradient(circle at top left, rgba(147, 51, 234, 0.13), transparent 35%),
+                  var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding-bottom: 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Menu Hambúrguer & Drawer Lateral */
+    .hamburger-btn {
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { border-color: var(--border-hover); background: #22222b; }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 7, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 9990;
+      display: none;
+    }
+    .drawer-backdrop.open { display: block; }
+    .side-drawer {
+      position: fixed;
+      top: 0;
+      left: -310px;
+      width: min(290px, 84vw);
+      height: 100dvh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      z-index: 9995;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
+    }
+    .side-drawer.open { left: 0; }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .drawer-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 12px 0 8px;
+    }
+    .drawer-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+    }
+    .drawer-link:hover { border-color: var(--border-hover); }
+    .drawer-link.primary-cta {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      border: none;
+      color: #fff;
+      justify-content: center;
+    }
+
+    /* Navbar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(7, 7, 9, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+    }
+    .nav-inner {
+      max-width: 780px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .nav-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-pill { font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .brand-pill span {
+      background: linear-gradient(135deg, #fb7185, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 11px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .container { max-width: 780px; margin: 0 auto; padding: 18px 14px; }
+
+    .header-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .stats-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .stat-badge {
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #e4e4e7;
+    }
+    .filters-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-btn {
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 13px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      border-color: transparent;
+      color: #fff;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 190px;
+      background: #0a0a0d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 12.5px;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--pink); }
+
+    .msg-list { display: flex; flex-direction: column; gap: 12px; }
+    .msg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 15px;
+    }
+    .msg-card.unread { border-color: rgba(225, 29, 72, 0.5); }
+    .msg-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .msg-body { font-size: 13.5px; color: #f4f4f5; line-height: 1.5; margin-bottom: 10px; }
+    .reply-box {
+      background: rgba(16, 185, 129, 0.1);
+      border-left: 3px solid var(--green);
+      padding: 8px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #a7f3d0;
+      margin-bottom: 10px;
+    }
+    .reply-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .reply-input {
+      flex: 1;
+      min-width: 180px;
+      background: #0a0a0d;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+    .reply-input:focus { border-color: var(--pink); }
+    .btn-reply {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: #fff;
+      border: none;
+      border-radius: 11px;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Menu Lateral Hambúrguer -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
+  <aside id="sideDrawer" class="side-drawer">
+    <div class="drawer-header">
+      <div class="brand-pill">💬 MENSAGENS <span>VIP</span></div>
+      <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <a href="/vip-studio" class="drawer-link primary-cta">💎 Clube VIP Studio</a>
+
+    <div class="drawer-label">Painel da Criadora</div>
+    <a href="/minha-conta/editar" class="drawer-link">✏️ Editar Perfil</a>
+    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
+
+    <div class="drawer-label">Explorar</div>
+    <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
+    <a href="/reels" class="drawer-link">▶ VIP Reels</a>
+  </aside>
+
+  <header class="navbar">
+    <div class="nav-inner">
+      <div class="nav-left">
+        <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Abrir menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="brand-pill">💬 MENSAGENS <span>VIP</span></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="/vip-studio" class="nav-btn">💎 VIP Studio</a>
+        <button type="button" class="nav-btn" onclick="carregarMensagens()">🔄 Atualizar</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="header-card">
+      <div class="header-top">
+        <div>
+          <h1 style="font-size:18px;font-weight:800;">Caixa de Mensagens dos Assinantes</h1>
+          <p style="font-size:12px;color:var(--muted);margin-top:2px;">Mensagens recebidas exclusivamente de assinantes VIP ativos</p>
+        </div>
+        <div class="stats-row">
+          <span class="stat-badge">Total: <strong id="countTotal">0</strong></span>
+          <span class="stat-badge" style="color:#fda4af;">Não lidas: <strong id="countUnread">0</strong></span>
+        </div>
+      </div>
+
+      <div class="filters-row">
+        <button type="button" class="filter-btn active" onclick="setFiltro('all', this)">Todas</button>
+        <button type="button" class="filter-btn" onclick="setFiltro('unread', this)">Não lidas</button>
+        <button type="button" class="filter-btn" onclick="setFiltro('replied', this)">Respondidas</button>
+        <input type="text" id="searchMsgInput" class="search-input" placeholder="Buscar por nome ou mensagem..." oninput="renderizarMensagens()" />
+      </div>
+    </section>
+
+    <section id="messagesContainer" class="msg-list">
+      <p style="font-size:13px;color:var(--muted);">Carregando mensagens...</p>
+    </section>
+  </main>
+
+  <script>
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+    if (!token) window.location.replace('/minha-conta');
+
+    let todasMensagens = [];
+    let filtroAtual = 'all';
+
+    function toggleDrawer() {
+      document.getElementById('sideDrawer').classList.toggle('open');
+      document.getElementById('drawerBackdrop').classList.toggle('open');
+    }
+
+    function setFiltro(tipo, btn) {
+      filtroAtual = tipo;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderizarMensagens();
+    }
+
+    function renderizarMensagens() {
+      const box = document.getElementById('messagesContainer');
+      const termo = (document.getElementById('searchMsgInput')?.value || '').trim().toLowerCase();
+
+      const unreadCount = todasMensagens.filter(m => !m.is_read).length;
+      document.getElementById('countTotal').innerText = String(todasMensagens.length);
+      document.getElementById('countUnread').innerText = String(unreadCount);
+
+      const filtradas = todasMensagens.filter(m => {
+        if (filtroAtual === 'unread' && m.is_read) return false;
+        if (filtroAtual === 'replied' && !m.creator_reply) return false;
+        if (!termo) return true;
+        const alvo = `${m.subscriber_name || ''} ${m.subscriber_contact || ''} ${m.message_text || ''}`.toLowerCase();
+        return alvo.includes(termo);
+      });
+
+      if (!filtradas.length) {
+        box.innerHTML = '<div class="msg-card"><p style="font-size:13px;color:var(--muted);">Nenhuma mensagem encontrada para este filtro.</p></div>';
+        return;
+      }
+
+      box.innerHTML = filtradas.map(m => {
+        const dt = m.created_at
+          ? new Date(m.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+          : '';
+        return `
+          <article class="msg-card ${!m.is_read ? 'unread' : ''}">
+            <div class="msg-head">
+              <div>
+                <strong style="font-size:14px;color:#fff;">${m.subscriber_name || 'Assinante VIP'}</strong>
+                <span style="font-size:11.5px;color:var(--muted);margin-left:6px;">${m.subscriber_contact || ''}</span>
+                ${!m.is_read ? '<span style="background:rgba(225,29,72,0.2);color:#fda4af;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;margin-left:6px;">NOVA</span>' : ''}
+              </div>
+              <span style="font-size:11px;color:var(--muted);">${dt}</span>
+            </div>
+            <p class="msg-body">${m.message_text}</p>
+            ${m.creator_reply ? `<div class="reply-box"><strong>Sua resposta:</strong> ${m.creator_reply}</div>` : ''}
+            <div class="reply-form">
+              <input type="text" id="msgReply-${m.id}" class="reply-input" placeholder="Escreva sua resposta..." value="${(m.creator_reply || '').replace(/"/g, '&quot;')}" />
+              <button type="button" class="btn-reply" onclick="responderMensagem(${m.id})">Responder</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function carregarMensagens() {
+      const box = document.getElementById('messagesContainer');
+      try {
+        const res = await fetch('/api/portal/creator/vip-messages', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok) {
+          box.innerHTML = '<div class="msg-card"><p style="font-size:13px;color:var(--muted);">Não foi possível carregar as mensagens.</p></div>';
+          return;
+        }
+        const data = await res.json();
+        todasMensagens = data.messages || [];
+        renderizarMensagens();
+      } catch {
+        box.innerHTML = '<div class="msg-card"><p style="font-size:13px;color:var(--muted);">Erro de conexão ao carregar mensagens.</p></div>';
+      }
+    }
+
+    async function responderMensagem(msgId) {
+      const inp = document.getElementById('msgReply-' + msgId);
+      const replyText = inp ? inp.value.trim() : '';
+      const res = await fetch(`/api/portal/creator/vip-messages/${msgId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ replyText })
+      });
+      if (res.ok) carregarMensagens();
+    }
+
+    carregarMensagens();
+  </script>
+</body>
+</html>
