@@ -598,9 +598,7 @@
       margin-left:6px;
     }
 
-    /* =======================================================
-       SEÇÃO COMPLETA DE AVALIAÇÕES & COMENTÁRIOS
-       ======================================================= */
+    /* Seção de Avaliações */
     .reviews-section {
       margin-top:32px;
       padding-top:26px;
@@ -706,7 +704,6 @@
       line-height:1.5;
     }
 
-    /* Botão e Caixa para Deixar Comentário */
     .btn-write-review {
       width:100%;
       background:#e25352;
@@ -740,7 +737,6 @@
       background:#fff;
     }
 
-    /* Cards de Comentários dos Clientes */
     .comments-list {
       display:flex;
       flex-direction:column;
@@ -904,7 +900,7 @@
       <div class="outline-card" onclick="openValoresModal()" style="cursor:pointer;" title="Clique para ver todos os valores">
         <div class="outline-card-header">💲 Valores <span style="margin-left:auto;font-size:11px;color:#5d7a89;">Ver tabela ▾</span></div>
         {{RATE_CARD_HTML}}
-        <div class="sub-info">atende homens • pagamento via Pix ou dinheiro</div>
+        <div class="sub-info">atende homens • toque para ver pacotes e formas de pagamento</div>
       </div>
 
       <div class="outline-card">
@@ -917,7 +913,7 @@
     <!-- Barra de Áudio com Ondas -->
     {{AUDIO_INJECTION}}
 
-    <!-- Botões Principais: WhatsApp + Clube VIP (Estilo OnlyFans) -->
+    <!-- Botões Principais: WhatsApp + Clube VIP -->
     <div class="cta-buttons-grid">
       <a href="/r/wa/{{SLUG}}" target="_blank" class="btn-cta-wa">
         💬 Chamar no WhatsApp
@@ -990,21 +986,17 @@
       </div>
     </section>
 
-    <!-- =======================================================
-         SEÇÃO COMPLETA DE AVALIAÇÕES & COMENTÁRIOS
-         ======================================================= -->
+    <!-- Seção Avaliações -->
     <section id="sec-avaliacoes" class="reviews-section">
       <div class="sec-heading" style="margin-top:0">
         <span>Avaliações de {{STAGE_NAME}}</span>
       </div>
 
-      <!-- Banner Avaliações Liberadas -->
       <div class="reviews-promo-banner">
         <h4>🔓 Avaliações Liberadas!</h4>
         <p>Consulte os depoimentos verificados de clientes reais e contrate com muito mais segurança.</p>
       </div>
 
-      <!-- 3 Métricas -->
       <div class="reviews-metrics-3">
         <div class="rm-item">
           <strong>🕒 Recente</strong>
@@ -1020,7 +1012,6 @@
         </div>
       </div>
 
-      <!-- Resumo Nota 4.9 -->
       <div class="reviews-score-overview">
         <div>
           <div class="big-score">4.9</div>
@@ -1035,7 +1026,6 @@
         </div>
       </div>
 
-      <!-- Barras de 5 a 1 Estrela -->
       <div class="star-bars-list">
         <div class="star-bar-line">
           <span>5 ★</span>
@@ -1064,13 +1054,11 @@
         </div>
       </div>
 
-      <!-- Quadro Avaliações Seguras -->
       <div class="safe-reviews-box">
         <strong>ℹ️ Avaliações seguras</strong>
         <p>Temos um compromisso com a verdade: todas as avaliações são verificadas por nossa equipe. Compartilhe sua experiência autêntica com tranquilidade.</p>
       </div>
 
-      <!-- Botão para Deixar Comentário -->
       <button type="button" class="btn-write-review" onclick="toggleReviewForm()">
         ✍️ Deixar uma avaliação gratuita
       </button>
@@ -1090,14 +1078,12 @@
         </button>
       </div>
 
-      <!-- Lista de Comentários -->
       <div class="sec-heading" style="margin-top:8px;">
         <span>Avaliações (<span class="rev-count-label">9</span>)</span>
         <span style="font-size:12px;color:#5d7a89;">⇅ Mais recentes</span>
       </div>
 
       <div class="comments-list" id="comments-list">
-        <!-- Comentário 1 -->
         <div class="comment-card">
           <div class="comment-user-row">
             <div class="comment-avatar">RF</div>
@@ -1120,7 +1106,6 @@
           </div>
         </div>
 
-        <!-- Comentário 2 -->
         <div class="comment-card">
           <div class="comment-user-row">
             <div class="comment-avatar" style="background:#e0f2fe;color:#0284c7;">LM</div>
@@ -1146,7 +1131,7 @@
     </section>
   </div>
 
-  <!-- Barra Fixa Mobile: WhatsApp + Clube VIP -->
+  <!-- Barra Fixa Mobile -->
   <div class="mobile-bottom-bar">
     <a href="/r/wa/{{SLUG}}" target="_blank" class="btn-cta-wa" style="flex:1;padding:12px 8px;font-size:13px;">
       💬 WhatsApp
@@ -1162,55 +1147,52 @@
     <div id="lb-body" class="lb-body"></div>
   </div>
 
-  <!-- Modal de Valores -->
+  <!-- Modal de Valores Dinâmico -->
   <div id="valores-modal" style="position:fixed;inset:0;background:rgba(7,10,18,0.85);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;">
     <div style="background:#111827;border:1px solid #334155;color:#f8fafc;border-radius:20px;padding:24px;max-width:440px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.6);position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1f2937;padding-bottom:12px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1f2937;padding-bottom:12px;margin-bottom:12px;">
         <h3 style="font-size:18px;font-weight:800;color:#fff;margin:0;">Valores</h3>
         <button onclick="closeValoresModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;font-weight:bold;">✕</button>
       </div>
-
-      <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid #1f2937;">
-          <span style="font-weight:700;color:#fff;">1 hora</span>
-          <strong style="font-size:15px;color:#10b981;">Consultar / Combinar</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;color:#64748b;text-decoration:line-through;">
-          <span>15 minutos</span>
-          <span>Não realiza</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;color:#64748b;text-decoration:line-through;">
-          <span>30 minutos</span>
-          <span>Não realiza</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;color:#64748b;text-decoration:line-through;">
-          <span>2 horas</span>
-          <span>Não realiza</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;color:#64748b;text-decoration:line-through;">
-          <span>Pernoite</span>
-          <span>Não realiza</span>
-        </div>
-      </div>
-
-      <div style="margin-top:24px;border-top:1px solid #1f2937;padding-top:16px;">
-        <span style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:12px;">
-          Formas de pagamento:
-        </span>
-        <div style="display:flex;justify-content:space-around;align-items:center;text-align:center;">
-          <div><div style="font-size:20px;margin-bottom:4px;">💵</div><span style="font-size:10px;font-weight:700;color:#cbd5e1;">DINHEIRO</span></div>
-          <div><div style="font-size:20px;margin-bottom:4px;">💠</div><span style="font-size:10px;font-weight:700;color:#cbd5e1;">PIX</span></div>
-          <div><div style="font-size:20px;margin-bottom:4px;">💳</div><span style="font-size:10px;font-weight:700;color:#cbd5e1;">CRÉDITO</span></div>
-          <div><div style="font-size:20px;margin-bottom:4px;">💳</div><span style="font-size:10px;font-weight:700;color:#cbd5e1;">DÉBITO</span></div>
-        </div>
-      </div>
+      {{RATES_MODAL_BODY}}
     </div>
   </div>
 
   <script>
     const mediaItems = {{MEDIA_JSON}};
     const profileSlug = '{{SLUG}}';
+    const creatorNumericId = Number('{{CREATOR_ID}}') || 0;
     let baseReviewsCount = 9;
+    let activeVideoCleanup = null;
+
+    function bindVideoRetentionTracker(videoEl, { mediaId, creatorId }) {
+      if (!videoEl || !mediaId || !creatorId) return () => {};
+      let startedAt = Date.now();
+      let accumulatedSec = 0;
+
+      const flushWatchTime = () => {
+        if (startedAt) {
+          accumulatedSec += (Date.now() - startedAt) / 1000;
+          startedAt = 0;
+        }
+        if (accumulatedSec >= 1) {
+          const payload = JSON.stringify({
+            mediaId,
+            creatorId,
+            visitorId: localStorage.getItem('gv_visitor_id') || 'anon',
+            watchedSeconds: Math.round(accumulatedSec),
+            videoDuration: Math.round(videoEl.duration || 0),
+          });
+          navigator.sendBeacon('/api/portal/media-retention', new Blob([payload], { type: 'application/json' }));
+          accumulatedSec = 0;
+        }
+      };
+
+      videoEl.addEventListener('play', () => { if (!startedAt) startedAt = Date.now(); });
+      videoEl.addEventListener('pause', flushWatchTime);
+      videoEl.addEventListener('ended', flushWatchTime);
+      return flushWatchTime;
+    }
 
     function scrollToSection(id, btn) {
       if (btn) {
@@ -1224,14 +1206,24 @@
     function openLightbox(idx) {
       const item = mediaItems[idx];
       if (!item) return;
+      if (activeVideoCleanup) { activeVideoCleanup(); activeVideoCleanup = null; }
       const body = document.getElementById('lb-body');
       body.innerHTML = item.type === 'video'
-        ? `<video src="${item.url}" controls autoplay playsinline></video>`
+        ? `<video id="lb-active-video" src="${item.url}" controls autoplay playsinline></video>`
         : `<img src="${item.url}" />`;
       document.getElementById('lightbox').style.display = 'flex';
+
+      if (item.type === 'video') {
+        const vid = document.getElementById('lb-active-video');
+        activeVideoCleanup = bindVideoRetentionTracker(vid, {
+          mediaId: item.id || (idx + 1),
+          creatorId: creatorNumericId,
+        });
+      }
     }
 
     function openDirectMedia(url, isVideo) {
+      if (activeVideoCleanup) { activeVideoCleanup(); activeVideoCleanup = null; }
       const body = document.getElementById('lb-body');
       body.innerHTML = isVideo
         ? `<video src="${url}" controls autoplay playsinline></video>`
@@ -1240,6 +1232,7 @@
     }
 
     function closeLightbox() {
+      if (activeVideoCleanup) { activeVideoCleanup(); activeVideoCleanup = null; }
       document.getElementById('lb-body').innerHTML = '';
       document.getElementById('lightbox').style.display = 'none';
     }
@@ -1260,7 +1253,6 @@
       if (e.target === modal) modal.style.display = 'none';
     });
 
-    /* Sistema de Comentários / Avaliações */
     function toggleReviewForm() {
       const box = document.getElementById('write-review-box');
       box.style.display = box.style.display === 'block' ? 'none' : 'block';

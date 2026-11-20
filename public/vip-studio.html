@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clube VIP Studio — Gerenciar Conteúdos & Retenção</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --card: #131317;
+      --elev: #1b1b21;
+      --border: rgba(255,255,255,0.08);
+      --orange: #ff6b00;
+      --pink: #e11d48;
+      --green: #10b981;
+      --text: #f4f4f6;
+      --muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 20px 16px 60px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-ghost {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 9px 14px; border-radius: 11px; font-size: 12.5px; font-weight: 700;
+      text-decoration: none; cursor: pointer;
+    }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; }
+    .card h2 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+    .card p.sub { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; background: #0d0d11; border: 1px solid var(--border); border-radius: 12px;
+      padding: 11px 13px; color: #fff; font-family: inherit; font-size: 13.5px; margin-bottom: 12px;
+    }
+    .btn-main {
+      background: linear-gradient(135deg, var(--orange), var(--pink));
+      color: #fff; border: none; padding: 12px 18px; border-radius: 12px;
+      font-family: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; width: 100%;
+    }
+    .dropzone {
+      border: 1.5px dashed rgba(255,107,0,0.45); background: rgba(255,107,0,0.06);
+      border-radius: 14px; padding: 22px; text-align: center; cursor: pointer; margin-bottom: 12px;
+    }
+
+    /* Lista de vídeos/fotos com barra de retenção */
+    .media-item {
+      display: flex; gap: 14px; align-items: center; background: var(--elev);
+      border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px;
+    }
+    .thumb { width: 64px; height: 82px; border-radius: 10px; object-fit: cover; background: #000; flex-shrink: 0; }
+    .badge-vip {
+      font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px;
+      background: rgba(225,29,72,0.2); color: #fda4af; text-transform: uppercase;
+    }
+    .badge-pub {
+      font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px;
+      background: rgba(16,185,129,0.18); color: #6ee7b7; text-transform: uppercase;
+    }
+    .ret-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+    .ret-fill { height: 100%; background: linear-gradient(90deg, var(--orange), #fbbf24); border-radius: 99px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <strong style="font-size:18px;">💎 Clube VIP & Estúdio de Vídeos</strong>
+        <span style="display:block;font-size:12px;color:var(--muted);">Gerencie conteúdos exclusivos e acompanhe a retenção real de cada vídeo</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="/dasbormodelo" class="btn-ghost">📊 Desempenho</a>
+        <a href="/minha-conta" class="btn-ghost">← Studio</a>
+      </div>
+    </div>
+
+    <!-- 1. CONFIGURAÇÕES DO PERFIL VIP -->
+    <section class="card">
+      <h2>⚙️ Configurações do Perfil VIP</h2>
+      <p class="sub">Defina o valor da sua assinatura mensal e a descrição do seu clube exclusivo.</p>
+
+      <div class="grid-2">
+        <div>
+          <label>Valor da Assinatura Mensal VIP (R$)</label>
+          <input type="number" step="5" id="vipPrice" placeholder="49.90" />
+        </div>
+        <div>
+          <label>Alterar Foto de Perfil / Capa VIP</label>
+          <input type="file" id="vipAvatarFile" accept="image/*" onchange="trocarFotoVip(this.files[0])" />
+        </div>
+      </div>
+
+      <label>Descrição Exclusiva do Clube VIP</label>
+      <textarea id="vipBio" rows="2" placeholder="Ex: Assine meu VIP para ter acesso a vídeos sem censura, bastidores e chat direto..."></textarea>
+
+      <button type="button" class="btn-main" onclick="salvarConfigVip()">Salvar Configurações VIP</button>
+    </section>
+
+    <!-- 2. SUBIR FOTO OU VÍDEO -->
+    <section class="card">
+      <h2>🎬 Subir Novo Vídeo ou Foto</h2>
+      <p class="sub">Escolha se o conteúdo será exclusivo para assinantes VIP ou aberto na vitrine.</p>
+
+      <div class="grid-2">
+        <div>
+          <label>Onde publicar?</label>
+          <select id="mediaVisibility">
+            <option value="subscriber">🔒 Exclusivo Assinantes Clube VIP</option>
+            <option value="public">🌐 Público (Vitrine & Reels)</option>
+          </select>
+        </div>
+        <div>
+          <label>Legenda / Título do Vídeo</label>
+          <input type="text" id="mediaCaption" placeholder="Ex: Bastidores do ensaio de hoje 🔥" />
+        </div>
+      </div>
+
+      <div class="dropzone" onclick="document.getElementById('vipMediaInput').click()">
+        <strong style="color:#ff944d;font-size:14px;">+ Selecionar Vídeo ou Foto do Celular</strong>
+        <span style="display:block;font-size:11.5px;color:var(--muted);margin-top:4px;">MP4, MOV, JPG ou PNG</span>
+        <input type="file" id="vipMediaInput" accept="image/*,video/*" style="display:none" onchange="subirMidiaVip(this.files[0])" />
+      </div>
+      <p id="uploadStatus" style="font-size:12px;color:var(--green);font-weight:700;"></p>
+    </section>
+
+    <!-- 3. VÍDEOS & FOTOS PUBLICADOS + RETENÇÃO -->
+    <section class="card">
+      <h2>⏱️ Retenção dos Seus Vídeos & Galeria VIP</h2>
+      <p class="sub">Veja quanto tempo médio as pessoas passam assistindo cada vídeo antes de sair.</p>
+      <div id="vipMediaList">Carregando seus vídeos...</div>
+    </section>
+  </div>
+
+  <script>
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
+    if (!token) window.location.replace('/minha-conta');
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function carregarStudioVip() {
+      const res = await fetch('/api/portal/creator/vip-studio', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) return;
+      const { creator, media } = await res.json();
+
+      if (creator) {
+        document.getElementById('vipPrice').value = creator.vip_monthly_price || '49.90';
+        document.getElementById('vipBio').value = creator.bio || '';
+      }
+
+      const listEl = document.getElementById('vipMediaList');
+      if (!media || !media.length) {
+        listEl.innerHTML = '<p style="font-size:12.5px;color:var(--muted);">Nenhum vídeo ou foto publicado ainda.</p>';
+        return;
+      }
+
+      listEl.innerHTML = media.map(m => {
+        const isVip = m.visibility === 'subscriber';
+        const isVideo = m.media_type === 'video';
+        const watchInfo = isVideo
+          ? `⏱️ Tempo médio: <strong>${m.avg_watch_sec}s</strong>${m.duration_sec ? ` de ${m.duration_sec}s` : ''} • 👁️ ${m.total_plays} plays • ✅ ${m.completions} até o fim`
+          : `📸 Foto na galeria ${isVip ? 'exclusiva VIP' : 'pública'}`;
+
+        return `
+          <div class="media-item">
+            ${isVideo
+              ? `<video class="thumb" src="${m.public_url}#t=0.5" muted playsinline></video>`
+              : `<img class="thumb" src="${m.public_url}" />`}
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span class="${isVip ? 'badge-vip' : 'badge-pub'}">${isVip ? '🔒 VIP' : '🌐 Público'}</span>
+                <strong style="font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  ${m.caption || (isVideo ? 'Vídeo VIP' : 'Foto VIP')}
+                </strong>
+              </div>
+              <div style="font-size:11.5px;color:var(--muted);">${watchInfo}</div>
+              ${isVideo ? `
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                  <div class="ret-track" style="flex:1;"><div class="ret-fill" style="width:${m.retentionPct}%"></div></div>
+                  <span style="font-size:11.5px;font-weight:800;color:#ff944d;">${m.retentionPct}% retenção</span>
+                </div>
+              ` : ''}
+            </div>
+            <button type="button" onclick="removerMidia(${m.id})" style="background:rgba(225,29,72,0.15);border:1px solid rgba(225,29,72,0.35);color:#fda4af;border-radius:9px;padding:7px 10px;cursor:pointer;font-weight:700;">✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function salvarConfigVip() {
+      const res = await fetch('/api/portal/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          vip_monthly_price: Number(document.getElementById('vipPrice').value || 49.90),
+          bio: document.getElementById('vipBio').value.trim(),
+        })
+      });
+      if (res.ok) alert('Configurações do Clube VIP atualizadas!');
+    }
+
+    async function trocarFotoVip(file) {
+      if (!file) return;
+      const st = document.getElementById('uploadStatus');
+      st.innerText = 'Atualizando foto VIP...';
+      const base64Data = await fileToBase64(file);
+      const up = await fetch('/api/creator/upload-direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'public', base64Data })
+      }).then(r => r.json());
+
+      if (up.ok) {
+        await fetch('/api/portal/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ avatar_url: up.publicUrl })
+        });
+        st.innerText = 'Foto VIP atualizada!';
+      }
+    }
+
+    async function subirMidiaVip(file) {
+      if (!file) return;
+      const st = document.getElementById('uploadStatus');
+      const visibility = document.getElementById('mediaVisibility').value;
+      const caption = document.getElementById('mediaCaption').value.trim();
+
+      st.innerText = 'Enviando vídeo/foto para o servidor...';
+      const base64Data = await fileToBase64(file);
+      const up = await fetch('/api/creator/upload-direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility, base64Data })
+      }).then(r => r.json());
+
+      if (!up.ok) {
+        st.innerText = '';
+        return alert(up.error || 'Erro ao enviar arquivo');
+      }
+
+      await fetch('/api/creator/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          mediaType: up.mediaType,
+          visibility,
+          r2Key: up.r2Key,
+          publicUrl: up.publicUrl,
+          caption
+        })
+      });
+
+      document.getElementById('mediaCaption').value = '';
+      st.innerText = 'Publicado com sucesso!';
+      carregarStudioVip();
+    }
+
+    async function removerMidia(id) {
+      if (!confirm('Remover este conteúdo?')) return;
+      await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      carregarStudioVip();
+    }
+
+    carregarStudioVip();
+  </script>
+</body>
+</html>

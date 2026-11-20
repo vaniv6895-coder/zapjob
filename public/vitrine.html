@@ -601,7 +601,7 @@
 
   <script>
     // =========================================================
-    // TELEMETRIA COMPORTAMENTAL (Tempo de tela, pulos e cliques)
+    // TELEMETRIA COMPORTAMENTAL + RETENÇÃO REAL POR VÍDEO
     // =========================================================
     (function initTelemetry() {
       let vid = localStorage.getItem('gv_vid');
@@ -635,6 +635,35 @@
             keepalive: true,
           }).catch(() => {});
         }
+      };
+
+      window.bindVideoRetentionTracker = function (videoEl, { mediaId, creatorId }) {
+        if (!videoEl || !mediaId || !creatorId) return () => {};
+        let startedAt = videoEl.paused ? 0 : Date.now();
+        let accumulatedSec = 0;
+
+        const flushWatchTime = () => {
+          if (startedAt) {
+            accumulatedSec += (Date.now() - startedAt) / 1000;
+            startedAt = 0;
+          }
+          if (accumulatedSec >= 1) {
+            const payload = JSON.stringify({
+              mediaId,
+              creatorId,
+              visitorId: vid,
+              watchedSeconds: Math.round(accumulatedSec),
+              videoDuration: Math.round(videoEl.duration || 0),
+            });
+            navigator.sendBeacon('/api/portal/media-retention', new Blob([payload], { type: 'application/json' }));
+            accumulatedSec = 0;
+          }
+        };
+
+        videoEl.addEventListener('play', () => { if (!startedAt) startedAt = Date.now(); });
+        videoEl.addEventListener('pause', flushWatchTime);
+        videoEl.addEventListener('ended', flushWatchTime);
+        return flushWatchTime;
       };
 
       sendTelemetry('session_start', { targetLabel: window.location.pathname });
@@ -682,12 +711,10 @@
     let allProfiles = [];
     let storiesList = [];
 
-    // Registra no Google Trends do Admin os filtros aplicados
     if (activeTags.length) sendTelemetry('search', { targetLabel: 'Filtro: ' + activeTags.join(', ') });
     if (activeServices.length) sendTelemetry('search', { targetLabel: 'Serviço: ' + activeServices.join(', ') });
     if (activeAge) sendTelemetry('search', { targetLabel: 'Idade: ' + activeAge });
 
-    // Exibe a faixa de filtros ativos se veio de /filtros
     (function renderActiveFiltersSummary() {
       const chips = [];
       activeTags.forEach(t => chips.push(t));
@@ -711,13 +738,14 @@
       }
     })();
 
-    // Controle dos Stories + Telemetria de Pulo
+    // Controle dos Stories + Retenção Real de Vídeo
     let currentStoryIdx = 0;
     let storyTimer = null;
     let storyProgress = 0;
     let storyMuted = true;
     let storyOpenedAt = 0;
     let currentStoryObj = null;
+    let activeStoryCleanup = null;
 
     if (!document.cookie.includes('age_verified=1')) {
       document.getElementById('age-gate').style.display = 'flex';
@@ -779,6 +807,7 @@
     }
 
     function openStory(idx) {
+      if (activeStoryCleanup) { activeStoryCleanup(); activeStoryCleanup = null; }
       if (!storiesList.length) return;
       if (idx < 0) idx = 0;
       if (idx >= storiesList.length) {
@@ -807,6 +836,14 @@
       const mediaSlot = document.getElementById('story-media-slot');
       if (s.videoUrl) {
         mediaSlot.innerHTML = `<video id="st-video-el" class="story-media" src="${s.videoUrl}" autoplay playsinline ${storyMuted ? 'muted' : ''}></video>`;
+        const stVid = document.getElementById('st-video-el');
+        const profileMatch = allProfiles.find(p => p.slug === s.slug);
+        if (stVid && profileMatch) {
+          activeStoryCleanup = bindVideoRetentionTracker(stVid, {
+            mediaId: s.videoId || profileMatch.id,
+            creatorId: profileMatch.id,
+          });
+        }
       } else {
         mediaSlot.innerHTML = `<img class="story-media" src="${s.mediaUrl}" alt="${s.name}" />`;
       }
@@ -858,6 +895,7 @@
     }
 
     function closeStory() {
+      if (activeStoryCleanup) { activeStoryCleanup(); activeStoryCleanup = null; }
       clearInterval(storyTimer);
       document.getElementById('story-media-slot').innerHTML = '';
       document.getElementById('story-modal').style.display = 'none';
@@ -939,7 +977,6 @@
         list = list.filter(p => p.hourly_rate && Number(p.hourly_rate) <= activeMaxPrice);
       }
 
-      // Ordenação escolhida em /filtros
       if (activeSort === 'price_asc') {
         list.sort((a, b) => (Number(a.hourly_rate) || 9999) - (Number(b.hourly_rate) || 9999));
       } else if (activeSort === 'youngest') {
@@ -1002,9 +1039,10 @@
     }
 
     function renderReels(reels) {
-      document.getElementById('hot-reels-row').innerHTML = reels.map((v, idx) => `
+      const row = document.getElementById('hot-reels-row');
+      row.innerHTML = reels.map((v, idx) => `
         <a href="/reels?modelo=${v.slug}" class="reel-card">
-          <video src="${v.public_url}#t=0.5" muted playsinline loop onmouseover="this.play()" onmouseout="this.pause()" preload="metadata"></video>
+          <video data-media-id="${v.id || 0}" data-creator-id="${v.creator_id || 0}" src="${v.public_url}#t=0.5" muted playsinline loop onmouseover="this.play()" onmouseout="this.pause()" preload="metadata"></video>
           <div class="reel-fire-badge">#${idx + 1}</div>
           <div class="reel-info">
             <strong>${v.stage_name}</strong>
@@ -1012,6 +1050,14 @@
           </div>
         </a>
       `).join('');
+
+      row.querySelectorAll('video').forEach(vidEl => {
+        const mediaId = Number(vidEl.dataset.mediaId || 0);
+        const creatorId = Number(vidEl.dataset.creatorId || 0);
+        if (mediaId && creatorId) {
+          bindVideoRetentionTracker(vidEl, { mediaId, creatorId });
+        }
+      });
     }
 
     carregarVitrine();

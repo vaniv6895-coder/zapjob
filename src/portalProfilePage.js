@@ -43,37 +43,38 @@ export function registerPortalProfileRoute(app) {
     if (mediaList.length === 0 && isDemoAccount) {
       mediaList = [
         {
+          id: 1,
           media_type: 'image',
           public_url: creator.avatar_url || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=80',
         },
         {
+          id: 2,
           media_type: 'image',
           public_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80',
         },
         {
+          id: 3,
           media_type: 'image',
           public_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
         },
         {
+          id: 4,
           media_type: 'video',
           public_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
         },
       ];
     }
 
-    // Separa fotos e vídeos reais para a galeria e Lightbox
     const visualMediaList = mediaList.filter((m) => m.media_type === 'image' || m.media_type === 'video');
     const photosCount = visualMediaList.filter((m) => m.media_type === 'image').length;
     const videosCount = visualMediaList.filter((m) => m.media_type === 'video').length;
 
-    // Prioriza o áudio salvo diretamente no perfil (creator.audio_url) ou na galeria (media_type === 'audio')
     const audioMediaItem = mediaList.find((m) => m.media_type === 'audio');
     const finalAudioUrl =
       (creator.audio_url && String(creator.audio_url).trim()) ||
       (audioMediaItem && audioMediaItem.public_url) ||
       (isDemoAccount ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
 
-    // Prioriza vídeo de verificação salvo no perfil ou na tabela creator_media
     const verifMediaItem = mediaList.find((m) => m.media_type === 'verification');
     const finalVerifUrl =
       (creator.verification_video_url && String(creator.verification_video_url).trim()) ||
@@ -92,7 +93,6 @@ export function registerPortalProfileRoute(app) {
       (visualMediaList[0] && visualMediaList[0].public_url) ||
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&q=80';
 
-    // Barra de Áudio com duração real automática
     const waveHeights = [30, 55, 80, 45, 90, 60, 35, 75, 95, 50, 40, 85, 70, 30, 65, 90, 55, 40, 80, 60, 35, 75, 50, 85, 45, 70, 90, 40, 60, 35, 75, 50];
     const waveSpans = waveHeights.map((h) => `<span style="height:${h}%"></span>`).join('');
 
@@ -148,7 +148,6 @@ export function registerPortalProfileRoute(app) {
          </script>`
       : '';
 
-    // Bloco dedicado de Vídeo de Verificação
     const verificationSectionHtml = finalVerifUrl
       ? `<section class="verification-section">
            <div class="verif-card" onclick="openDirectMedia('${finalVerifUrl}', true)">
@@ -170,11 +169,15 @@ export function registerPortalProfileRoute(app) {
          </section>`
       : '';
 
-    const rateValue = creator.hourly_rate || creator.half_hour_rate;
-    const rateLabel = creator.hourly_rate ? '(1 hora)' : '(30 min)';
+    const rateValue = creator.hourly_rate || creator.half_hour_rate || creator.fifteen_min_rate;
+    const rateLabel = creator.hourly_rate
+      ? '(1 hora)'
+      : creator.half_hour_rate
+      ? '(30 min)'
+      : '(15 min)';
     const rateCardHtml = rateValue
       ? `<div class="big-info"><small>a partir de</small><br>R$ ${Number(rateValue).toFixed(0)} <small>${rateLabel}</small></div>`
-      : `<div class="big-info"><small>valores</small><br>A combinar <small>(WhatsApp)</small></div>`;
+      : `<div class="big-info"><small>valores</small><br>A consultar <small>(WhatsApp)</small></div>`;
 
     const galleryHtml =
       visualMediaList.length === 0
@@ -213,29 +216,54 @@ export function registerPortalProfileRoute(app) {
         ? `${creator.schedule_start} - ${creator.schedule_end}`
         : '09:00 - 22:00';
 
-    const mediaJson = JSON.stringify(visualMediaList.map((m) => ({ type: m.media_type, url: m.public_url })));
+    const mediaJson = JSON.stringify(
+      visualMediaList.map((m) => ({
+        id: m.id || 0,
+        type: m.media_type,
+        url: m.public_url,
+      }))
+    );
 
-    // Formata cada faixa de valor (mostra o preço em verde ou riscado "Não realiza")
-    const fmtRow = (label, val, fallbackConsult = false) => {
-      if (val && Number(val) > 0) {
+    const fmtRow = (label, val) => {
+      if (val !== null && val !== undefined && val !== '' && Number(val) > 0) {
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
           <span style="color:#f8fafc;font-weight:700;font-size:14px;">${label}</span>
           <span style="color:#10b981;font-weight:800;font-size:15px;">R$ ${Number(val).toFixed(2).replace('.', ',')}</span>
         </div>`;
       }
-      if (fallbackConsult) {
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-          <span style="color:#f8fafc;font-weight:700;font-size:14px;">${label}</span>
-          <span style="color:#10b981;font-weight:800;font-size:14px;">Consultar / Combinar</span>
-        </div>`;
-      }
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);opacity:0.45;">
-        <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">${label}</span>
-        <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">Não realiza</span>
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="color:#cbd5e1;font-weight:600;font-size:13.5px;">${label}</span>
+        <span style="color:#94a3b8;font-weight:700;font-size:13px;">A consultar</span>
       </div>`;
     };
 
-    const payList = parseTagList(creator.payment_methods, ['Dinheiro', 'Pix', 'Crédito', 'Débito']);
+    let customRatesList = [];
+    if (Array.isArray(creator.custom_rates)) {
+      customRatesList = creator.custom_rates;
+    } else if (typeof creator.custom_rates === 'string') {
+      try {
+        customRatesList = JSON.parse(creator.custom_rates) || [];
+      } catch {}
+    }
+
+    const customRatesHtml = customRatesList
+      .filter((item) => item && item.label)
+      .map((item) => {
+        const rawPrice = String(item.price || '').trim();
+        const numericVal = Number(rawPrice.replace(',', '.'));
+        const displayPrice =
+          rawPrice && !Number.isNaN(numericVal) && numericVal > 0
+            ? `<span style="color:#10b981;font-weight:800;font-size:15px;">R$ ${numericVal.toFixed(2).replace('.', ',')}</span>`
+            : `<span style="color:#fbbf24;font-weight:700;font-size:13.5px;">${rawPrice || 'A consultar'}</span>`;
+
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <span style="color:#f8fafc;font-weight:700;font-size:14px;">${item.label}</span>
+          ${displayPrice}
+        </div>`;
+      })
+      .join('');
+
+    const payList = parseTagList(creator.payment_methods, ['Dinheiro', 'Pix']);
     const payIcons = {
       Dinheiro: '💵',
       Pix: '💠',
@@ -252,11 +280,12 @@ export function registerPortalProfileRoute(app) {
       .join('');
 
     const dynamicRatesModalHtml = `
-      ${fmtRow('1 hora', creator.hourly_rate, true)}
-      ${fmtRow('15 minutos', creator.fifteen_min_rate, false)}
-      ${fmtRow('30 minutos', creator.half_hour_rate, false)}
-      ${fmtRow('2 horas', creator.two_hours_rate, false)}
-      ${fmtRow('Pernoite', creator.overnight_rate, false)}
+      ${fmtRow('15 minutos', creator.fifteen_min_rate)}
+      ${fmtRow('30 minutos', creator.half_hour_rate)}
+      ${fmtRow('1 hora', creator.hourly_rate)}
+      ${fmtRow('2 horas', creator.two_hours_rate)}
+      ${fmtRow('Pernoite', creator.overnight_rate)}
+      ${customRatesHtml}
       <div style="margin-top:16px;">
         <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:0.6px;margin-bottom:12px;">FORMAS DE PAGAMENTO:</div>
         <div style="display:flex;justify-content:space-around;gap:8px;">${paymentBadgesHtml}</div>
@@ -266,6 +295,7 @@ export function registerPortalProfileRoute(app) {
     let html = fs.readFileSync(TEMPLATE_PATH, 'utf8');
 
     html = html
+      .replace(/\{\{CREATOR_ID\}\}/g, String(creator.id || 0))
       .replace(/\{\{STAGE_NAME\}\}/g, creator.stage_name || '')
       .replace(/\{\{CITY\}\}/g, creator.city || 'Várzea Grande')
       .replace(/\{\{STATE\}\}/g, creator.state || 'MT')
@@ -288,13 +318,8 @@ export function registerPortalProfileRoute(app) {
       .replace(/\{\{SERVICES_TAGS\}\}/g, servicesTagsHtml)
       .replace(/\{\{GALLERY_HTML\}\}/g, galleryHtml)
       .replace(/\{\{MEDIA_JSON\}\}/g, mediaJson)
+      .replace('{{RATES_MODAL_BODY}}', dynamicRatesModalHtml)
       .replace('09:00 - 22:00', workHoursText);
-
-    // Substitui o conteúdo estático do modal de Valores pelos valores reais cadastrados pela modelo
-    html = html.replace(
-      /(<h3[^>]*>\s*Valores\s*<\/h3>[\s\S]*?<\/button>\s*<\/div>)([\s\S]*?)(<\/div>\s*<\/div>)/i,
-      `$1<div style="margin-top:8px;">${dynamicRatesModalHtml}</div>$3`
-    );
 
     return reply.type('text/html; charset=utf-8').send(html);
   });
