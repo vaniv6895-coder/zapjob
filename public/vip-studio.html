@@ -515,7 +515,6 @@
     <button type="button" onclick="switchTab('tab-config', document.querySelectorAll('.stab')[0]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">⚙️ Planos, Bio & Prévia</button>
     <button type="button" onclick="switchTab('tab-videos', document.querySelectorAll('.stab')[1]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">🎬 Vídeos & Retenção</button>
     <button type="button" onclick="switchTab('tab-fotos', document.querySelectorAll('.stab')[2]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">📸 Fotos VIP & Galeria</button>
-    <button type="button" onclick="switchTab('tab-mensagens', document.querySelectorAll('.stab')[3]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">💬 Mensagens (Aba)</button>
 
     <div class="drawer-label">Visualizar & Métricas</div>
     <a href="/minha-conta/editar" class="drawer-link">✏️ Voltar para Editar Perfil</a>
@@ -762,7 +761,7 @@
             <h3 style="font-size:15px;font-weight:800;">💬 Mensagens dos Assinantes VIP</h3>
             <p style="font-size:12px;color:var(--muted);">Acompanhe quem mandou mensagem no seu Clube VIP e responda direto pelo painel</p>
           </div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <a href="/vip-mensagens" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;text-decoration:none;">Abrir Página Completa</a>
             <button type="button" onclick="carregarMensagensVip()" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
               🔄 Atualizar
