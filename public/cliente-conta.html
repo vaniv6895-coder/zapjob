@@ -305,7 +305,6 @@
       localStorage.setItem('vip_fan_profile', JSON.stringify(fan));
     }
 
-    // Se já tem conta completa (com apelido), vai direto para o painel do fã
     (function initPage() {
       const fanAuth = params.get('fan_auth');
       if (fanAuth) {
@@ -314,10 +313,7 @@
           const fan = JSON.parse(json);
           if (fan && fan.fan_code) {
             saveFan(fan);
-            if (fan.nickname) {
-              window.location.replace(returnTo);
-              return;
-            }
+            window.history.replaceState({}, '', '/cliente?returnTo=' + encodeURIComponent(returnTo));
             mostrarEtapaApelido(fan);
             return;
           }
@@ -351,10 +347,13 @@
     }
 
     function mostrarEtapaApelido(fan) {
+      currentFan = fan;
       document.getElementById('stepAuth').style.display = 'none';
       document.getElementById('stepNickname').style.display = 'block';
       document.getElementById('createdFanCode').innerText = fan.fan_code || 'FAN-VIP';
-      document.getElementById('nicknameInput').value = fan.nickname || fan.full_name || '';
+      const nickInput = document.getElementById('nicknameInput');
+      nickInput.value = fan.nickname || fan.full_name || '';
+      nickInput.focus();
     }
 
     async function enviarFormularioCliente(e) {
