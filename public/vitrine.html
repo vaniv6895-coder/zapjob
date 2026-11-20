@@ -136,7 +136,7 @@
       height: 38px;
       border-radius: 10px;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
@@ -544,7 +544,7 @@
     </div>
 
     <div class="drawer-section-label">Área do Cliente & Fã</div>
-    <a href="/meu-vip" class="drawer-link primary-cta">👤 Cadastrar / Meu Painel VIP</a>
+    <a href="/meu-vip" onclick="abrirCadastroClienteVitrine(event)" class="drawer-link primary-cta">👤 Cadastrar / Meu Painel VIP</a>
 
     <div class="drawer-section-label" style="margin-top: 16px;">Portal da Modelo</div>
     <a href="/minha-conta" class="drawer-link">✨ Criar / Acessar Conta Modelo</a>
@@ -571,7 +571,7 @@
         <a href="/vitrine" class="brand">GAROTA <span class="brand-accent">VIP</span></a>
       </div>
       <div class="nav-actions">
-        <a href="/meu-vip" class="nav-client">👤 Área do Cliente</a>
+        <a href="/meu-vip" onclick="abrirCadastroClienteVitrine(event)" class="nav-client">👤 Área do Cliente</a>
         <a href="/reels" class="nav-reels">Reels</a>
         <a href="/minha-conta" class="cta-announce">Sou Modelo</a>
       </div>
@@ -628,7 +628,19 @@
     </section>
   </main>
 
+  <script src="/vip-fan-gate.js"></script>
   <script>
+    function abrirCadastroClienteVitrine(e) {
+      if (e) e.preventDefault();
+      if (typeof window.ensureFanAuthenticated === 'function') {
+        window.ensureFanAuthenticated(() => {
+          window.location.href = '/meu-vip';
+        });
+      } else {
+        window.location.href = '/meu-vip';
+      }
+    }
+
     (function initTelemetry() {
       let vid = localStorage.getItem('gv_vid');
       if (!vid) {
