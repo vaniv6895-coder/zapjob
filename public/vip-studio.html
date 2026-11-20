@@ -144,6 +144,7 @@
       padding: 8px 13px;
       border-radius: 12px;
       white-space: nowrap;
+      cursor: pointer;
     }
     .brand-pill { font-size: 14px; font-weight: 800; white-space: nowrap; }
     .brand-pill span {
@@ -244,6 +245,7 @@
       padding: 10px 16px;
       border-radius: 12px;
       text-decoration: none;
+      cursor: pointer;
     }
 
     /* KPIs */
@@ -448,9 +450,10 @@
     <button type="button" onclick="switchTab('tab-config', document.querySelectorAll('.stab')[0]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">⚙️ Planos, Bio & Prévia</button>
     <button type="button" onclick="switchTab('tab-videos', document.querySelectorAll('.stab')[1]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">🎬 Vídeos & Retenção</button>
     <button type="button" onclick="switchTab('tab-fotos', document.querySelectorAll('.stab')[2]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">📸 Fotos VIP & Galeria</button>
+    <button type="button" onclick="switchTab('tab-mensagens', document.querySelectorAll('.stab')[3]); toggleDrawer();" class="drawer-link" style="width:100%;text-align:left;cursor:pointer;font-family:inherit;">💬 Mensagens VIP</button>
 
     <div class="drawer-label">Visualizar & Métricas</div>
-    <a id="drawerVerVipLink" href="/vitrine" target="_blank" class="drawer-link">👁️ Ver Página VIP ao Vivo</a>
+    <a id="drawerVerVipLink" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="drawer-link">👁️ Ver Página VIP ao Vivo</a>
     <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
     <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
     <a href="/reels" class="drawer-link">▶ VIP Reels</a>
@@ -470,7 +473,7 @@
       </div>
       <div style="display:flex;gap:8px;">
         <a href="/minha-conta/editar" class="nav-back">✏️ Editar Perfil</a>
-        <a id="navVerVipBtn" href="/vitrine" target="_blank" class="nav-back">👁️ Ver VIP</a>
+        <a id="navVerVipBtn" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="nav-back">👁️ Ver VIP</a>
       </div>
     </div>
   </header>
@@ -496,7 +499,7 @@
             <p class="vip-sub" id="heroBioPreview">Gerencie planos, bio, mídias e retenção</p>
           </div>
         </div>
-        <a id="btnVerClubePublico" href="/vitrine" target="_blank" class="btn-view-vip-page">👁️ Ver Página VIP</a>
+        <a id="btnVerClubePublico" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="btn-view-vip-page">👁️ Ver Página VIP</a>
       </div>
     </section>
 
@@ -529,6 +532,9 @@
       <button type="button" class="stab active" onclick="switchTab('tab-config', this)">⚙️ Planos, Bio & Prévia</button>
       <button type="button" class="stab" onclick="switchTab('tab-videos', this)">🎬 Vídeos & Retenção</button>
       <button type="button" class="stab" onclick="switchTab('tab-fotos', this)">📸 Fotos VIP & Galeria</button>
+      <button type="button" class="stab" onclick="switchTab('tab-mensagens', this)">
+        💬 Mensagens <span id="vipUnreadBadge" style="background:rgba(255,255,255,0.16);padding:1px 7px;border-radius:99px;font-size:11px;margin-left:4px;">0</span>
+      </button>
     </div>
 
     <!-- ABA 1: PLANOS (1 MÊS, 2 MESES, TRIMESTRAL, ANUAL) + ANCORAGEM + BIO + PRÉVIA -->
@@ -681,11 +687,72 @@
         <div class="photos-grid" id="photosGalleryGrid"></div>
       </div>
     </div>
+
+    <!-- ABA 4: MENSAGENS VIP -->
+    <div id="tab-mensagens" class="tab-pane">
+      <div class="upload-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <div>
+            <h3 style="font-size:15px;font-weight:800;">💬 Mensagens dos Assinantes VIP</h3>
+            <p style="font-size:12px;color:var(--muted);">Acompanhe quem mandou mensagem no seu Clube VIP e responda direto pelo painel</p>
+          </div>
+          <button type="button" onclick="carregarMensagensVip()" style="background:var(--elevated);color:#fff;border:1px solid var(--border);padding:8px 13px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
+            🔄 Atualizar
+          </button>
+        </div>
+        <div id="vipMessagesList" style="display:flex;flex-direction:column;gap:12px;">
+          <p style="font-size:13px;color:var(--muted);">Carregando mensagens...</p>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
     const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
     if (!token) window.location.replace('/minha-conta');
+
+    let vipCreatorSlug = '';
+
+    function montarUrlVip(slug) {
+      const cleanSlug = String(slug || '').trim();
+      return cleanSlug ? `/vip/${encodeURIComponent(cleanSlug)}` : '/vitrine';
+    }
+
+    function aplicarLinksVip(slug) {
+      if (!slug) return;
+      vipCreatorSlug = slug;
+      const url = montarUrlVip(slug);
+      ['btnVerClubePublico', 'navVerVipBtn', 'drawerVerVipLink'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.href = url;
+          el.dataset.vipSlug = slug;
+        }
+      });
+    }
+
+    async function abrirPaginaVipModelo(event) {
+      if (event) event.preventDefault();
+      if (vipCreatorSlug) {
+        window.location.href = montarUrlVip(vipCreatorSlug);
+        return;
+      }
+      try {
+        const meRes = await fetch('/api/portal/me', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          const slug = meData?.creator?.slug;
+          if (slug) {
+            aplicarLinksVip(slug);
+            window.location.href = montarUrlVip(slug);
+            return;
+          }
+        }
+      } catch {}
+      window.location.href = '/vitrine';
+    }
 
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
@@ -785,10 +852,7 @@
           document.getElementById('lpCoverImg').src = cUrl;
         }
         if (creator.slug) {
-          const vipUrl = '/vip/' + creator.slug;
-          document.getElementById('btnVerClubePublico').href = vipUrl;
-          document.getElementById('navVerVipBtn').href = vipUrl;
-          document.getElementById('drawerVerVipLink').href = vipUrl;
+          aplicarLinksVip(creator.slug);
         }
 
         const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
@@ -819,6 +883,7 @@
       }
 
       atualizarPreviewAoVivo();
+      carregarMensagensVip();
 
       document.getElementById('videosRetentionGrid').innerHTML = !videos.length
         ? '<p style="font-size:13px;color:var(--muted);grid-column:1/-1;">Nenhum vídeo publicado ainda.</p>'
@@ -860,6 +925,63 @@
               <span style="position:absolute;bottom:8px;left:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,0.75);color:#fff;">${p.visibility === 'subscriber' ? '🔒 VIP' : '🌐 Público'}</span>
               <button type="button" class="photo-del" onclick="removerMidia(${p.id})">✕</button>
             </div>`).join('');
+    }
+
+    async function carregarMensagensVip() {
+      const box = document.getElementById('vipMessagesList');
+      if (!box) return;
+      const res = await fetch('/api/portal/creator/vip-messages', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        box.innerHTML = '<p style="font-size:12.5px;color:var(--muted);">Não foi possível carregar as mensagens agora.</p>';
+        return;
+      }
+      const data = await res.json();
+      const msgs = data.messages || [];
+      const unread = msgs.filter(m => !m.is_read).length;
+      const badge = document.getElementById('vipUnreadBadge');
+      if (badge) badge.innerText = String(unread);
+
+      if (!msgs.length) {
+        box.innerHTML = '<p style="font-size:13px;color:var(--muted);">Nenhuma mensagem de assinante recebida ainda.</p>';
+        return;
+      }
+
+      box.innerHTML = msgs.map(m => {
+        const dt = m.created_at ? new Date(m.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+        return `
+          <div style="background:var(--elevated);border:1px solid ${m.is_read ? 'var(--border)' : 'rgba(225,29,72,0.45)'};border-radius:14px;padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+              <div>
+                <strong style="font-size:13.5px;color:#fff;">${m.subscriber_name || 'Assinante VIP'}</strong>
+                <span style="font-size:11px;color:var(--muted);margin-left:6px;">${m.subscriber_contact || ''}</span>
+                ${!m.is_read ? '<span style="background:rgba(225,29,72,0.2);color:#fda4af;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;">NOVA</span>' : ''}
+              </div>
+              <span style="font-size:11px;color:var(--muted);">${dt}</span>
+            </div>
+            <p style="font-size:13px;color:#e4e4e7;line-height:1.45;margin-bottom:10px;">${m.message_text}</p>
+            ${m.creator_reply ? `<div style="background:rgba(16,185,129,0.1);border-left:3px solid #10b981;padding:8px 10px;border-radius:8px;font-size:12px;color:#a7f3d0;margin-bottom:10px;"><strong>Sua resposta:</strong> ${m.creator_reply}</div>` : ''}
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="replyInput-${m.id}" placeholder="Escreva uma resposta..." value="${(m.creator_reply || '').replace(/"/g, '&quot;')}" style="flex:1;" />
+              <button type="button" onclick="responderMensagemVip(${m.id})" style="background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;border:none;padding:0 14px;border-radius:11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                Responder
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function responderMensagemVip(msgId) {
+      const inp = document.getElementById('replyInput-' + msgId);
+      const replyText = inp ? inp.value.trim() : '';
+      const res = await fetch(`/api/portal/creator/vip-messages/${msgId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ replyText })
+      });
+      if (res.ok) carregarMensagensVip();
     }
 
     async function atualizarImagemPerfil(file, fieldName) {
