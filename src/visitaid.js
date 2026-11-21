@@ -245,20 +245,47 @@ export function registerTelemetryRoutes(app, pool) {
 
   app.post('/api/vip/fan-nickname', async (req, reply) => {
     try {
-      const { fanCode = '', nickname = '' } = req.body || {};
+      const { fanCode = '', nickname = '', contact = '', deviceHash = '' } = req.body || {};
       const cleanCode = String(fanCode).trim().toUpperCase();
       const cleanNick = String(nickname).trim();
-      if (!cleanCode || !cleanNick) {
+      const cleanContact = String(contact).trim().toLowerCase();
+      const cleanDev = String(deviceHash).trim();
+
+      if (!cleanNick) {
         return reply.status(400).send({ error: 'Informe como deseja ser chamado.' });
       }
 
-      const res = await pool.query(
+      let res = await pool.query(
         `UPDATE fan_accounts
          SET nickname = $2, full_name = $2
          WHERE fan_code = $1
          RETURNING id, fan_code, full_name, nickname, contact_identifier`,
         [cleanCode, cleanNick]
       );
+
+      if (!res.rows[0] && cleanDev) {
+        res = await pool.query(
+          `UPDATE fan_accounts
+           SET nickname = $2, full_name = $2
+           WHERE device_hash = $1
+           RETURNING id, fan_code, full_name, nickname, contact_identifier`,
+          [cleanDev, cleanNick]
+        );
+      }
+
+      if (!res.rows[0] && cleanCode) {
+        const fallbackContact = cleanContact || `${cleanCode.toLowerCase()}@vip.local`;
+        const passHash = crypto.createHash('sha256').update(cleanCode + '_' + Date.now()).digest('hex');
+        res = await pool.query(
+          `INSERT INTO fan_accounts (fan_code, full_name, nickname, contact_identifier, password_hash, device_hash)
+           VALUES ($1, $2, $2, $3, $4, $5)
+           ON CONFLICT (fan_code) DO UPDATE SET
+             nickname = EXCLUDED.nickname,
+             full_name = EXCLUDED.full_name
+           RETURNING id, fan_code, full_name, nickname, contact_identifier`,
+          [cleanCode, cleanNick, fallbackContact, passHash, cleanDev || null]
+        );
+      }
 
       if (!res.rows[0]) {
         return reply.status(404).send({ error: 'Conta de fã não encontrada.' });

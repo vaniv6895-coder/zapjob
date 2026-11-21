@@ -278,11 +278,20 @@
         return;
       }
 
-      const codeToSave = activeFanCode || document.getElementById('fanCodeDisplay')?.innerText || '';
+      const saved = readSavedFan();
+      const codeToSave = (saved && saved.fan_code) || activeFanCode || document.getElementById('fanCodeDisplay')?.innerText || '';
       if (!codeToSave || codeToSave === 'Carregando...') {
         fb.style.color = '#fb7185';
         fb.innerText = 'Aguarde o carregamento do seu ID de Fã.';
         return;
+      }
+
+      let deviceHash = '';
+      if (typeof window.getDeviceHash === 'function') {
+        deviceHash = await window.getDeviceHash().catch(() => '');
+      }
+      if (!deviceHash) {
+        deviceHash = localStorage.getItem('vip_device_hash') || '';
       }
 
       btn.disabled = true;
@@ -293,11 +302,16 @@
         const res = await fetch('/api/vip/fan-nickname', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fanCode: codeToSave, nickname: nick })
+          body: JSON.stringify({
+            fanCode: codeToSave,
+            nickname: nick,
+            contact: saved?.contact_identifier || '',
+            deviceHash
+          })
         });
         const data = await res.json().catch(() => ({}));
 
-        const current = readSavedFan() || { fan_code: codeToSave };
+        const current = saved || { fan_code: codeToSave };
         const updatedFan = res.ok && data.fan
           ? data.fan
           : { ...current, fan_code: codeToSave, nickname: nick, full_name: nick };
@@ -313,7 +327,7 @@
           fb.innerText = data.error || 'Salvo neste aparelho.';
         }
       } catch {
-        const current = readSavedFan() || { fan_code: codeToSave };
+        const current = saved || { fan_code: codeToSave };
         const fallbackFan = { ...current, fan_code: codeToSave, nickname: nick, full_name: nick };
         writeSavedFan(fallbackFan);
         applyFanIdentityToUI(fallbackFan, codeToSave);
