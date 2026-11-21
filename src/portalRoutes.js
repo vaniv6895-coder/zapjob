@@ -1,5 +1,5 @@
 ﻿import crypto from 'crypto';
-import { pool } from './db.js';
+import { pool, getBotSettings, saveBotSettings } from './db.js';
 import fs from 'fs';
 import path from 'path';
 import { registerTelemetryRoutes } from './visitaid.js';
@@ -106,6 +106,60 @@ export function registerPortalRoutes(app) {
     const filePath = path.join(process.cwd(), 'public', 'admin-dashboard.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  // Resumo de cadastros: Assinantes vs Modelos vs Acompanhantes
+  app.get('/api/portal/admin/registrations-summary', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+
+    let subscribersCount = 0;
+    let modelsCount = 0;
+    let escortsCount = 0;
+
+    try {
+      const creatorsRes = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE COALESCE(email, '') NOT LIKE '%@demo.com')::int AS total_creators,
+          COUNT(*) FILTER (
+            WHERE COALESCE(email, '') NOT LIKE '%@demo.com'
+              AND (
+                COALESCE(hourly_rate, 0) > 0
+                OR LOWER(COALESCE(specialty_tag, '') || ' ' || COALESCE(bio, '')) ~ '(acompanhante|encontro|cache|cachê|local proprio|local próprio)'
+              )
+          )::int AS escorts_count
+        FROM creator_accounts
+      `);
+      const totalCreators = creatorsRes.rows[0]?.total_creators || 0;
+      escortsCount = creatorsRes.rows[0]?.escorts_count || 0;
+      modelsCount = Math.max(0, totalCreators - escortsCount);
+    } catch {}
+
+    const fanTables = ['fan_accounts', 'vip_fans', 'vip_users', 'client_accounts'];
+    for (const tbl of fanTables) {
+      try {
+        const r = await pool.query(`SELECT COUNT(*)::int AS c FROM ${tbl}`);
+        if (r.rows[0]?.c > 0) {
+          subscribersCount = r.rows[0].c;
+          break;
+        }
+      } catch {}
+    }
+
+    if (subscribersCount === 0) {
+      try {
+        const subRes = await pool.query(`SELECT COUNT(DISTINCT fan_email)::int AS c FROM vip_subscriptions`);
+        subscribersCount = subRes.rows[0]?.c || 0;
+      } catch {}
+    }
+
+    return reply.send({
+      ok: true,
+      subscribers: subscribersCount,
+      models: modelsCount,
+      escorts: escortsCount,
+      totalCreators: modelsCount + escortsCount,
+    });
   });
 
   // Rota para publicar Story com sticker de link
@@ -366,10 +420,11 @@ export function registerPortalRoutes(app) {
     if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
 
     try {
-      const res = await pool.query(`SELECT * FROM bot_settings LIMIT 1`);
-      return reply.send({ ok: true, settings: res.rows[0] || {} });
-    } catch {
-      return reply.send({ ok: true, settings: {} });
+      const settings = await getBotSettings();
+      return reply.send({ ok: true, settings });
+    } catch (err) {
+      app.log.error(err, '[Portal Admin] Erro ao carregar bot_settings');
+      return reply.status(500).send({ error: 'Erro ao carregar configurações do fluxo.' });
     }
   });
 
@@ -378,30 +433,12 @@ export function registerPortalRoutes(app) {
     if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
 
     const { visual_flow, paywall_config } = req.body || {};
+    const toSave = {};
+    if (visual_flow !== undefined && visual_flow !== null) toSave.visual_flow = visual_flow;
+    if (paywall_config !== undefined && paywall_config !== null) toSave.paywall_config = paywall_config;
+
     try {
-      await pool.query(`
-        ALTER TABLE bot_settings
-          ADD COLUMN IF NOT EXISTS visual_flow TEXT,
-          ADD COLUMN IF NOT EXISTS paywall_config TEXT;
-      `).catch(() => {});
-
-      const upd = await pool.query(
-        `
-        UPDATE bot_settings
-        SET
-          visual_flow = COALESCE($1, visual_flow),
-          paywall_config = COALESCE($2, paywall_config)
-        `,
-        [visual_flow ?? null, paywall_config ?? null]
-      );
-
-      if (upd.rowCount === 0) {
-        await pool.query(
-          `INSERT INTO bot_settings (visual_flow, paywall_config) VALUES ($1, $2)`,
-          [visual_flow ?? null, paywall_config ?? null]
-        ).catch(() => {});
-      }
-
+      await saveBotSettings(toSave);
       return reply.send({ ok: true });
     } catch (err) {
       app.log.error(err, '[Portal Admin] Erro ao salvar bot_settings');
