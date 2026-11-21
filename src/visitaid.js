@@ -1,6 +1,11 @@
 ﻿import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import {
+  SUPPORTED_CURRENCIES,
+  VIP_TIER_PRICING,
+  detectCurrencyFromRequest,
+} from './currencyConfig.js';
 
 function extractCreatorIdFromToken(rawToken) {
   if (!rawToken) return 0;
@@ -41,6 +46,11 @@ export function registerTelemetryRoutes(app, pool) {
   pool.query(`
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_anchor_price NUMERIC(10,2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_plans JSONB DEFAULT '{}'::jsonb;
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'BRL';
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30) DEFAULT 'pix';
+    ALTER TABLE vip_post_unlocks ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'BRL';
+    ALTER TABLE vip_post_unlocks ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30) DEFAULT 'pix';
+    ALTER TABLE highlight_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'BRL';
 
     CREATE TABLE IF NOT EXISTS portal_analytics_events (
       id SERIAL PRIMARY KEY,
@@ -243,6 +253,79 @@ export function registerTelemetryRoutes(app, pool) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  app.get('/api/portal/currency-context', async (req, reply) => {
+    const detected = detectCurrencyFromRequest(req);
+    return reply.send({
+      ok: true,
+      detected,
+      currencies: SUPPORTED_CURRENCIES,
+      vipPricing: VIP_TIER_PRICING,
+    });
+  });
+
+  app.post('/api/vip/crypto-intent', async (req, reply) => {
+    try {
+      const {
+        creatorId = 0,
+        postId = 0,
+        buyerIdentifier = '',
+        deviceHash = '',
+        amount = 14.99,
+        currency = 'USD',
+        network = 'SOLANA-USDC',
+      } = req.body || {};
+
+      const cleanCurr = SUPPORTED_CURRENCIES[String(currency).toUpperCase()] ? String(currency).toUpperCase() : 'USD';
+      const walletAddress =
+        process.env.CRYPTO_USDC_SOL_WALLET ||
+        process.env.CRYPTO_USDT_WALLET ||
+        'Configure_CRYPTO_USDC_SOL_WALLET_no_Railway';
+
+      const usdFactor = { USD: 1, EUR: 1.08, GBP: 1.27, CHF: 1.13, BRL: 0.18 }[cleanCurr] || 1;
+      const usdcAmount = Number((Number(amount || 14.99) * usdFactor).toFixed(2));
+
+      if (Number(postId) > 0) {
+        const ins = await pool.query(
+          `INSERT INTO vip_post_unlocks (post_id, buyer_identifier, device_hash, amount, currency, payment_method, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+           RETURNING id`,
+          [Number(postId), String(buyerIdentifier), String(deviceHash), Number(amount), cleanCurr, `crypto:${network}`]
+        ).catch(() => ({ rows: [{ id: Date.now() }] }));
+
+        return reply.send({
+          ok: true,
+          type: 'unlock',
+          orderId: ins.rows[0]?.id,
+          currency: cleanCurr,
+          originalAmount: Number(amount),
+          usdcAmount,
+          network,
+          walletAddress,
+        });
+      }
+
+      const ins = await pool.query(
+        `INSERT INTO vip_subscriptions (creator_id, buyer_identifier, device_hash, amount, currency, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+         RETURNING id`,
+        [Number(creatorId), String(buyerIdentifier), String(deviceHash), Number(amount), cleanCurr, `crypto:${network}`]
+      ).catch(() => ({ rows: [{ id: Date.now() }] }));
+
+      return reply.send({
+        ok: true,
+        type: 'subscription',
+        orderId: ins.rows[0]?.id,
+        currency: cleanCurr,
+        originalAmount: Number(amount),
+        usdcAmount,
+        network,
+        walletAddress,
+      });
+    } catch {
+      return reply.status(500).send({ error: 'Erro ao gerar cobrança internacional/cripto.' });
+    }
+  });
+
   app.post('/api/vip/fan-nickname', async (req, reply) => {
     try {
       const { fanCode = '', nickname = '', contact = '', deviceHash = '' } = req.body || {};
@@ -377,7 +460,7 @@ export function registerTelemetryRoutes(app, pool) {
       const cleanDev = String(deviceHash).trim();
 
       if (!cleanName || !cleanContact || cleanPass.length < 4) {
-        return reply.status(400).send({ error: 'Preencha nome, e-mail/WhatsApp e senha (mín. 4 dígitos).' });
+        return reply.status(400).send({ error: 'Preencha nome, e-mail e senha (mín. 4 dígitos).' });
       }
 
       const fanCode = buildFanCode(cleanDev || cleanContact);
@@ -426,7 +509,7 @@ export function registerTelemetryRoutes(app, pool) {
       );
 
       const fan = res.rows[0];
-      if (!fan) return reply.status(401).send({ error: 'E-mail/WhatsApp ou senha incorretos.' });
+      if (!fan) return reply.status(401).send({ error: 'E-mail ou senha incorretos.' });
 
       if (cleanDev && fan.device_hash !== cleanDev) {
         await pool.query(`UPDATE fan_accounts SET device_hash = $1 WHERE id = $2`, [cleanDev, fan.id]).catch(() => {});

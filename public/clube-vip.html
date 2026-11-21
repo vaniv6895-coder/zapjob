@@ -28,7 +28,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .topbar a {
       text-decoration: none;
@@ -38,11 +38,28 @@
       white-space: nowrap;
     }
     .topbar a:hover { color: #fff; }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .currency-select {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(236, 72, 153, 0.45);
+      color: #fff;
+      border-radius: 99px;
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      outline: none;
+    }
     .dev-badge {
       font-size: 10px;
       background: rgba(236, 72, 153, 0.14);
       border: 1px solid rgba(236, 72, 153, 0.35);
-      padding: 4px 10px;
+      padding: 4px 9px;
       border-radius: 99px;
       color: #f472b6;
       font-weight: 800;
@@ -305,7 +322,7 @@
       font-weight: 600;
     }
 
-    /* Modal Pix */
+    /* Modais Checkout (Pix & Internacional/Cripto) */
     .pix-modal {
       position: fixed;
       inset: 0;
@@ -324,7 +341,7 @@
       color: #fff;
       border-radius: 22px;
       padding: 24px;
-      max-width: 380px;
+      max-width: 390px;
       width: 100%;
       text-align: center;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
@@ -334,10 +351,22 @@
       padding: 11px;
       border: 1px solid #334155;
       border-radius: 10px;
-      font-size: 11px;
+      font-size: 11.5px;
       margin: 12px 0;
       background: #070a12;
       color: #cbd5e1;
+      text-align: center;
+    }
+    .crypto-pill {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 11px;
+      border-radius: 99px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -346,7 +375,16 @@
   <header class="topbar">
     <a href="/vitrine">← Vitrine</a>
     <strong style="font-size:14.5px;letter-spacing:0.6px;">🔥 CLUBE <span style="color:#ec4899;">VIP</span></strong>
-    <span id="dev-badge" class="dev-badge">ID: ...</span>
+    <div class="topbar-right">
+      <select id="currencySelector" class="currency-select" onchange="trocarMoedaVip(this.value)" aria-label="Moeda">
+        <option value="BRL">🇧🇷 BRL</option>
+        <option value="USD">🇺🇸 USD</option>
+        <option value="EUR">🇪🇺 EUR</option>
+        <option value="GBP">🇬🇧 GBP</option>
+        <option value="CHF">🇨🇭 CHF</option>
+      </select>
+      <span id="dev-badge" class="dev-badge">ID: ...</span>
+    </div>
   </header>
 
   <main class="container">
@@ -379,7 +417,7 @@
       <section class="sub-card">
         <div class="sub-top">
           <span style="font-size:12px;font-weight:900;color:#f472b6;text-transform:uppercase;">👑 Planos do Clube VIP</span>
-          <span style="font-size:11px;background:rgba(16,185,129,0.2);color:#34d399;padding:3px 9px;border-radius:99px;font-weight:800;">⚡ Libera na Hora</span>
+          <span id="pay-method-badge" style="font-size:11px;background:rgba(16,185,129,0.2);color:#34d399;padding:3px 9px;border-radius:99px;font-weight:800;">⚡ Pix Instantâneo</span>
         </div>
 
         <div id="vip-plans-options" class="plans-list-vip"></div>
@@ -420,7 +458,7 @@
     <div class="feed-list" id="vip-feed-list"></div>
   </main>
 
-  <!-- Modal Checkout Pix -->
+  <!-- Modal Checkout Pix (Brasil - BRL) -->
   <div id="pix-modal" class="pix-modal">
     <div class="pix-box">
       <div style="font-size:34px;margin-bottom:6px;">🔥💎</div>
@@ -440,18 +478,76 @@
     </div>
   </div>
 
+  <!-- Modal Checkout Internacional / Crypto USDC Solana (USD, EUR, GBP, CHF) -->
+  <div id="intl-modal" class="pix-modal">
+    <div class="pix-box">
+      <span class="crypto-pill">🌐 DISCRETE GLOBAL CHECKOUT • SOLANA USDC</span>
+      <h3 id="intl-modal-title" style="margin:0 0 6px;font-size:17px;font-weight:800;">International VIP Access</h3>
+      <p id="intl-amount-summary" style="font-size:13px;color:#34d399;font-weight:800;margin-bottom:6px;"></p>
+      <p style="font-size:11.5px;color:#cbd5e1;line-height:1.45;margin-bottom:10px;">
+        Send the exact amount in <strong>USDC (Solana Network)</strong> to the wallet address below:
+      </p>
+
+      <input id="crypto-wallet-text" class="pix-code-input" readonly />
+
+      <button type="button" onclick="copiarCarteiraCrypto()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;margin-bottom:8px;">
+        📋 Copy USDC (Solana) Address
+      </button>
+
+      <button type="button" id="btnConfirmCryptoSent" onclick="notificarTransferenciaCrypto()" style="width:100%;padding:11px;border:1px solid rgba(236,72,153,0.5);border-radius:12px;background:rgba(236,72,153,0.16);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;">
+        ✅ I Sent the Transfer (Activate VIP)
+      </button>
+
+      <p id="intl-feedback" style="font-size:11.5px;color:#fbbf24;font-weight:700;margin-top:10px;min-height:16px;"></p>
+
+      <button type="button" onclick="fecharIntlModal()" style="margin-top:10px;background:transparent;border:none;color:#94a3b8;font-size:12px;cursor:pointer;">
+        Close
+      </button>
+    </div>
+  </div>
+
   <script src="/vip-shield.js"></script>
   <script src="/device-id.js"></script>
   <script>
     let CREATOR_ID = 0;
+    let currentCreatorData = null;
+    let currentPostsData = [];
     let statusPoll = null;
     let selectedPlan = { key: 'm1', label: '1 Mês', de: 48.99, por: 25.99 };
     let isVipSubscriber = false;
+    let activeCurrency = localStorage.getItem('vip_selected_currency') || 'BRL';
+    let lastCryptoOrder = null;
+
+    const CURRENCY_META = {
+      BRL: { code: 'BRL', symbol: 'R$', rateFromBrl: 1 },
+      USD: { code: 'USD', symbol: '$', rateFromBrl: 0.20 },
+      EUR: { code: 'EUR', symbol: '€', rateFromBrl: 0.18 },
+      GBP: { code: 'GBP', symbol: '£', rateFromBrl: 0.15 },
+      CHF: { code: 'CHF', symbol: 'CHF ', rateFromBrl: 0.18 },
+    };
+
+    const TIER_PRICES_BY_CURR = {
+      BRL: { m1: { de: 48.99, por: 25.99 }, m2: { de: 89.90, por: 44.99 }, m3: { de: 129.90, por: 59.99 }, m12: { de: 399.90, por: 149.99 } },
+      USD: { m1: { de: 24.99, por: 14.99 }, m2: { de: 44.99, por: 24.99 }, m3: { de: 64.99, por: 34.99 }, m12: { de: 159.99, por: 89.99 } },
+      EUR: { m1: { de: 22.99, por: 13.99 }, m2: { de: 39.99, por: 22.99 }, m3: { de: 59.99, por: 31.99 }, m12: { de: 149.99, por: 84.99 } },
+      GBP: { m1: { de: 19.99, por: 11.99 }, m2: { de: 34.99, por: 19.99 }, m3: { de: 49.99, por: 27.99 }, m12: { de: 129.99, por: 74.99 } },
+      CHF: { m1: { de: 22.90, por: 13.90 }, m2: { de: 39.90, por: 22.90 }, m3: { de: 59.90, por: 31.90 }, m12: { de: 149.90, por: 84.90 } },
+    };
 
     const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || 'demo');
 
-    function fmtBRL(v) {
-      return Number(v || 0).toFixed(2).replace('.', ',');
+    function formatMoney(v, currCode = activeCurrency) {
+      const meta = CURRENCY_META[currCode] || CURRENCY_META.BRL;
+      const num = Number(v || 0).toFixed(2);
+      return currCode === 'BRL' ? `${meta.symbol} ${num.replace('.', ',')}` : `${meta.symbol}${num}`;
+    }
+
+    function convertPostPrice(brlPrice, currCode = activeCurrency) {
+      if (currCode === 'BRL') return Number(brlPrice || 0);
+      const meta = CURRENCY_META[currCode] || CURRENCY_META.USD;
+      const raw = Number(brlPrice || 0) * meta.rateFromBrl;
+      const ceilInt = Math.max(2, Math.ceil(raw));
+      return Number((ceilInt - 0.01).toFixed(2));
     }
 
     function isVideoUrl(url) {
@@ -495,9 +591,45 @@
       if (isVipSubscriber) preencherApelidoChatVip();
     }
 
+    async function inicializarContextoMoeda() {
+      const saved = localStorage.getItem('vip_selected_currency');
+      if (saved && CURRENCY_META[saved]) {
+        activeCurrency = saved;
+      } else {
+        try {
+          const res = await fetch('/api/portal/currency-context');
+          const data = await res.json();
+          if (data.ok && data.detected && CURRENCY_META[data.detected]) {
+            activeCurrency = data.detected;
+          }
+        } catch {}
+      }
+      const sel = document.getElementById('currencySelector');
+      if (sel) sel.value = activeCurrency;
+      atualizarSeloMetodoPagamento();
+    }
+
+    function atualizarSeloMetodoPagamento() {
+      const badge = document.getElementById('pay-method-badge');
+      if (!badge) return;
+      badge.innerText = activeCurrency === 'BRL' ? '⚡ Pix Instantâneo' : '🌐 USDC (Solana)';
+    }
+
+    function trocarMoedaVip(newCurr) {
+      if (!CURRENCY_META[newCurr]) return;
+      activeCurrency = newCurr;
+      localStorage.setItem('vip_selected_currency', newCurr);
+      atualizarSeloMetodoPagamento();
+      if (currentCreatorData) {
+        renderizarPlanosVip(currentCreatorData);
+        renderizarFeedVip(currentCreatorData, currentPostsData);
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       atualizarEstadoChatVip(false);
       preencherApelidoChatVip();
+      await inicializarContextoMoeda();
       await carregarClubeVip();
       if (typeof window.getDeviceHash === 'function') {
         const hash = await window.getDeviceHash();
@@ -530,26 +662,41 @@
     }
 
     function renderizarPlanosVip(creator) {
-      const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
-      const p1Por = Number(plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99);
-      const p1De = plansObj.m1?.de ?? creator.vip_anchor_price ?? 48.99;
+      const prevKey = selectedPlan?.key || 'm1';
+      let list = [];
 
-      const list = [
-        { key: 'm1', label: '1 Mês', de: p1De ? Number(p1De) : null, por: p1Por },
-        { key: 'm2', label: '2 Meses', de: plansObj.m2?.de ? Number(plansObj.m2.de) : 89.90, por: Number(plansObj.m2?.por ?? 44.99) },
-        { key: 'm3', label: 'Trimestral', de: plansObj.m3?.de ? Number(plansObj.m3.de) : 129.90, por: Number(plansObj.m3?.por ?? 59.99) },
-        { key: 'm12', label: 'Anual', de: plansObj.m12?.de ? Number(plansObj.m12.de) : 399.90, por: Number(plansObj.m12?.por ?? 149.99) },
-      ];
+      if (activeCurrency === 'BRL') {
+        const plansObj = (creator.vip_plans && typeof creator.vip_plans === 'object') ? creator.vip_plans : {};
+        const p1Por = Number(plansObj.m1?.por ?? creator.vip_monthly_price ?? 25.99);
+        const p1De = plansObj.m1?.de ?? creator.vip_anchor_price ?? 48.99;
 
-      selectedPlan = list[0];
+        list = [
+          { key: 'm1', label: '1 Mês', de: p1De ? Number(p1De) : null, por: p1Por },
+          { key: 'm2', label: '2 Meses', de: plansObj.m2?.de ? Number(plansObj.m2.de) : 89.90, por: Number(plansObj.m2?.por ?? 44.99) },
+          { key: 'm3', label: 'Trimestral', de: plansObj.m3?.de ? Number(plansObj.m3.de) : 129.90, por: Number(plansObj.m3?.por ?? 59.99) },
+          { key: 'm12', label: 'Anual', de: plansObj.m12?.de ? Number(plansObj.m12.de) : 399.90, por: Number(plansObj.m12?.por ?? 149.99) },
+        ];
+      } else {
+        const tier = TIER_PRICES_BY_CURR[activeCurrency] || TIER_PRICES_BY_CURR.USD;
+        list = [
+          { key: 'm1', label: '1 Month', de: tier.m1.de, por: tier.m1.por },
+          { key: 'm2', label: '2 Months', de: tier.m2.de, por: tier.m2.por },
+          { key: 'm3', label: '3 Months', de: tier.m3.de, por: tier.m3.por },
+          { key: 'm12', label: 'Annual', de: tier.m12.de, por: tier.m12.por },
+        ];
+      }
+
+      const foundIdx = Math.max(0, list.findIndex(p => p.key === prevKey));
+      selectedPlan = list[foundIdx];
+
       const container = document.getElementById('vip-plans-options');
       if (container) {
         container.innerHTML = list.map((p, idx) => `
-          <button type="button" class="plan-chip-vip ${idx === 0 ? 'selected' : ''}" onclick="selecionarPlanoVip(this, ${idx})">
+          <button type="button" class="plan-chip-vip ${idx === foundIdx ? 'selected' : ''}" onclick="selecionarPlanoVip(this, ${idx})">
             <strong>${p.label}</strong>
             <span>
-              ${p.de && p.de > p.por ? `<s style="color:#94a3b8;font-size:10.5px;margin-right:4px;">R$ ${fmtBRL(p.de)}</s>` : ''}
-              <strong style="color:#34d399;">R$ ${fmtBRL(p.por)}</strong>
+              ${p.de && p.de > p.por ? `<s style="color:#94a3b8;font-size:10.5px;margin-right:4px;">${formatMoney(p.de)}</s>` : ''}
+              <strong style="color:#34d399;">${formatMoney(p.por)}</strong>
             </span>
           </button>
         `).join('');
@@ -570,9 +717,64 @@
       const btn = document.getElementById('btn-subscribe-month');
       if (!btn || btn.disabled) return;
       const anchorStr = selectedPlan.de && selectedPlan.de > selectedPlan.por
-        ? ` (De R$ ${fmtBRL(selectedPlan.de)})`
+        ? ` (${activeCurrency === 'BRL' ? 'De' : 'Was'} ${formatMoney(selectedPlan.de)})`
         : '';
-      btn.innerText = `🔥 Assinar ${selectedPlan.label} — R$ ${fmtBRL(selectedPlan.por)}${anchorStr}`;
+      const verb = activeCurrency === 'BRL' ? 'Assinar' : 'Subscribe';
+      btn.innerText = `🔥 ${verb} ${selectedPlan.label} — ${formatMoney(selectedPlan.por)}${anchorStr}`;
+    }
+
+    function renderizarFeedVip(creator, posts = []) {
+      const feedEl = document.getElementById('vip-feed-list');
+      if (!feedEl) return;
+
+      feedEl.innerHTML = posts.map((p, idx) => {
+        const displayPrice = convertPostPrice(p.price, activeCurrency);
+        const btnLabel = activeCurrency === 'BRL'
+          ? `Ver Agora (1x) — ${formatMoney(displayPrice)}`
+          : `Unlock Now (1x) — ${formatMoney(displayPrice)}`;
+
+        return `
+          <article class="post-card">
+            <div class="post-head">
+              <div class="post-author">
+                <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" />
+                <div>
+                  <strong style="display:flex;align-items:center;gap:5px;font-size:14px;color:#fff;">
+                    ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span>
+                  </strong>
+                  <span style="font-size:11px;color:#f472b6;font-weight:800;">
+                    ${p.allow_subscription !== false ? '👑 Assinantes VIP ou 🔥 Avulso 1x' : '🔥 Somente Visualização Única (1x)'}
+                  </span>
+                </div>
+              </div>
+              <span style="font-size:11px;color:#64748b;font-weight:700;">Hoje</span>
+            </div>
+
+            <p class="post-caption">${p.caption || 'Conteúdo exclusivo disponível no Clube VIP.'}</p>
+
+            <div id="vip-media-slot-${p.id}" class="media-slot">
+              <img class="blur-bg" src="${p.preview_url || creator.avatar_url}" />
+              <div class="lock-overlay">
+                <div class="lock-icon">${p.media_type === 'video' ? '🎬' : '🔒'}</div>
+                <strong style="font-size:16.5px;margin-bottom:6px;color:#fff;">
+                  ${p.media_type === 'video' ? 'Vídeo Exclusivo VIP' : 'Ensaio Exclusivo VIP'}
+                </strong>
+                <span style="font-size:12px;color:#cbd5e1;max-width:275px;line-height:1.45;margin-bottom:18px;">
+                  Conteúdo protegido contra print. Liberação imediata no seu aparelho.
+                </span>
+                <button id="ppv-btn-${p.id}" class="ppv-btn" onclick="comprarPostUnico(${p.id}, ${Number(displayPrice).toFixed(2)})">
+                  ${btnLabel}
+                </button>
+              </div>
+            </div>
+
+            <div class="post-foot">
+              <span>🔥 ${p.likes || 340 + idx * 58} curtidas</span>
+              <span>🛡️ Anti-Print Ativo</span>
+            </div>
+          </article>
+        `;
+      }).join('');
     }
 
     async function carregarClubeVip() {
@@ -583,6 +785,8 @@
       }
       const { creator, posts = [] } = await res.json();
       CREATOR_ID = creator.id;
+      currentCreatorData = creator;
+      currentPostsData = posts;
 
       const photosCount = posts.filter(p => p.media_type !== 'video').length;
       const videosCount = posts.filter(p => p.media_type === 'video').length;
@@ -597,48 +801,7 @@
 
       renderizarFundoVip(creator, posts);
       renderizarPlanosVip(creator);
-
-      document.getElementById('vip-feed-list').innerHTML = posts.map((p, idx) => `
-        <article class="post-card">
-          <div class="post-head">
-            <div class="post-author">
-              <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" />
-              <div>
-                <strong style="display:flex;align-items:center;gap:5px;font-size:14px;color:#fff;">
-                  ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span>
-                </strong>
-                <span style="font-size:11px;color:#f472b6;font-weight:800;">
-                  ${p.allow_subscription !== false ? '👑 Assinantes VIP ou 🔥 Avulso 1x' : '🔥 Somente Visualização Única (1x)'}
-                </span>
-              </div>
-            </div>
-            <span style="font-size:11px;color:#64748b;font-weight:700;">Hoje</span>
-          </div>
-
-          <p class="post-caption">${p.caption || 'Conteúdo exclusivo disponível no Clube VIP.'}</p>
-
-          <div id="vip-media-slot-${p.id}" class="media-slot">
-            <img class="blur-bg" src="${p.preview_url || creator.avatar_url}" />
-            <div class="lock-overlay">
-              <div class="lock-icon">${p.media_type === 'video' ? '🎬' : '🔒'}</div>
-              <strong style="font-size:16.5px;margin-bottom:6px;color:#fff;">
-                ${p.media_type === 'video' ? 'Vídeo Exclusivo VIP' : 'Ensaio Exclusivo VIP'}
-              </strong>
-              <span style="font-size:12px;color:#cbd5e1;max-width:275px;line-height:1.45;margin-bottom:18px;">
-                Conteúdo protegido contra print. Liberação imediata no seu aparelho via Pix.
-              </span>
-              <button id="ppv-btn-${p.id}" class="ppv-btn" onclick="comprarPostUnico(${p.id}, ${Number(p.price).toFixed(2)})">
-                Ver Agora (1x) — R$ ${fmtBRL(p.price)}
-              </button>
-            </div>
-          </div>
-
-          <div class="post-foot">
-            <span>🔥 ${p.likes || 340 + idx * 58} curtidas</span>
-            <span>🛡️ Anti-Print Ativo</span>
-          </div>
-        </article>
-      `).join('');
+      renderizarFeedVip(creator, posts);
     }
 
     async function enviarMensagemVip() {
@@ -732,11 +895,79 @@
       document.getElementById('pix-modal').classList.add('open');
     }
 
+    function abrirModalIntlCrypto(data, title) {
+      lastCryptoOrder = data;
+      document.getElementById('intl-modal-title').innerText = title;
+      document.getElementById('intl-amount-summary').innerText =
+        `${formatMoney(data.originalAmount, data.currency)} → ${Number(data.usdcAmount).toFixed(2)} USDC (Solana)`;
+      document.getElementById('crypto-wallet-text').value = data.walletAddress || '';
+      document.getElementById('intl-feedback').innerText = '';
+      document.getElementById('intl-modal').classList.add('open');
+    }
+
+    function fecharIntlModal() {
+      document.getElementById('intl-modal').classList.remove('open');
+    }
+
+    function copiarCarteiraCrypto() {
+      const inp = document.getElementById('crypto-wallet-text');
+      if (!inp || !inp.value) return;
+      inp.select();
+      navigator.clipboard?.writeText(inp.value);
+      const fb = document.getElementById('intl-feedback');
+      if (fb) {
+        fb.style.color = '#34d399';
+        fb.innerText = '✅ Solana USDC wallet address copied!';
+      }
+    }
+
+    function notificarTransferenciaCrypto() {
+      const fb = document.getElementById('intl-feedback');
+      if (fb) {
+        fb.style.color = '#34d399';
+        fb.innerText = `Order #${lastCryptoOrder?.orderId || ''} recorded! Your VIP access unlocks as soon as the Solana transaction confirms.`;
+      }
+    }
+
+    async function iniciarCheckoutInternacional({ postId = 0, amount, title }) {
+      const buyer = getFanEmailOrRedirect();
+      if (!buyer) return;
+
+      const deviceHash = await window.getDeviceHash();
+      const res = await fetch('/api/vip/crypto-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: CREATOR_ID,
+          postId,
+          buyerIdentifier: buyer,
+          deviceHash,
+          planKey: selectedPlan.key,
+          amount,
+          currency: activeCurrency,
+          network: 'SOLANA-USDC',
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return alert(data.error || 'Error creating international checkout.');
+      abrirModalIntlCrypto(data, title);
+    }
+
     async function assinarPlanoSelecionado() {
       if (CREATOR_ID === 0) {
-        alert(`Prévia (/vip/demo): plano ${selectedPlan.label} por R$ ${fmtBRL(selectedPlan.por)}.`);
+        alert(`Prévia (/vip/demo): plano ${selectedPlan.label} por ${formatMoney(selectedPlan.por)}.`);
         return;
       }
+
+      if (activeCurrency !== 'BRL') {
+        await iniciarCheckoutInternacional({
+          postId: 0,
+          amount: selectedPlan.por,
+          title: `VIP Pass — ${selectedPlan.label}`
+        });
+        return;
+      }
+
       const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
 
@@ -749,7 +980,8 @@
           buyerIdentifier: buyer,
           deviceHash,
           planKey: selectedPlan.key,
-          amount: selectedPlan.por
+          amount: selectedPlan.por,
+          currency: 'BRL'
         })
       });
       const data = await res.json();
@@ -770,9 +1002,19 @@
 
     async function comprarPostUnico(postId, price) {
       if (CREATOR_ID === 0) {
-        alert('Prévia (/vip/demo): libera a mídia 1x por R$ ' + fmtBRL(price) + '.');
+        alert('Prévia (/vip/demo): libera a mídia 1x por ' + formatMoney(price) + '.');
         return;
       }
+
+      if (activeCurrency !== 'BRL') {
+        await iniciarCheckoutInternacional({
+          postId,
+          amount: price,
+          title: 'Unlock Exclusive Content (1x)'
+        });
+        return;
+      }
+
       const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
 
@@ -786,7 +1028,7 @@
         const res = await fetch('/api/vip/unlock-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId, price, buyerIdentifier: buyer, deviceHash })
+          body: JSON.stringify({ postId, price, buyerIdentifier: buyer, deviceHash, currency: 'BRL' })
         });
         const data = await res.json();
 
