@@ -30,6 +30,27 @@
     }
     .wrap { max-width: 620px; margin: 0 auto; padding-bottom: 64px; }
 
+    /* Notificação flutuante ao vivo durante upload */
+    .studio-toast {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120%);
+      background: #0f172a;
+      border: 1px solid rgba(236, 72, 153, 0.55);
+      color: #f8fafc;
+      padding: 11px 16px;
+      border-radius: 14px;
+      font-size: 12.5px;
+      font-weight: 700;
+      z-index: 100000;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65);
+      transition: transform 0.25s ease;
+      max-width: min(92vw, 440px);
+      text-align: center;
+    }
+    .studio-toast.show { transform: translateX(-50%) translateY(0); }
+
     /* Menu Hambúrguer & Drawer Lateral */
     .hamburger-btn {
       background: var(--bg-card);
@@ -342,6 +363,8 @@
   </script>
 </head>
 <body>
+  <div id="studioToast" class="studio-toast"></div>
+
   <!-- Menu Lateral Hambúrguer -->
   <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
   <aside id="sideDrawer" class="side-drawer">
@@ -350,12 +373,12 @@
       <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
     </div>
 
-    <a href="/vip-studio" class="drawer-link primary-cta">💎 Clube VIP Studio</a>
+    <a href="/vip-studio" class="drawer-link primary-cta">💎 VIP Studio</a>
 
     <div class="drawer-label">Painel & Perfil</div>
     <a href="/minha-conta/editar" class="drawer-link">✏️ Editar Perfil Completo</a>
     <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
-    <a id="drawer-vip-public-link" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Clube VIP Público ↗</a>
+    <a id="drawer-vip-public-link" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Vitrine VIP Pública ↗</a>
     <a id="drawer-profile-public-link" href="/vitrine" target="_blank" class="drawer-link">👤 Ver Perfil Público ↗</a>
 
     <div class="drawer-label">Explorar Plataforma</div>
@@ -393,7 +416,7 @@
       <div style="text-align:center; margin-bottom:18px;">
         <h2 style="justify-content:center; font-size:19px; margin-bottom:6px;">✨ Área Exclusiva da Modelo</h2>
         <p style="font-size:12.5px; color:#94a3b8; line-height:1.45;">
-          Entre com sua conta Google em 1 clique para criar seu perfil individual, gerenciar fotos, horários e ativar seu Clube VIP.
+          Entre com sua conta Google em 1 clique para criar seu perfil individual, gerenciar fotos e horários.
         </p>
       </div>
 
@@ -445,7 +468,7 @@
           <span class="ico">👤</span><span>Perfil</span>
         </button>
         <button class="s-nav-btn" id="nav-vip" onclick="openStudioTab('vip')">
-          <span class="ico">🔥</span><span>Clube VIP</span>
+          <span class="ico">🔥</span><span>Exclusivos</span>
         </button>
         <button class="s-nav-btn" id="nav-galeria" onclick="openStudioTab('galeria')">
           <span class="ico">📸</span><span>Galeria</span>
@@ -489,7 +512,7 @@
 
             <div class="lp-fake-cta">
               <div class="lp-btn-wa">💬 Chamar no WhatsApp</div>
-              <div class="lp-btn-vip" id="lp-vip-btn-label">🔥 Clube VIP (R$ 49,90/mês)</div>
+              <div class="lp-btn-vip" id="lp-vip-btn-label">🔥 Ver Conteúdos</div>
             </div>
           </div>
         </div>
@@ -544,16 +567,16 @@
         </div>
       </div>
 
-      <!-- ABA 2: CLUBE VIP -->
+      <!-- ABA 2: CONTEÚDOS EXCLUSIVOS -->
       <div id="tab-vip" class="studio-section" style="display:none;">
         <div class="card">
           <div class="card-header">
-            <h3>💸 Ganhos no Clube VIP</h3>
+            <h3>💸 Ganhos em Conteúdos</h3>
             <span id="vip-total-earned" style="font-size:18px;font-weight:800;color:#10b981;">R$ 0,00</span>
           </div>
           <div class="earn-split">
             <div class="earn-pill">
-              <span>👑 ASSINATURAS (<b id="vip-subs-count">0</b>)</span>
+              <span>👑 PACOTES (<b id="vip-subs-count">0</b>)</span>
               <strong id="vip-subs-earned" style="color:#ec4899;">R$ 0,00</strong>
             </div>
             <div class="earn-pill">
@@ -569,7 +592,7 @@
           <div class="card-header">
             <h3>🔥 Publicar Conteúdo Exclusivo</h3>
           </div>
-          <p class="subtitle">Publique fotos ou vídeos protegidos contra print no seu Clube VIP.</p>
+          <p class="subtitle">Publique fotos ou vídeos protegidos contra print.</p>
           <label>Legenda do Post</label>
           <textarea id="vip-post-caption" rows="2" placeholder="Ex: Ensaio exclusivo gravado hoje à noite 🔥"></textarea>
           <div style="display:flex;gap:10px">
@@ -580,14 +603,14 @@
             <div style="flex:1.4">
               <label>Modo de Venda</label>
               <select id="vip-post-mode">
-                <option value="both">Assinantes + Compra Avulsa (1x)</option>
+                <option value="both">Pacote + Compra Avulsa (1x)</option>
                 <option value="ppv_only">Somente Compra Avulsa (1x)</option>
               </select>
             </div>
           </div>
           <label>Arquivo (Foto ou Vídeo)</label>
-          <input type="file" id="vip-post-file" accept="image/*,video/*" />
-          <button class="btn" onclick="publishVipPost()">🚀 Publicar no Clube VIP</button>
+          <input type="file" id="vip-post-file" accept="image/*,video/*" onchange="onSingleFilePicked(this, 'vip-post-status')" />
+          <button class="btn" onclick="publishVipPost()">🚀 Publicar Conteúdo</button>
           <p id="vip-post-status" style="font-size:12px;color:#10b981;font-weight:700;margin-top:8px;"></p>
           <div id="vip-posts-list" style="margin-top:14px;"></div>
         </div>
@@ -634,6 +657,31 @@
   <script>
     let token = sessionStorage.getItem('portal_token') || '';
     let currentStateUF = 'MT';
+    let toastTimer = null;
+
+    function notifyUpload(msg, duration = 3200) {
+      const toast = document.getElementById('studioToast');
+      if (!toast) return;
+      toast.innerText = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      if (duration > 0) {
+        toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+      }
+    }
+
+    function setUploadFeedback(elId, msg, toastDuration = 3200) {
+      const el = document.getElementById(elId);
+      if (el) el.innerText = msg;
+      if (msg) notifyUpload(msg, toastDuration);
+    }
+
+    function onSingleFilePicked(inputEl, statusId) {
+      const f = inputEl?.files?.[0];
+      if (!f) return;
+      const tipo = f.type.startsWith('video/') ? 'Vídeo' : 'Foto';
+      setUploadFeedback(statusId, `⏳ ${tipo} selecionada (${f.name}). Clique em Publicar para carregar.`, 2500);
+    }
 
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
@@ -792,9 +840,7 @@
       document.getElementById('lp-city-display').innerText = '📍 ' + (creator.city || 'Sua Cidade') + ' - ' + currentStateUF;
       document.getElementById('lp-bio-display').innerText = creator.bio || 'Atendimento exclusivo com total discrição e segurança.';
       document.getElementById('lp-price-display').innerText = creator.hourly_rate ? 'R$ ' + Number(creator.hourly_rate).toFixed(0) : 'Consultar';
-      document.getElementById('lp-vip-btn-label').innerText = creator.vip_monthly_price
-        ? '🔥 Clube VIP (R$ ' + Number(creator.vip_monthly_price).toFixed(2).replace('.', ',') + '/mês)'
-        : '🔥 Clube VIP';
+      document.getElementById('lp-vip-btn-label').innerText = '🔥 Ver Conteúdos';
 
       document.getElementById('plans-list').innerHTML = plans.map(p => `
         <div class="plan-box">
@@ -850,10 +896,10 @@
       });
       if (target === 'cover') {
         document.getElementById('lp-cover-img').src = url;
-        alert('✅ Definida como foto de capa!');
+        notifyUpload('✅ Definida como foto de capa!');
       } else {
         document.getElementById('lp-avatar-img').src = url;
-        alert('✅ Definida como foto principal!');
+        notifyUpload('✅ Definida como foto principal!');
       }
     }
 
@@ -862,41 +908,55 @@
       const caption = document.getElementById('vip-post-caption').value.trim();
       const price = Number(document.getElementById('vip-post-price').value) || 29.90;
       const mode = document.getElementById('vip-post-mode').value;
-      const status = document.getElementById('vip-post-status');
 
-      if (!file) return alert('Selecione uma foto ou vídeo exclusivo para publicar.');
+      if (!file) {
+        setUploadFeedback('vip-post-status', '⚠️ Selecione uma foto ou vídeo exclusivo para publicar.');
+        return;
+      }
 
-      status.innerText = 'Enviando mídia exclusiva...';
-      const presign = await fetch('/api/creator/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'subscriber' }),
-      }).then(r => r.json());
+      const tipoLabel = file.type.startsWith('video/') ? 'vídeo' : 'foto';
+      setUploadFeedback('vip-post-status', `⏳ Carregando ${tipoLabel} (${file.name})...`, 0);
 
-      if (!presign.ok) return alert(presign.error || 'Erro ao preparar upload');
-      await fetch(presign.uploadUrl, { method: 'PUT', body: file });
+      try {
+        const presign = await fetch('/api/creator/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility: 'subscriber' }),
+        }).then(r => r.json());
 
-      const res = await fetch('/api/vip/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          caption,
-          mediaType: presign.mediaType,
-          mediaUrl: presign.publicUrl,
-          previewUrl: presign.publicUrl,
-          price,
-          singleView: true,
-          allowSubscription: mode === 'both'
-        }),
-      }).then(r => r.json());
+        if (!presign.ok) {
+          setUploadFeedback('vip-post-status', '❌ ' + (presign.error || 'Erro ao preparar upload'));
+          return;
+        }
 
-      if (res.ok) {
-        status.innerText = '✅ Post publicado no seu Clube VIP!';
-        document.getElementById('vip-post-caption').value = '';
-        document.getElementById('vip-post-file').value = '';
-        loadVipPosts();
-      } else {
-        alert(res.error || 'Erro ao publicar post VIP.');
+        setUploadFeedback('vip-post-status', `⬆️ Enviando ${tipoLabel} para o servidor...`, 0);
+        await fetch(presign.uploadUrl, { method: 'PUT', body: file });
+
+        setUploadFeedback('vip-post-status', `✨ Finalizando publicação do ${tipoLabel}...`, 0);
+        const res = await fetch('/api/vip/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            caption,
+            mediaType: presign.mediaType,
+            mediaUrl: presign.publicUrl,
+            previewUrl: presign.publicUrl,
+            price,
+            singleView: true,
+            allowSubscription: mode === 'both'
+          }),
+        }).then(r => r.json());
+
+        if (res.ok) {
+          setUploadFeedback('vip-post-status', `✅ ${tipoLabel[0].toUpperCase() + tipoLabel.slice(1)} publicado com sucesso!`);
+          document.getElementById('vip-post-caption').value = '';
+          document.getElementById('vip-post-file').value = '';
+          loadVipPosts();
+        } else {
+          setUploadFeedback('vip-post-status', '❌ ' + (res.error || 'Erro ao publicar conteúdo.'));
+        }
+      } catch {
+        setUploadFeedback('vip-post-status', '❌ Falha de conexão ao subir o arquivo.');
       }
     }
 
@@ -910,7 +970,7 @@
             ${p.media_type === 'video' ? `<video src="${p.media_url}" class="vip-post-thumb"></video>` : `<img src="${p.media_url}" class="vip-post-thumb" />`}
             <div style="overflow:hidden;">
               <strong style="display:block;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.caption || 'Conteúdo Exclusivo'}</strong>
-              <span style="font-size:11px;color:#ec4899;font-weight:700;">R$ ${Number(p.price).toFixed(2).replace('.', ',')} (1x) ${p.allow_subscription ? '• + Assinantes' : ''}</span>
+              <span style="font-size:11px;color:#ec4899;font-weight:700;">R$ ${Number(p.price).toFixed(2).replace('.', ',')} (1x) ${p.allow_subscription ? '• + Pacote' : ''}</span>
             </div>
           </div>
           <button onclick="delVipPost(${p.id})" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;">Excluir</button>
@@ -919,8 +979,9 @@
     }
 
     async function delVipPost(id) {
-      if (!confirm('Remover este post do Clube VIP?')) return;
+      if (!confirm('Remover este conteúdo?')) return;
       await fetch('/api/vip/posts/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      notifyUpload('🗑️ Conteúdo removido.');
       loadVipPosts();
     }
 
@@ -943,41 +1004,52 @@
     async function uploadFiles() {
       const files = document.getElementById('file-input').files;
       const visibility = document.getElementById('vis-select').value;
-      const status = document.getElementById('upload-status');
       if (!files.length) return;
 
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        status.innerText = `Enviando ${i + 1} de ${files.length} (${f.name})...`;
+        const tipoLabel = f.type.startsWith('video/') ? 'vídeo' : 'foto';
+        setUploadFeedback('upload-status', `⏳ Carregando ${tipoLabel} ${i + 1} de ${files.length} (${f.name})...`, 0);
 
-        const presign = await fetch('/api/creator/upload-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ fileName: f.name, contentType: f.type, visibility }),
-        }).then(r => r.json());
+        try {
+          const presign = await fetch('/api/creator/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ fileName: f.name, contentType: f.type, visibility }),
+          }).then(r => r.json());
 
-        if (!presign.ok) { alert(presign.error); continue; }
-        await fetch(presign.uploadUrl, { method: 'PUT', body: f });
+          if (!presign.ok) {
+            setUploadFeedback('upload-status', `❌ Erro em ${f.name}: ${presign.error}`);
+            continue;
+          }
 
-        await fetch('/api/creator/media', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({
-            mediaType: presign.mediaType,
-            visibility: presign.visibility,
-            r2Key: presign.r2Key,
-            publicUrl: presign.publicUrl,
-          }),
-        });
+          setUploadFeedback('upload-status', `⬆️ Enviando ${tipoLabel} ${i + 1} de ${files.length}...`, 0);
+          await fetch(presign.uploadUrl, { method: 'PUT', body: f });
+
+          await fetch('/api/creator/media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({
+              mediaType: presign.mediaType,
+              visibility: presign.visibility,
+              r2Key: presign.r2Key,
+              publicUrl: presign.publicUrl,
+            }),
+          });
+        } catch {
+          setUploadFeedback('upload-status', `❌ Falha ao enviar ${f.name}.`);
+        }
       }
 
-      status.innerText = '✅ Upload concluído com sucesso!';
+      document.getElementById('file-input').value = '';
+      setUploadFeedback('upload-status', `✅ Upload de ${files.length} arquivo(s) concluído!`);
       loadMedia();
     }
 
     async function delMedia(id) {
       if (!confirm('Deseja realmente apagar esta mídia?')) return;
       await fetch('/api/creator/media/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      notifyUpload('🗑️ Mídia apagada.');
       loadMedia();
     }
 
@@ -1000,7 +1072,7 @@
       const el = document.getElementById('pix-code');
       el.select();
       navigator.clipboard.writeText(el.value);
-      alert('Código Pix copiado! Cole no seu aplicativo de pagamento.');
+      notifyUpload('📋 Código Pix copiado!');
     }
 
     function b64urlToBuf(b64url) {
@@ -1091,6 +1163,7 @@
 
       recorder.onstop = async () => {
         btn.innerText = 'Enviando verificação...';
+        notifyUpload('⏳ Enviando vídeo de prova de vida...', 0);
         const blob = new Blob(chunks, { type: 'video/webm' });
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -1106,8 +1179,10 @@
               headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
               body: JSON.stringify({ verification_video_url: up.publicUrl }),
             });
+            notifyUpload('✅ Vídeo facial enviado para análise!');
             alert('✅ Vídeo facial enviado para análise!');
           } else {
+            notifyUpload('❌ Erro ao enviar vídeo.');
             alert(up.error || 'Erro ao enviar vídeo.');
           }
           btn.disabled = false;

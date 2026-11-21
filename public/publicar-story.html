@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Publicar Story — Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070a12;
+      --card: #0f1523;
+      --input: #090d16;
+      --border: #1e293b;
+      --accent: #ec4899;
+      --accent-2: #8b5cf6;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --green: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at top center, #131b31 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .wrap { max-width: 840px; margin: 0 auto; padding-bottom: 56px; }
+
+    .studio-toast {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120%);
+      background: #0f172a;
+      border: 1px solid rgba(236, 72, 153, 0.55);
+      color: #f8fafc;
+      padding: 11px 16px;
+      border-radius: 14px;
+      font-size: 12.5px;
+      font-weight: 700;
+      z-index: 100000;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65);
+      transition: transform 0.25s ease;
+      max-width: min(92vw, 440px);
+      text-align: center;
+    }
+    .studio-toast.show { transform: translateX(-50%) translateY(0); }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .brand {
+      font-size: 18px;
+      font-weight: 800;
+      text-decoration: none;
+      background: linear-gradient(135deg, #f472b6, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+    .nav-btn {
+      text-decoration: none;
+      color: var(--text);
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 13px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .nav-btn:hover { border-color: var(--accent); }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 760px) {
+      .grid-layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="url"], input[type="file"], select {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13.5px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+
+    .sticker-box {
+      background: rgba(236, 72, 153, 0.06);
+      border: 1px solid rgba(236, 72, 153, 0.25);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .btn-publish {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-publish:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .status-txt {
+      margin-top: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--green);
+      min-height: 18px;
+    }
+
+    /* Prévia Story 9:16 */
+    .preview-frame {
+      position: relative;
+      width: 100%;
+      max-width: 310px;
+      aspect-ratio: 9 / 16;
+      margin: 0 auto;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #05070d;
+      border: 2px solid rgba(236, 72, 153, 0.45);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+    }
+    .preview-frame img,
+    .preview-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .preview-top {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 2;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.85);
+    }
+    .preview-top img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid var(--accent);
+    }
+
+    /* Sticker estilo Instagram Link */
+    .ig-link-sticker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.94);
+      color: #0f172a;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+      margin-bottom: 10px;
+      max-width: 92%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ig-link-sticker span.link-ico {
+      color: #2563eb;
+      font-size: 13px;
+    }
+
+    .preview-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 32px 14px 16px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.94));
+      font-size: 12.5px;
+      font-weight: 600;
+      text-align: center;
+      z-index: 2;
+    }
+
+    .story-list-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .story-thumb-card {
+      position: relative;
+      aspect-ratio: 9 / 14;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+    }
+    .story-thumb-card img,
+    .story-thumb-card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .del-story-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(220, 38, 38, 0.9);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 10.5px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="studioToast" class="studio-toast"></div>
+
+  <div class="wrap">
+    <header class="topbar">
+      <a href="/vitrine" class="brand">GAROTA VIP • STORIES</a>
+      <div class="nav-links">
+        <a href="/minha-conta?studio=1" class="nav-btn">Studio</a>
+        <a href="/minha-conta/editar" class="nav-btn">Editar Perfil</a>
+        <a href="/vitrine" class="nav-btn">Ver Vitrine</a>
+      </div>
+    </header>
+
+    <div class="grid-layout">
+      <div>
+        <section class="card">
+          <h1>📸 Publicar Novo Story</h1>
+          <p class="sub">
+            Poste fotos ou vídeos curtos com figurinha de link clicável igual ao Instagram para levar direto ao seu perfil, WhatsApp ou conteúdos.
+          </p>
+
+          <label>Foto ou Vídeo do Story</label>
+          <input type="file" id="storyFile" accept="image/*,video/*" onchange="onStoryFileChange()" />
+
+          <label>Legenda curta (opcional)</label>
+          <input type="text" id="storyCaption" maxlength="110" placeholder="Ex: Online agora em Cuiabá 🔥" oninput="updateStoryPreview()" />
+
+          <!-- Figurinha de Link estilo Instagram -->
+          <div class="sticker-box">
+            <label style="color:#f472b6;">🔗 Figurinha de Link Clicável (Estilo Instagram)</label>
+            <select id="linkPreset" onchange="onLinkPresetChange()">
+              <option value="vip">🔥 Meus Conteúdos Exclusivos (Página Oficial)</option>
+              <option value="wa">💬 Chamar no Meu WhatsApp Direto</option>
+              <option value="custom">🔗 Outro Link Personalizado (URL)</option>
+              <option value="none">Sem figurinha de link</option>
+            </select>
+
+            <div id="stickerFieldsWrap">
+              <label>Texto da Figurinha</label>
+              <input type="text" id="stickerLabel" maxlength="36" value="VER CONTEÚDO EXCLUSIVO" oninput="updateStoryPreview()" />
+
+              <div id="customUrlWrap" style="display:none;">
+                <label>URL do Link (https://...)</label>
+                <input type="url" id="stickerCustomUrl" placeholder="https://..." oninput="updateStoryPreview()" />
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btnPublishStory" class="btn-publish" onclick="publishStory()">
+            🚀 Publicar Story Agora
+          </button>
+
+          <p id="storyStatus" class="status-txt"></p>
+        </section>
+
+        <section class="card">
+          <h2 style="font-size:15px;font-weight:800;margin-bottom:4px;">🗂️ Seus Stories Publicados</h2>
+          <p class="sub" style="margin-bottom:10px;">Gerencie as mídias publicadas na sua conta.</p>
+          <div id="myStoriesList" class="story-list-grid"></div>
+        </section>
+      </div>
+
+      <section class="card" style="text-align:center;">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px;">
+          Prévia em Tempo Real
+        </div>
+        <div class="preview-frame">
+          <div class="preview-top">
+            <img id="pvAvatar" src="https://placehold.co/80x80/0f1523/ec4899?text=VIP" alt="Avatar" />
+            <div style="text-align:left;">
+              <strong id="pvName" style="display:block;font-size:12.5px;">Seu Nome</strong>
+              <span id="pvCity" style="display:block;font-size:10.5px;color:#e2e8f0;">Sua Cidade</span>
+            </div>
+          </div>
+          <div id="pvMediaBox" style="width:100%;height:100%;">
+            <img id="pvDefaultImg" src="https://placehold.co/540x960/0f1523/ec4899?text=STORY+9:16" alt="Prévia" />
+          </div>
+          <div class="preview-bottom">
+            <div id="pvStickerWrap">
+              <div class="ig-link-sticker">
+                <span class="link-ico">🔗</span>
+                <span id="pvStickerText">VER CONTEÚDO EXCLUSIVO</span>
+              </div>
+            </div>
+            <div id="pvCaption">Disponível agora — chame no WhatsApp</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
+    if (!token) {
+      window.location.replace('/minha-conta');
+    }
+
+    let creatorProfile = null;
+    let previewObjectUrl = null;
+    let toastTimer = null;
+
+    function showToast(msg, ms = 3200) {
+      const el = document.getElementById('studioToast');
+      if (!el) return;
+      el.innerText = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      if (ms > 0) toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    function setStatus(msg, ms = 3200) {
+      const el = document.getElementById('storyStatus');
+      if (el) el.innerText = msg;
+      if (msg) showToast(msg, ms);
+    }
+
+    function onLinkPresetChange() {
+      const preset = document.getElementById('linkPreset').value;
+      const fieldsWrap = document.getElementById('stickerFieldsWrap');
+      const customWrap = document.getElementById('customUrlWrap');
+      const labelInput = document.getElementById('stickerLabel');
+
+      if (preset === 'none') {
+        fieldsWrap.style.display = 'none';
+      } else {
+        fieldsWrap.style.display = 'block';
+        customWrap.style.display = preset === 'custom' ? 'block' : 'none';
+        if (preset === 'vip') labelInput.value = 'VER CONTEÚDO EXCLUSIVO';
+        if (preset === 'wa') labelInput.value = 'CHAMAR NO WHATSAPP';
+        if (preset === 'custom') labelInput.value = 'ACESSE MEU LINK';
+      }
+      updateStoryPreview();
+    }
+
+    function resolveFinalStickerUrl() {
+      const preset = document.getElementById('linkPreset').value;
+      if (preset === 'none') return '';
+      if (preset === 'vip') {
+        return creatorProfile?.slug ? `${window.location.origin}/vip/${creatorProfile.slug}` : `${window.location.origin}/vitrine`;
+      }
+      if (preset === 'wa') {
+        return creatorProfile?.slug ? `${window.location.origin}/r/wa/${creatorProfile.slug}` : '';
+      }
+      return (document.getElementById('stickerCustomUrl').value || '').trim();
+    }
+
+    function updateStoryPreview() {
+      const cap = document.getElementById('storyCaption').value.trim();
+      document.getElementById('pvCaption').innerText = cap || 'Disponível agora — chame no WhatsApp';
+
+      const preset = document.getElementById('linkPreset').value;
+      const stickerWrap = document.getElementById('pvStickerWrap');
+      const stickerText = document.getElementById('pvStickerText');
+      if (preset === 'none') {
+        stickerWrap.style.display = 'none';
+      } else {
+        stickerWrap.style.display = 'block';
+        stickerText.innerText = (document.getElementById('stickerLabel').value || 'ACESSE AQUI').toUpperCase();
+      }
+    }
+
+    function onStoryFileChange() {
+      const file = document.getElementById('storyFile').files[0];
+      if (!file) return;
+
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = URL.createObjectURL(file);
+
+      const box = document.getElementById('pvMediaBox');
+      if (file.type.startsWith('video/')) {
+        box.innerHTML = `<video src="${previewObjectUrl}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"></video>`;
+      } else {
+        box.innerHTML = `<img src="${previewObjectUrl}" alt="Prévia Story" style="width:100%;height:100%;object-fit:cover;" />`;
+      }
+
+      const tipo = file.type.startsWith('video/') ? 'Vídeo' : 'Foto';
+      setStatus(`⏳ ${tipo} selecionada (${file.name}). Pronto para publicar!`, 2500);
+    }
+
+    async function loadCreatorInfo() {
+      try {
+        const res = await fetch('/api/portal/me', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const c = data.creator || data;
+        if (!c) return;
+        creatorProfile = c;
+        if (c.stage_name) document.getElementById('pvName').innerText = c.stage_name;
+        if (c.city) document.getElementById('pvCity').innerText = `${c.city}${c.state ? ' - ' + c.state : ''}`;
+        if (c.avatar_url || c.cover_url) {
+          document.getElementById('pvAvatar').src = c.avatar_url || c.cover_url;
+        }
+      } catch {}
+    }
+
+    async function loadMyStories() {
+      try {
+        const res = await fetch('/api/creator/media', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = (data.items || []).filter(m => m.visibility === 'public');
+        const box = document.getElementById('myStoriesList');
+
+        if (!items.length) {
+          box.innerHTML = '<p style="font-size:12px;color:var(--muted);grid-column:1/-1;">Nenhum story publicado ainda.</p>';
+          return;
+        }
+
+        box.innerHTML = items.map(m => `
+          <div class="story-thumb-card">
+            ${m.media_type === 'video'
+              ? `<video src="${m.public_url}" muted playsinline></video>`
+              : `<img src="${m.public_url}" alt="Story" />`}
+            <button type="button" class="del-story-btn" onclick="deleteStoryMedia(${m.id})">✕</button>
+          </div>
+        `).join('');
+      } catch {}
+    }
+
+    async function deleteStoryMedia(id) {
+      if (!confirm('Excluir este Story?')) return;
+      await fetch('/api/creator/media/' + id, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      setStatus('🗑️ Story removido.');
+      loadMyStories();
+    }
+
+    async function publishStory() {
+      const file = document.getElementById('storyFile').files[0];
+      const caption = document.getElementById('storyCaption').value.trim();
+      const preset = document.getElementById('linkPreset').value;
+      const linkLabel = preset === 'none' ? '' : (document.getElementById('stickerLabel').value || '').trim();
+      const linkUrl = resolveFinalStickerUrl();
+      const btn = document.getElementById('btnPublishStory');
+
+      if (!file) {
+        setStatus('⚠️ Escolha uma foto ou vídeo antes de publicar.');
+        return;
+      }
+      if (preset === 'custom' && (!linkUrl || !/^https?:\/\//i.test(linkUrl))) {
+        setStatus('⚠️ Informe um link válido começando com https://');
+        return;
+      }
+
+      const tipo = file.type.startsWith('video/') ? 'vídeo' : 'foto';
+      btn.disabled = true;
+      setStatus(`⏳ Carregando ${tipo} (${file.name})...`, 0);
+
+      try {
+        const presignRes = await fetch('/api/creator/upload-url', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+            visibility: 'public'
+          })
+        });
+        const presign = await presignRes.json().catch(() => ({}));
+        if (!presign.ok) {
+          setStatus('❌ ' + (presign.error || 'Erro ao preparar upload do Story.'));
+          btn.disabled = false;
+          return;
+        }
+
+        setStatus(`⬆️ Enviando ${tipo} do Story...`, 0);
+        await fetch(presign.uploadUrl, { method: 'PUT', body: file });
+
+        setStatus(`✨ Publicando Story com figurinha...`, 0);
+        const saveRes = await fetch('/api/creator/media', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            mediaType: presign.mediaType,
+            visibility: 'public',
+            r2Key: presign.r2Key,
+            publicUrl: presign.publicUrl,
+            caption,
+            linkUrl,
+            linkLabel,
+            isStory: true
+          })
+        });
+        const saved = await saveRes.json().catch(() => ({}));
+        if (!saveRes.ok || saved.error) {
+          setStatus('❌ ' + (saved.error || 'Erro ao salvar Story.'));
+        } else {
+          setStatus('✅ Story publicado com link clicável!');
+          document.getElementById('storyFile').value = '';
+          document.getElementById('storyCaption').value = '';
+          updateStoryPreview();
+          await loadMyStories();
+        }
+      } catch {
+        setStatus('❌ Erro de conexão ao publicar Story.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    loadCreatorInfo();
+    loadMyStories();
+  </script>
+</body>
+</html>

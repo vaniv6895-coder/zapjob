@@ -954,10 +954,19 @@
       document.getElementById('st-avatar').src = s.avatar;
       document.getElementById('st-name').innerText = s.name;
       document.getElementById('st-city').innerText = s.city;
-      document.getElementById('st-caption').innerText = s.caption || 'Disponível agora — chame no WhatsApp';
-      document.getElementById('st-link').href = '/acompanhante/' + s.slug;
-      document.getElementById('st-vip-link').href = '/vip/' + s.slug;
-      document.getElementById('st-wa-link').href = '/r/wa/' + s.slug;
+      const stickerTargetUrl = s.linkUrl || ('/vip/' + s.slug);
+      const stickerText = (s.linkLabel || 'VER CONTEÚDO EXCLUSIVO').toUpperCase();
+      const safeSlug = String(s.slug || '').replace(/'/g, '');
+      const safeStickerLabel = stickerText.replace(/'/g, '');
+
+      document.getElementById('st-caption').innerHTML = `
+        <a href="${stickerTargetUrl}" target="_blank"
+          onclick="sendTelemetry('ad_engage', { targetSlug: '${safeSlug}', targetLabel: 'Sticker Story: ${safeStickerLabel}' })"
+          style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.95);color:#0f172a;padding:8px 15px;border-radius:12px;font-size:12px;font-weight:800;text-decoration:none;box-shadow:0 8px 20px rgba(0,0,0,0.5);margin-bottom:10px;">
+          <span style="color:#2563eb;">🔗</span> ${stickerText}
+        </a>
+        <div style="display:block;">${s.caption || 'Disponível agora — chame no WhatsApp'}</div>
+      `;
 
       const mediaSlot = document.getElementById('story-media-slot');
       if (s.videoUrl) {
