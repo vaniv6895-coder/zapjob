@@ -229,7 +229,7 @@
       <span class="badge">💎 CONTA EXCLUSIVA DO ASSINANTE</span>
       <h1 id="pageTitle">Criar Conta de Cliente</h1>
       <p class="sub" id="pageSub">
-        Crie sua conta para gerar seu ID exclusivo, assinar conteúdos VIP e acessar tudo quando quiser.
+        Use seu Google ou e-mail para gerar seu ID exclusivo, assinar conteúdos VIP e acessar tudo quando quiser.
       </p>
 
       <div class="tabs">
@@ -241,12 +241,12 @@
         <strong style="color:#fb7185;font-size:15px;">G</strong> Continuar com Google
       </button>
 
-      <div class="divider">ou com e-mail / WhatsApp</div>
+      <div class="divider">ou com e-mail / Gmail</div>
 
       <form onsubmit="enviarFormularioCliente(event)">
         <div class="field">
-          <label for="contactInput">E-mail ou WhatsApp (com DDD)</label>
-          <input type="text" id="contactInput" required placeholder="Ex: joao@email.com ou 65999999999" />
+          <label for="contactInput">Seu e-mail (Gmail)</label>
+          <input type="email" id="contactInput" required placeholder="Ex: seuemail@gmail.com" />
         </div>
         <div class="field">
           <label for="passInput">Senha de acesso</label>
@@ -321,7 +321,7 @@
       }
 
       if (params.get('google_setup') === '1') {
-        document.getElementById('authError').innerText = 'Login Google ainda não ativado no servidor. Crie sua conta abaixo com e-mail ou WhatsApp.';
+        document.getElementById('authError').innerText = 'Login Google ainda não ativado no servidor. Crie sua conta abaixo com seu e-mail.';
       }
 
       const existing = getSavedFan();
@@ -412,13 +412,24 @@
       const btn = document.getElementById('btnSaveNick');
       btn.disabled = true;
 
+      let deviceHash = '';
+      if (typeof window.getDeviceHash === 'function') {
+        deviceHash = await window.getDeviceHash().catch(() => '');
+      }
+      if (!deviceHash) deviceHash = localStorage.getItem('vip_device_hash') || '';
+
       try {
         const res = await fetch('/api/vip/fan-nickname', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fanCode: currentFan.fan_code, nickname: nick })
+          body: JSON.stringify({
+            fanCode: currentFan.fan_code,
+            nickname: nick,
+            contact: currentFan.contact_identifier || '',
+            deviceHash
+          })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         const updated = (res.ok && data.fan) ? data.fan : { ...currentFan, nickname: nick, full_name: nick };
         saveFan(updated);
         window.location.replace(returnTo);
