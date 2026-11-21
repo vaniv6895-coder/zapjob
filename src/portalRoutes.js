@@ -91,8 +91,29 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
 }
 
 export function registerPortalRoutes(app) {
+  // Garante colunas opcionais de link nos Stories
+  pool.query(`
+    ALTER TABLE creator_media
+      ADD COLUMN IF NOT EXISTS link_url TEXT,
+      ADD COLUMN IF NOT EXISTS link_label VARCHAR(80);
+  `).catch(() => {});
+
   // Ativa telemetria, analytics, trends e o novo painel /portal-admin
   registerTelemetryRoutes(app, pool);
+
+  // Rota para o Command Center Admin (/admin-dashboard)
+  app.get('/admin-dashboard', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'admin-dashboard.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  // Rota para publicar Story com sticker de link
+  app.get('/publicar-story', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'publicar-story.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
 
   // Rota para a página separada de edição de perfil
   app.get('/minha-conta/editar', async (req, reply) => {
@@ -210,7 +231,7 @@ export function registerPortalRoutes(app) {
     const city = req.query.city ? String(req.query.city).trim() : null;
     let profiles = await getHomeRanking({ city, limit: 80 });
 
-    const [mediaCountsRes, recentVideosRes, extraAttrsRes] = await Promise.all([
+    const [mediaCountsRes, recentVideosRes, recentStoriesRes, extraAttrsRes] = await Promise.all([
       pool.query(`
         SELECT creator_id,
                COUNT(*)::int AS total_media,
@@ -230,6 +251,13 @@ export function registerPortalRoutes(app) {
         LIMIT 20
       `),
       pool.query(`
+        SELECT DISTINCT ON (m.creator_id)
+          m.id, m.creator_id, m.media_type, m.public_url, m.caption, m.link_url, m.link_label
+        FROM creator_media m
+        WHERE m.visibility = 'public'
+        ORDER BY m.creator_id, m.created_at DESC
+      `).catch(() => ({ rows: [] })),
+      pool.query(`
         SELECT id, age, height, has_location, physical_tags, services_tags
         FROM creator_accounts
       `),
@@ -241,9 +269,9 @@ export function registerPortalRoutes(app) {
     const attrsMap = new Map();
     for (const row of extraAttrsRes.rows) attrsMap.set(row.id, row);
 
-    const videoByCreator = new Map();
-    for (const v of recentVideosRes.rows) {
-      if (!videoByCreator.has(v.creator_id)) videoByCreator.set(v.creator_id, v);
+    const storyMediaByCreator = new Map();
+    for (const st of recentStoriesRes.rows) {
+      storyMediaByCreator.set(st.creator_id, st);
     }
 
     profiles = profiles.map((p) => {
@@ -261,15 +289,19 @@ export function registerPortalRoutes(app) {
     });
 
     const stories = profiles.slice(0, 15).map((s) => {
-      const vid = videoByCreator.get(s.id);
+      const stMedia = storyMediaByCreator.get(s.id);
+      const isVid = stMedia?.media_type === 'video';
       return {
         name: s.stage_name,
         city: `${s.city}-${s.state}`,
         slug: s.slug,
         avatar: s.avatar_url || s.cover_url || 'https://placehold.co/400x400/111827/ec4899?text=VIP',
-        mediaUrl: s.cover_url || s.avatar_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
-        videoUrl: vid ? vid.public_url : null,
-        caption: vid?.caption || s.specialty_tag || s.bio || '',
+        mediaUrl: (!isVid && stMedia?.public_url) || s.cover_url || s.avatar_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
+        videoUrl: isVid ? stMedia.public_url : null,
+        videoId: isVid ? stMedia.id : null,
+        caption: stMedia?.caption || s.specialty_tag || s.bio || '',
+        linkUrl: stMedia?.link_url || '',
+        linkLabel: stMedia?.link_label || '',
       };
     });
 
@@ -309,7 +341,8 @@ export function registerPortalRoutes(app) {
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
-app.get('/vip-studio', async (req, reply) => {
+
+  app.get('/vip-studio', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'vip-studio.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
@@ -325,6 +358,55 @@ app.get('/vip-studio', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'minha-conta.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  // Carregar e salvar parâmetros do fluxo e paywall no Command Center Admin
+  app.get('/api/portal/admin/bot-settings', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+
+    try {
+      const res = await pool.query(`SELECT * FROM bot_settings LIMIT 1`);
+      return reply.send({ ok: true, settings: res.rows[0] || {} });
+    } catch {
+      return reply.send({ ok: true, settings: {} });
+    }
+  });
+
+  app.post('/api/portal/admin/bot-settings', async (req, reply) => {
+    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
+    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
+
+    const { visual_flow, paywall_config } = req.body || {};
+    try {
+      await pool.query(`
+        ALTER TABLE bot_settings
+          ADD COLUMN IF NOT EXISTS visual_flow TEXT,
+          ADD COLUMN IF NOT EXISTS paywall_config TEXT;
+      `).catch(() => {});
+
+      const upd = await pool.query(
+        `
+        UPDATE bot_settings
+        SET
+          visual_flow = COALESCE($1, visual_flow),
+          paywall_config = COALESCE($2, paywall_config)
+        `,
+        [visual_flow ?? null, paywall_config ?? null]
+      );
+
+      if (upd.rowCount === 0) {
+        await pool.query(
+          `INSERT INTO bot_settings (visual_flow, paywall_config) VALUES ($1, $2)`,
+          [visual_flow ?? null, paywall_config ?? null]
+        ).catch(() => {});
+      }
+
+      return reply.send({ ok: true });
+    } catch (err) {
+      app.log.error(err, '[Portal Admin] Erro ao salvar bot_settings');
+      return reply.status(500).send({ error: 'Erro ao salvar configurações do fluxo.' });
+    }
   });
 
   app.post('/api/portal/admin/approve', async (req, reply) => {
@@ -364,4 +446,3 @@ app.get('/vip-studio', async (req, reply) => {
     return reply.send({ ok: true });
   });
 }
-
