@@ -14,6 +14,55 @@ function detectMediaKind(url, declaredKind) {
   return 'image';
 }
 
+function normalizeTextForDedupe(str = '') {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractOfferSignature(str = '') {
+  const s = String(str || '');
+  const pixMatch = s.match(/000201[0-9a-zA-Z@._-]+/);
+  const urlMatch = s.match(/https?:\/\/[^\s)]+/i);
+  const pixPart = pixMatch ? pixMatch[0].slice(0, 48) : '';
+  const urlPart = urlMatch ? urlMatch[0].toLowerCase() : '';
+  if (!pixPart && !urlPart) return '';
+  return `${pixPart}|${urlPart}`;
+}
+
+function isDuplicateAssistantText(cleanText, assistantHistory = []) {
+  const normNew = normalizeTextForDedupe(cleanText);
+  if (!normNew) return true;
+
+  const newOfferSig = extractOfferSignature(cleanText);
+  const recentAssistantMsgs = assistantHistory.slice(-6);
+
+  for (const prev of recentAssistantMsgs) {
+    const prevText = String(prev?.content || '');
+    const normPrev = normalizeTextForDedupe(prevText);
+
+    if (normPrev && normPrev === normNew) {
+      return true;
+    }
+
+    if (newOfferSig) {
+      const prevOfferSig = extractOfferSignature(prevText);
+      if (prevOfferSig && prevOfferSig === newOfferSig) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function isPhotoRequest(text = '') {
+  return /\b(foto|fotos|imagem|imagens|pic|pics|photo|manda uma foto|me manda foto|cad[eê] a foto|mostra)\b/i.test(
+    String(text || '')
+  );
+}
+
 function detectClientLanguage(text, userId, history = []) {
   const t = (text || '').toLowerCase();
   const phone = String(userId || '').replace(/\D/g, '');
@@ -115,7 +164,8 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const edges = Array.isArray(flow.edges) ? flow.edges : [];
 
   const history = await getMemory(channel, userId, 60);
-  const assistantAlreadyReplied = history.some((m) => m.role === 'assistant');
+  const assistantMessages = history.filter((m) => m.role === 'assistant');
+  const assistantAlreadyReplied = assistantMessages.length > 0;
   const isFirstContact = !assistantAlreadyReplied;
   const clientLang = detectClientLanguage(userMessage, userId, history);
 
@@ -142,7 +192,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
 
-    if (r2Welcome) {
+    if (r2Welcome && !sentUrls.has(r2Welcome.url)) {
       try {
         console.log(`[FlowEngine] 1º contato -> Enviando SOMENTE Áudio 01 (${clientLang}): ${r2Welcome.url}`);
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
@@ -159,8 +209,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   if (aiPaused) return;
 
-  // Verifica se o bot acabou de enviar um áudio na última mensagem (evita metralhar áudios seguidos)
-  const assistantMessages = history.filter((m) => m.role === 'assistant');
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 
@@ -184,22 +232,32 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     let match;
     while ((match = mediaRegex.exec(rawAiReply)) !== null) {
       const foundUrl = match[1].trim();
-      if (!sentUrls.has(foundUrl)) {
+      if (!sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
         mediaUrls.push(foundUrl);
       }
     }
 
-    const cleanText = rawAiReply.replace(mediaRegex, '').trim();
+    let cleanText = rawAiReply.replace(mediaRegex, '').trim();
 
-    if (cleanText) {
+    if (cleanText && isDuplicateAssistantText(cleanText, assistantMessages)) {
+      console.log('[FlowEngine] Texto/oferta duplicado bloqueado para não repetir ao usuário.');
+      if (isPhotoRequest(userMessage)) {
+        cleanText = 'As fotos completas e os ensaios ficam lá dentro do meu acesso VIP, bem mais à vontade pra você ver tudo sem pressa 😉 Dá uma olhada no link que te mandei.';
+      } else {
+        cleanText = '';
+      }
+    }
+
+    if (cleanText && !isDuplicateAssistantText(cleanText, assistantMessages)) {
       await sendTypingIndicator(channel, userId, lastMessageId, 'text');
       await sleep(1600);
       await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
       await sendChannelText(channel, userId, cleanText);
+      assistantMessages.push({ role: 'assistant', content: cleanText, media_type: 'text' });
     }
 
-    // Envia no máximo 1 mídia por turno, e bloqueia áudio se acabou de mandar áudio no turno anterior
-    const urlToSend = mediaUrls[0];
+    // Envia no máximo 1 mídia por turno, nunca repetida, e segura áudio se acabou de mandar áudio no turno anterior
+    const urlToSend = mediaUrls.find((u) => !sentUrls.has(u));
     if (urlToSend) {
       const kind = detectMediaKind(urlToSend);
       if (kind === 'audio' && sentAudioLastTurn) {

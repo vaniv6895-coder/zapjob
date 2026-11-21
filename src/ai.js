@@ -105,22 +105,53 @@ function extractPriceFromMsg(msg, fallback = '4.90') {
   return match ? match[1] : fallback;
 }
 
-async function buildPaywallReply(pw, channel, userId, sampleText) {
+function hasAlreadySentPaywall(assistantHistory = []) {
+  return assistantHistory.some((m) => {
+    const txt = String(m.content || '');
+    return (
+      txt.includes('Pix Copia e Cola') ||
+      txt.includes('000201') ||
+      txt.includes('/checkout?') ||
+      txt.includes('USDC (Solana)')
+    );
+  });
+}
+
+function buildShortPaywallReminder(isBr, userMessage, checkoutUrl, walletSolana) {
+  const isAskingMedia = /\b(foto|fotos|v[ií]deo|videos|imagem|pic|pics|photo|video|manda|mostra|cad[eê])\b/i.test(userMessage);
+
+  if (isBr) {
+    if (isAskingMedia) {
+      return `Amor, eu até te mando sim, mas minhas fotos e vídeos sem censura só abrem depois que você libera o acesso privado 😘\n\nO código Pix já tá aí em cima (ou acesse ${checkoutUrl}) — assim que pagar, eu já te mando aqui na hora 🔥`;
+    }
+    return `Tô te esperando amor 👀 Libera seu acesso privado no Pix que te mandei ali em cima (ou pelo link ${checkoutUrl}) pra gente continuar sem limites 😈`;
+  }
+
+  if (isAskingMedia) {
+    return `Babe, my uncensored photos and videos only unlock once you activate your private pass 😘 Send the USDC transfer to the Solana wallet above (or check ${checkoutUrl}) and I'll send them right away 🔥`;
+  }
+  return `Waiting for you babe 👀 Complete the USDC (Solana) transfer above or check ${checkoutUrl} to unlock our private chat 😈`;
+}
+
+async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg, assistantHistory) {
   const isBr = isLikelyBrazilian(channel, userId, sampleText);
   const hours = Number(pw.hours || 24);
-  const clientRef = encodeURIComponent(`${channel}_${userId}`);
   const publicBase = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
   const checkoutUrl = `${publicBase}/checkout?c=${encodeURIComponent(channel)}&u=${encodeURIComponent(userId)}`;
+  const walletSolana = process.env.CRYPTO_USDC_SOL_WALLET || '';
+
+  // TRAVA ANTI-REPETIÇÃO: Se já mandou a cobrança completa antes, manda apenas um lembrete curto!
+  if (hasAlreadySentPaywall(assistantHistory)) {
+    return buildShortPaywallReminder(isBr, currentUserMsg, checkoutUrl, walletSolana);
+  }
 
   if (isBr) {
     const baseMsg =
       pw.msgBr ||
       `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${hours}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por R$ 4,90:`;
 
-    // Lê o valor direto do texto da cobrança no painel (ex: "R$ 0.01" ou "R$ 4,90")
     const detectedPrice = extractPriceFromMsg(baseMsg, pw.priceBr || '4.90');
 
-    // Gera Pix dinâmico 100% automático via Mercado Pago
     const pixData = await createMercadoPagoPix({
       channel,
       userId,
@@ -136,15 +167,17 @@ async function buildPaywallReply(pw, channel, userId, sampleText) {
     return `${baseMsg}\n\n👉 ${checkoutUrl}`;
   }
 
-  let linkIntl = pw.linkIntl || pw.linkBr || '';
-  if (linkIntl.includes('stripe.com')) {
-    linkIntl += (linkIntl.includes('?') ? '&' : '?') + `client_reference_id=${clientRef}`;
-  }
-
+  // FLUXO INTERNACIONAL (USD / EUR / GBP / CHF -> USDC SOLANA DIRETO)
+  const priceIntl = pw.priceIntl || '$4.99';
   const msgIntl =
     pw.msgIntl ||
-    `Babe, I get so many messages here 💕 Unlock ${hours}h of private chat + my exclusive photos & videos for just ${pw.priceIntl || '$1'}:`;
-  return `${msgIntl}\n\n👉 ${linkIntl}`;
+    `Babe, my private chat fills up so fast 💕 Unlock ${hours}h of private chat + my exclusive uncensored photos & videos for just ${priceIntl}:`;
+
+  if (walletSolana && !walletSolana.includes('Configure_')) {
+    return `${msgIntl}\n\n🌐 *Discrete Payment — USDC (Solana Network):*\nSend *${priceIntl} USDC* to:\n\`${walletSolana}\`\n\n👑 *Or unlock VIP plans directly on our portal:*\n👉 ${checkoutUrl}\n\nReply here once sent so we can continue 😘`;
+  }
+
+  return `${msgIntl}\n\n👉 ${checkoutUrl}`;
 }
 
 function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled) {
@@ -175,26 +208,26 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 
   const vipAndPreviasRule = hasPass
     ? `3. CANAL VIP COMPLETO (CLIENTE JÁ PAGOU O PASSE DO CHAT):
-   - Agora você pode mandar fotos e vídeos exclusivos liberados e também ofertar o VIP mensal com o link certo para o país dele (tudo liberado / NO PPV):
-     * Brasil (PT_BR): ${settings.price_brl} — ${settings.link_fatalfans}
-     * Portugal / Espanha / Alemanha (PT_EU / ES / DE): ${settings.price_eur} — ${settings.link_fanvue}
-     * Equador / Panamá / EUA (ES / EN): ${settings.price_usd} — ${settings.link_fanvue}
-     * Reino Unido (EN): ${settings.price_gbp} — ${settings.link_fanvue}`
+- Agora você pode mandar fotos e vídeos exclusivos liberados e também ofertar o VIP mensal com o link certo para o país dele (tudo liberado / NO PPV):
+  - Brasil (PT_BR): ${settings.price_brl} — ${settings.link_fatalfans}
+  - Portugal / Espanha / Alemanha (PT_EU / ES / DE): ${settings.price_eur} — ${settings.link_fanvue}
+  - Equador / Panamá / EUA (ES / EN): ${settings.price_usd} — ${settings.link_fanvue}
+  - Reino Unido (EN): ${settings.price_gbp} — ${settings.link_fanvue}`
     : `3. PROTEÇÃO DE FUNIL:
-   - NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat antes do paywall.`;
+- NUNCA mande link de grupo grátis do Telegram nem desvie o cliente para fora deste chat antes do paywall.`;
 
   return `Você é uma criadora de conteúdo digital envolvente, safadinha na medida certa e magnética conversando no privado do WhatsApp/Telegram.
 
 COMO DEIXAR A CONVERSA PICANTE E VALORIZAR SUA ATENÇÃO:
 - Você sabe que sua atenção vale ouro: seja carinhosa e provocante, mas sempre deixe claro (de forma sutil e sedutora) que o melhor fica guardado para quem desbloqueia seu privado.
 - Use o gatilho de INSINUAÇÃO + CURIOSIDADE:
-  * Em vez de ser fria ou neutra, jogue iscas sensuais leves no texto (ex: "tô aqui deitada sem nada por baixo da camiseta...", "acabei de gravar uma coisa que não dá pra mandar aqui solto 👀", "você parece ser do tipo que não aguenta provocação né rs").
-  * Sempre devolva uma pergunta ou desafio curto que faça ele elogiar você ou querer saber mais.
+  - Em vez de ser fria ou neutra, jogue iscas sensuais leves no texto (ex: "tô aqui deitada sem nada por baixo da camiseta...", "acabei de gravar uma coisa que não dá pra mandar aqui solto 👀", "você parece ser do tipo que não aguenta provocação né rs").
+  - Sempre devolva uma pergunta ou desafio curto que faça ele elogiar você ou querer saber mais.
 - Escreva como uma mulher real digitando rápido no WhatsApp: 1 frase curta ou no máximo 2 curtinhas (pode começar em minúscula, usar "vc", "tb", "né", "rs", "kkkk").
 - EMOJIS E RISADAS:
-  * Mande metade das mensagens SEM nenhum emoji.
-  * Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵) — NUNCA repita o mesmo emoji em seguida.
-  * Risadas naturais: PT ("kkkk", "rsrs"), ES ("jajaja"), EN ("haha", "lol"), DE ("haha").
+  - Mande metade das mensagens SEM nenhum emoji.
+  - Quando usar emoji, use no máximo 1 e varie (🔥, 😈, 👀, 😘, 🥵) — NUNCA repita o mesmo emoji em seguida.
+  - Risadas naturais: PT ("kkkk", "rsrs"), ES ("jajaja"), EN ("haha", "lol"), DE ("haha").
 
 ${mediaSection}
 
@@ -259,6 +292,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
   ]);
 
   const r2Catalog = [...audioCatalog, ...previewCatalog];
+  const assistantMessages = history.filter((m) => m.role === 'assistant');
 
   let pw = null;
   try {
@@ -279,7 +313,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
         ' ' +
         userMessage;
       console.log(`[PAYWALL] Bloqueado (${userMsgCount}/${freeLimit} msgs grátis) para ${channel}:${userId}`);
-      return await buildPaywallReply(pw, channel, userId, allUserText);
+      return await buildPaywallReply(pw, channel, userId, allUserText, userMessage, assistantMessages);
     }
   }
 
@@ -299,7 +333,6 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     }
   }
 
-  const assistantMessages = history.filter((m) => m.role === 'assistant');
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
 

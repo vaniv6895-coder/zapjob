@@ -404,6 +404,30 @@
       border-radius: 99px;
     }
 
+    /* Bairros SEO da cidade */
+    .neighborhoods-bar {
+      display: none;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .hood-link {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 5px 11px;
+      border-radius: 99px;
+      text-decoration: none;
+    }
+    .hood-link:hover, .hood-link.active {
+      border-color: var(--accent);
+      color: #fda4af;
+      background: var(--accent-soft);
+    }
+
     .pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 16px; scrollbar-width: none; }
     .pills::-webkit-scrollbar { display: none; }
     .pill {
@@ -591,7 +615,7 @@
     </div>
 
     <form class="search-row" onsubmit="buscarCidade(event)">
-      <input type="text" id="city-input" placeholder="Buscar por cidade (ex: Cuiabá, Várzea Grande...)" />
+      <input type="text" id="city-input" placeholder="Buscar por bairro ou cidade (ex: Santa Rosa, Cuiabá...)" />
       <a href="/filtros" id="btnFiltersPage" class="btn-filters-link">🎛️ Filtros</a>
       <button type="submit">Buscar</button>
     </form>
@@ -601,6 +625,9 @@
       <div class="active-tags-list" id="activeTagsList"></div>
       <a href="/vitrine" style="font-size:12px;color:#fda4af;font-weight:700;text-decoration:none;">✕ Limpar filtros</a>
     </div>
+
+    <!-- Bairros ativos na cidade para SEO interno -->
+    <div class="neighborhoods-bar" id="neighborhoodsBar"></div>
 
     <div class="pills">
       <button class="pill active" id="pill-all" onclick="setFilter('all')">Todos</button>
@@ -731,8 +758,15 @@
       });
     })();
 
+    const initGeo = window.__INITIAL_GEO_SEO__ || null;
     const urlParams = new URLSearchParams(location.search);
-    let currentCity = urlParams.get('city') || '';
+
+    let currentCountry = initGeo?.country || urlParams.get('country') || 'br';
+    let currentCity = initGeo?.cityLabel || urlParams.get('city') || '';
+    let currentCitySlug = initGeo?.citySlug || '';
+    let currentNeighborhood = initGeo?.hoodLabel || urlParams.get('neighborhood') || '';
+    let currentNeighborhoodSlug = initGeo?.neighborhoodSlug || '';
+
     const activeTags = urlParams.get('tags') ? urlParams.get('tags').split(',').map(t => t.trim()).filter(Boolean) : [];
     const activeServices = urlParams.get('services') ? urlParams.get('services').split(',').map(t => t.trim()).filter(Boolean) : [];
     const activeAge = urlParams.get('age') || '';
@@ -794,25 +828,83 @@
       document.getElementById('drawer-backdrop').classList.toggle('open');
     }
 
-    async function carregarVitrine() {
-      if (currentCity) {
-        document.getElementById('city-input').value = currentCity;
-        document.getElementById('city-title').innerText = currentCity;
+    function slugifyClient(str) {
+      return String(str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    function renderNeighborhoods(neighborhoods) {
+      const bar = document.getElementById('neighborhoodsBar');
+      if (!neighborhoods || !neighborhoods.length || (!currentCity && !currentCitySlug)) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        return;
       }
+      const cSlug = currentCitySlug || slugifyClient(currentCity);
+      const cityBaseHref = `/vitrine/${currentCountry}/${cSlug}`;
+      const chips = [
+        `<a href="${cityBaseHref}" class="hood-link ${!currentNeighborhoodSlug ? 'active' : ''}">Toda ${currentCity || cSlug}</a>`,
+        ...neighborhoods.map(n => {
+          const active = currentNeighborhoodSlug && currentNeighborhoodSlug === n.neighborhood_slug;
+          return `<a href="${cityBaseHref}/${n.neighborhood_slug}" class="hood-link ${active ? 'active' : ''}">${n.neighborhood}</a>`;
+        })
+      ];
+      bar.innerHTML = `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">Bairros:</span>` + chips.join('');
+      bar.style.display = 'flex';
+    }
+
+    async function carregarVitrine() {
+      const displayPlace = currentNeighborhood && currentCity
+        ? `${currentNeighborhood}, ${currentCity}`
+        : (currentNeighborhood || currentCity || 'Todo o Brasil');
+
+      document.getElementById('city-title').innerText = displayPlace;
+      if (currentCity && !document.getElementById('city-input').value) {
+        document.getElementById('city-input').value = displayPlace;
+      }
+
       if (activeMedia) {
         document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
         const pillEl = document.getElementById('pill-' + activeMedia);
         if (pillEl) pillEl.classList.add('active');
       }
 
-      const url = '/api/portal/vitrine-data' + (currentCity ? '?city=' + encodeURIComponent(currentCity) : '');
-      const res = await fetch(url);
-      const data = await res.json();
+      const citySlugParam = currentCitySlug || slugifyClient(currentCity);
+      const hoodSlugParam = currentNeighborhoodSlug || slugifyClient(currentNeighborhood);
 
-      allProfiles = data.profiles || [];
+      const baseUrl = '/api/portal/vitrine-data' + (currentCity ? '?city=' + encodeURIComponent(currentCity) : '');
+      const geoUrl = citySlugParam
+        ? `/api/vitrine/geo?country=${encodeURIComponent(currentCountry)}&city=${encodeURIComponent(citySlugParam)}&neighborhood=${encodeURIComponent(hoodSlugParam)}`
+        : '';
+
+      const [res, geoRes] = await Promise.all([
+        fetch(baseUrl),
+        geoUrl ? fetch(geoUrl).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const data = await res.json();
+      const geoData = geoRes && geoRes.ok ? await geoRes.json().catch(() => null) : null;
+
+      let profiles = data.profiles || [];
+      if (geoData && Array.isArray(geoData.items) && geoData.items.length > 0) {
+        const bySlug = new Map(profiles.map(p => [p.slug, p]));
+        const ranked = [];
+        for (const item of geoData.items) {
+          const full = bySlug.get(item.slug);
+          ranked.push(full ? { ...full, is_boosted: item.is_boosted, geo_priority: item.geo_priority } : item);
+        }
+        profiles = ranked;
+      }
+
+      allProfiles = profiles;
       storiesList = data.stories || [];
       const reels = data.reels || [];
 
+      renderNeighborhoods(geoData?.neighborhoods || []);
       renderStories();
       renderProfiles();
       renderReels(reels);
@@ -949,10 +1041,24 @@
 
     function buscarCidade(e) {
       e.preventDefault();
-      currentCity = document.getElementById('city-input').value.trim();
-      document.getElementById('city-title').innerText = currentCity || 'Todo o Brasil';
-      if (currentCity) {
-        sendTelemetry('search', { targetLabel: 'Cidade: ' + currentCity });
+      const rawQuery = document.getElementById('city-input').value.trim();
+      currentNeighborhood = '';
+      currentNeighborhoodSlug = '';
+      currentCitySlug = '';
+
+      if (rawQuery.includes(',')) {
+        const parts = rawQuery.split(',').map(s => s.trim()).filter(Boolean);
+        currentNeighborhood = parts[0] || '';
+        currentCity = parts[1] || '';
+      } else {
+        currentCity = rawQuery;
+      }
+
+      document.getElementById('city-title').innerText =
+        (currentNeighborhood && currentCity ? `${currentNeighborhood}, ${currentCity}` : currentCity) || 'Todo o Brasil';
+
+      if (rawQuery) {
+        sendTelemetry('search', { targetLabel: 'Local: ' + rawQuery });
       }
       carregarVitrine();
     }
@@ -1021,9 +1127,10 @@
 
       const grid = document.getElementById('profiles-grid');
       if (!list.length) {
+        const placeLabel = currentNeighborhood && currentCity ? `${currentNeighborhood}, ${currentCity}` : currentCity;
         grid.innerHTML = `
           <div class="empty-box">
-            <p style="font-size:15px;margin-bottom:16px">Nenhum perfil ativo encontrado${currentCity ? ' em <strong>' + currentCity + '</strong>' : ''} com esses filtros.</p>
+            <p style="font-size:15px;margin-bottom:16px">Nenhum perfil ativo encontrado${placeLabel ? ' em <strong>' + placeLabel + '</strong>' : ''} com esses filtros.</p>
             <a href="/filtros" style="display:inline-block;background:var(--accent);color:#fff;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px;">Alterar Filtros</a>
           </div>`;
         return;
@@ -1042,6 +1149,7 @@
         const cover = p.cover_url || p.avatar_url || 'https://placehold.co/400x520/121216/71717a?text=VIP';
         const rateTag = p.hourly_rate ? `<span style="font-weight:700;color:#e4e4e7">R$ ${Number(p.hourly_rate).toFixed(0)}/h</span>` : '';
         const ageTag = p.age ? ` • ${p.age} anos` : '';
+        const hoodText = p.neighborhood ? `${p.neighborhood} • ` : '';
 
         return `
           <article class="${cardClass}">
@@ -1054,7 +1162,7 @@
               <img src="${cover}" alt="${p.stage_name}" loading="lazy" />
               <div class="card-gradient">
                 <div class="card-name"><span>${p.stage_name}${ageTag}</span></div>
-                <div class="card-loc">${p.city} - ${p.state}</div>
+                <div class="card-loc">${hoodText}${p.city} - ${p.state}</div>
               </div>
             </a>
             <div class="card-body">
