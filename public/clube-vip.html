@@ -458,16 +458,46 @@
       return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(url || ''));
     }
 
+    function getSavedFanProfile() {
+      try {
+        const raw = localStorage.getItem('vip_fan_profile');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function getFanEmailOrRedirect() {
+      const fan = getSavedFanProfile();
+      const email = String(fan?.contact_identifier || '').trim();
+      if (email) return email;
+
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/cliente?returnTo=${returnTo}`;
+      return '';
+    }
+
+    function preencherApelidoChatVip() {
+      const fan = getSavedFanProfile();
+      const senderInput = document.getElementById('msgSenderName');
+      const nick = String(fan?.nickname || fan?.full_name || '').trim();
+      if (senderInput && nick && !senderInput.value) {
+        senderInput.value = nick;
+      }
+    }
+
     function atualizarEstadoChatVip(subscribed) {
       isVipSubscriber = Boolean(subscribed);
       const lockedBox = document.getElementById('vip-msg-locked');
       const unlockedBox = document.getElementById('vip-msg-form-unlocked');
       if (lockedBox) lockedBox.style.display = isVipSubscriber ? 'none' : 'block';
       if (unlockedBox) unlockedBox.style.display = isVipSubscriber ? 'block' : 'none';
+      if (isVipSubscriber) preencherApelidoChatVip();
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
       atualizarEstadoChatVip(false);
+      preencherApelidoChatVip();
       await carregarClubeVip();
       if (typeof window.getDeviceHash === 'function') {
         const hash = await window.getDeviceHash();
@@ -617,7 +647,8 @@
         alert('Apenas assinantes VIP podem enviar mensagem.');
         return;
       }
-      const name = (document.getElementById('msgSenderName')?.value || '').trim() || 'Assinante VIP';
+      const fan = getSavedFanProfile();
+      const name = (document.getElementById('msgSenderName')?.value || '').trim() || fan?.nickname || fan?.full_name || 'Assinante VIP';
       const messageText = (document.getElementById('msgTextArea')?.value || '').trim();
 
       if (!messageText) {
@@ -706,7 +737,7 @@
         alert(`Prévia (/vip/demo): plano ${selectedPlan.label} por R$ ${fmtBRL(selectedPlan.por)}.`);
         return;
       }
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para ativar seu acesso VIP:');
+      const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
 
       const deviceHash = await window.getDeviceHash();
@@ -742,7 +773,7 @@
         alert('Prévia (/vip/demo): libera a mídia 1x por R$ ' + fmtBRL(price) + '.');
         return;
       }
-      const buyer = prompt('Digite seu e-mail ou WhatsApp para liberar o conteúdo:');
+      const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
 
       const btn = document.getElementById('ppv-btn-' + postId);
