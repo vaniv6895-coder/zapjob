@@ -31,6 +31,55 @@ const HIGHLIGHT_PLANS = [
   { code: 'diamond_30d', name: 'Topo Diamante (30 Dias)', badge: 'MÁXIMO ALCANCE 👑', price: 349.9, desc: '30 dias na 1ª linha da página inicial.' },
 ];
 
+function getAdminSecret() {
+  return String(process.env.PANEL_PASSWORD || '').trim();
+}
+
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a || ''));
+  const bufB = Buffer.from(String(b || ''));
+  if (bufA.length === 0 || bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function signAdminToken() {
+  const secret = getAdminSecret();
+  if (!secret) return null;
+  const payload = `admin.${Date.now()}`;
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
+function verifyAdminToken(token) {
+  const secret = getAdminSecret();
+  if (!secret || !token) return false;
+  const parts = String(token).split('.');
+  if (parts.length !== 3 || parts[0] !== 'admin') return false;
+  const ts = Number(parts[1]);
+  const maxAgeMs = 12 * 60 * 60 * 1000; // Expira após 12 horas
+  if (!Number.isFinite(ts) || Date.now() - ts > maxAgeMs) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`admin.${parts[1]}`).digest('hex');
+  return safeEqual(parts[2], expected);
+}
+
+function isAdminAuthorized(req) {
+  const secret = getAdminSecret();
+  if (!secret) return false;
+
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7).trim();
+    if (verifyAdminToken(token)) return true;
+  }
+
+  // Fallback opcional para compatibilidade interna
+  if (req.query?.pwd && safeEqual(req.query.pwd, secret)) {
+    return true;
+  }
+
+  return false;
+}
+
 function signSessionToken(creatorId) {
   const secret = process.env.PANEL_PASSWORD || 'portal_secret_2026';
   const payload = `${creatorId}.${Date.now()}`;
@@ -98,7 +147,37 @@ export function registerPortalRoutes(app) {
       ADD COLUMN IF NOT EXISTS link_label VARCHAR(80);
   `).catch(() => {});
 
-  // Ativa telemetria, analytics, trends e o novo painel /portal-admin
+  // Proteção centralizada para TODAS as rotas /api/portal/admin/* (exceto /login)
+  app.addHook('onRequest', async (req, reply) => {
+    const urlPath = req.url.split('?')[0];
+    if (urlPath.startsWith('/api/portal/admin/') && urlPath !== '/api/portal/admin/login') {
+      if (!getAdminSecret()) {
+        return reply.status(503).send({ error: 'PANEL_PASSWORD não configurada no servidor.' });
+      }
+      if (!isAdminAuthorized(req)) {
+        return reply.status(401).send({ error: 'Não autorizado.' });
+      }
+      // Injeta pwd internamente para compatibilidade com rotas de visitaid.js
+      if (!req.query) req.query = {};
+      req.query.pwd = getAdminSecret();
+    }
+  });
+
+  // Login seguro do Command Center Admin (via POST no corpo JSON, sem expor senha na URL)
+  app.post('/api/portal/admin/login', async (req, reply) => {
+    const secret = getAdminSecret();
+    if (!secret) {
+      return reply.status(503).send({ error: 'Configure a variável PANEL_PASSWORD no Railway.' });
+    }
+    const { password } = req.body || {};
+    if (!safeEqual(password, secret)) {
+      return reply.status(401).send({ error: 'Senha incorreta.' });
+    }
+    const token = signAdminToken();
+    return reply.send({ ok: true, token });
+  });
+
+  // Ativa telemetria, analytics, trends e o painel admin
   registerTelemetryRoutes(app, pool);
 
   // Rota para o Command Center Admin (/admin-dashboard)
@@ -108,11 +187,15 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  // Rota explícita para a página de fluxo (/index.html)
+  app.get('/index.html', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'index.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
   // Resumo de cadastros: Assinantes vs Modelos vs Acompanhantes
   app.get('/api/portal/admin/registrations-summary', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
-
     let subscribersCount = 0;
     let modelsCount = 0;
     let escortsCount = 0;
@@ -416,9 +499,6 @@ export function registerPortalRoutes(app) {
 
   // Carregar e salvar parâmetros do fluxo e paywall no Command Center Admin
   app.get('/api/portal/admin/bot-settings', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
-
     try {
       const settings = await getBotSettings();
       return reply.send({ ok: true, settings });
@@ -429,9 +509,6 @@ export function registerPortalRoutes(app) {
   });
 
   app.post('/api/portal/admin/bot-settings', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
-
     const { visual_flow, paywall_config } = req.body || {};
     const toSave = {};
     if (visual_flow !== undefined && visual_flow !== null) toSave.visual_flow = visual_flow;
@@ -447,17 +524,12 @@ export function registerPortalRoutes(app) {
   });
 
   app.post('/api/portal/admin/approve', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
     const { creatorId, verified, active } = req.body || {};
     await setCreatorApproval(creatorId, { verified, active });
     return reply.send({ ok: true });
   });
 
   app.post('/api/portal/admin/seed', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
-
     const demos = [
       { name: 'Valentina Luxo', city: 'Cuiabá', state: 'MT', tier: 'diamond', rate: 300, img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80' },
       { name: 'Isabela Ferraz', city: 'Várzea Grande', state: 'MT', tier: 'diamond', rate: 250, img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=80' },
@@ -477,8 +549,6 @@ export function registerPortalRoutes(app) {
   });
 
   app.post('/api/portal/admin/clear-demo', async (req, reply) => {
-    const PANEL_PASSWORD = process.env.PANEL_PASSWORD || 'admin123';
-    if (req.query.pwd !== PANEL_PASSWORD) return reply.status(401).send({ error: 'Não autorizado' });
     await pool.query(`DELETE FROM creator_accounts WHERE email LIKE '%@demo.com'`);
     return reply.send({ ok: true });
   });
