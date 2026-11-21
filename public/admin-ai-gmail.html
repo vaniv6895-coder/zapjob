@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agente de IA — Disparos Gmail | Garota VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-outer: #0b0e0c;
+      --bg-main: #111312;
+      --bg-card: #171a18;
+      --border: rgba(255, 255, 255, 0.08);
+      --lime: #a3e635;
+      --lime-bright: #bef264;
+      --lime-soft: rgba(163, 230, 53, 0.14);
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text-main: #f4f4f5;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-outer);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 18px 14px 48px;
+    }
+    .container { max-width: 1120px; margin: 0 auto; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { border-color: var(--lime); color: var(--lime); }
+    .btn.lime {
+      background: var(--lime);
+      color: #090d0a;
+      border-color: var(--lime);
+    }
+    .btn.lime:hover { background: var(--lime-bright); color: #090d0a; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .banner-status {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      min-width: 0;
+    }
+    .card h2 { font-size: 15.5px; margin-bottom: 4px; }
+    .card p.sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+
+    label.lbl {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    select, textarea, input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--bg-main);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    select:focus, textarea:focus, input:focus { border-color: var(--lime); }
+
+    .preview-box {
+      background: #0c0f0d;
+      border: 1px dashed rgba(163, 230, 53, 0.35);
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 12px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .creator-list {
+      max-height: 390px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+    .creator-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--bg-main);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .creator-row:hover { border-color: rgba(163, 230, 53, 0.4); }
+    .pill {
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: var(--lime-soft);
+      color: var(--lime);
+      white-space: nowrap;
+    }
+    .pill.warn { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 500px; }
+    th {
+      text-align: left;
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+
+    .auth-gate {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 8, 7, 0.96);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login rápido caso abra direto sem sessão ativa -->
+  <div id="loginGate" class="auth-gate">
+    <div class="card" style="max-width:360px;width:100%;text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">🤖✉️</div>
+      <h2 style="margin-bottom:6px;">Agente de IA — Gmail</h2>
+      <p class="sub">Digite a senha do Admin para acessar os disparos.</p>
+      <input type="password" id="pwdInput" placeholder="Senha do Admin" onkeydown="if(event.key==='Enter') fazerLogin()" />
+      <button class="btn lime" style="width:100%;justify-content:center;" onclick="fazerLogin()">Entrar</button>
+      <p id="loginErr" style="font-size:12px;color:#fca5a5;margin-top:8px;"></p>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;">🤖✉️ Agente de IA — Disparos via Gmail</h1>
+        <p style="font-size:12.5px;color:var(--text-muted);">Gera mensagens personalizadas por IA e dispara para o Gmail das modelos</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="/admin-dashboard" class="btn">← Voltar ao Painel Admin</a>
+        <button class="btn" onclick="carregarDados()">↻ Atualizar</button>
+      </div>
+    </div>
+
+    <div class="banner-status" id="gmailStatusBanner">
+      <span>Verificando conexão com Gmail...</span>
+    </div>
+
+    <div class="grid-2">
+      <!-- CONFIGURAÇÃO DO AGENTE DE IA -->
+      <div class="card">
+        <h2>1. Configurar Abordagem da IA</h2>
+        <p class="sub">A IA cria um e-mail único para cada modelo usando o nome, cidade e visitas dela.</p>
+
+        <label class="lbl">Objetivo da Campanha</label>
+        <select id="campaignType">
+          <option value="boost">🚀 Impulsionar Perfil (Voltar ao Topo / VIP)</option>
+          <option value="onboarding">✨ Completar Cadastro e Fotos / Verificação</option>
+          <option value="reactivation">🔥 Reativar Modelo (Alertar sobre Buscas na Cidade)</option>
+        </select>
+
+        <label class="lbl">Instrução Extra para o Agente de IA (opcional)</label>
+        <textarea id="customPrompt" rows="3" placeholder="Ex: Mencione que temos planos a partir de R$ 9,90 e destaque imediato na 1ª linha..."></textarea>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn" id="btnPreview" onclick="gerarPrevia()">👁️ Gerar Prévia da IA</button>
+          <button type="button" class="btn lime" id="btnSend" onclick="dispararEmails()">🚀 Disparar via Gmail (<span id="selectedCount">0</span>)</button>
+        </div>
+
+        <div id="previewContainer" style="display:none;">
+          <div class="preview-box" id="previewBox"></div>
+        </div>
+        <p id="sendFeedback" style="font-size:12px;color:var(--lime);margin-top:10px;"></p>
+      </div>
+
+      <!-- SELEÇÃO DE MODELOS / GMAILS -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <div>
+            <h2>2. Selecionar Garotas (Gmail)</h2>
+            <p class="sub" style="margin-bottom:0;">Escolha manualmente ou filtre quem precisa impulsionar.</p>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" class="btn" style="padding:6px 10px;font-size:11px;" onclick="selecionarSemDestaque()">Selecionar Sem Destaque</button>
+            <button type="button" class="btn" style="padding:6px 10px;font-size:11px;" onclick="toggleTodos()">Todas / Nenhuma</button>
+          </div>
+        </div>
+
+        <input type="text" id="filterInput" placeholder="Buscar por nome, Gmail ou cidade..." oninput="renderCreators()" />
+
+        <div class="creator-list" id="creatorList"></div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO DE DISPAROS -->
+    <div class="card">
+      <h2>3. Histórico de Disparos Realizados</h2>
+      <p class="sub">Últimos e-mails gerados pelo Agente de IA e enviados via Gmail.</p>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Modelo</th>
+              <th>Gmail</th>
+              <th>Assunto</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminToken = sessionStorage.getItem('gv_admin_token') || '';
+    let creators = [];
+    let selectedIds = new Set();
+
+    function authFetch(url, opts = {}) {
+      return fetch(url, {
+        ...opts,
+        headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + adminToken },
+      });
+    }
+
+    async function fazerLogin() {
+      const password = (document.getElementById('pwdInput')?.value || '').trim();
+      const err = document.getElementById('loginErr');
+      if (!password) return;
+      const res = await fetch('/api/portal/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token) {
+        err.innerText = data.error || 'Senha incorreta.';
+        return;
+      }
+      adminToken = data.token;
+      sessionStorage.setItem('gv_admin_token', adminToken);
+      document.getElementById('loginGate').style.display = 'none';
+      carregarDados();
+    }
+
+    async function carregarDados() {
+      if (!adminToken) {
+        document.getElementById('loginGate').style.display = 'flex';
+        return;
+      }
+      const res = await authFetch('/api/portal/admin/ai-gmail/data');
+      if (!res.ok) {
+        sessionStorage.removeItem('gv_admin_token');
+        adminToken = '';
+        document.getElementById('loginGate').style.display = 'flex';
+        return;
+      }
+      const data = await res.json();
+      creators = data.creators || [];
+
+      const banner = document.getElementById('gmailStatusBanner');
+      if (data.gmailConfigured) {
+        banner.innerHTML = `<span>✅ <strong>Gmail Conectado:</strong> ${data.senderEmail}</span><span class="pill">Pronto para disparar</span>`;
+      } else {
+        banner.innerHTML = `<span style="color:#fcd34d;">⚠️ <strong>Gmail não configurado:</strong> Adicione <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> nas variáveis do Railway.</span><span class="pill warn">Modo Prévia</span>`;
+      }
+
+      renderCreators();
+      renderLogs(data.logs || []);
+    }
+
+    function updateSelectedCounter() {
+      document.getElementById('selectedCount').innerText = selectedIds.size;
+    }
+
+    function toggleCreator(id) {
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      updateSelectedCounter();
+    }
+
+    function selecionarSemDestaque() {
+      selectedIds.clear();
+      const now = new Date();
+      for (const c of creators) {
+        const expired = !c.featured_until || new Date(c.featured_until) < now || c.tier === 'free';
+        if (expired) selectedIds.add(c.id);
+      }
+      renderCreators();
+    }
+
+    function toggleTodos() {
+      if (selectedIds.size === creators.length) {
+        selectedIds.clear();
+      } else {
+        creators.forEach(c => selectedIds.add(c.id));
+      }
+      renderCreators();
+    }
+
+    function renderCreators() {
+      const q = (document.getElementById('filterInput')?.value || '').toLowerCase().trim();
+      const filtered = creators.filter(c =>
+        !q ||
+        (c.stage_name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.city || '').toLowerCase().includes(q)
+      );
+
+      document.getElementById('creatorList').innerHTML = filtered.map(c => {
+        const checked = selectedIds.has(c.id) ? 'checked' : '';
+        const isFree = !c.featured_until || new Date(c.featured_until) < new Date() || c.tier === 'free';
+        return `
+          <label class="creator-row">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+              <input type="checkbox" ${checked} onchange="toggleCreator(${c.id})" />
+              <div style="min-width:0;">
+                <strong style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.stage_name}</strong>
+                <span style="font-size:11.5px;color:#93c5fd;word-break:break-all;">${c.email}</span>
+                <span style="font-size:11px;color:var(--text-dim);display:block;">${c.city}-${c.state} • ${c.views_count} visitas</span>
+              </div>
+            </div>
+            <span class="pill ${isFree ? 'warn' : ''}">${isFree ? 'Sem Destaque' : c.tier.toUpperCase()}</span>
+          </label>
+        `;
+      }).join('') || '<p style="font-size:12px;color:var(--text-dim);">Nenhuma modelo encontrada.</p>';
+
+      updateSelectedCounter();
+    }
+
+    function renderLogs(logs) {
+      document.getElementById('logsBody').innerHTML = logs.map(l => `
+        <tr>
+          <td style="white-space:nowrap;color:var(--text-muted);">${new Date(l.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
+          <td><strong>${l.stage_name || '-'}</strong></td>
+          <td style="color:#93c5fd;">${l.recipient_email}</td>
+          <td>${l.subject || '-'}</td>
+          <td>${l.status === 'sent' ? '<span class="pill">Enviado</span>' : `<span class="pill warn" title="${l.error_msg || ''}">Erro</span>`}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:16px;">Nenhum disparo realizado ainda.</td></tr>';
+    }
+
+    async function gerarPrevia() {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) {
+        alert('Selecione ao menos 1 modelo na lista ao lado para gerar a prévia.');
+        return;
+      }
+      const btn = document.getElementById('btnPreview');
+      btn.disabled = true;
+      btn.innerText = 'Gerando texto com IA...';
+
+      try {
+        const res = await authFetch('/api/portal/admin/ai-gmail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creatorIds: [ids[0]],
+            campaignType: document.getElementById('campaignType').value,
+            customPrompt: document.getElementById('customPrompt').value,
+            dryRun: true,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro ao gerar prévia');
+        const box = document.getElementById('previewBox');
+        document.getElementById('previewContainer').style.display = 'block';
+        box.innerText = `Para: ${data.recipient.stage_name} <${data.recipient.email}>\nAssunto: ${data.preview.subject}\n\n${data.preview.body}`;
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '👁️ Gerar Prévia da IA';
+      }
+    }
+
+    async function dispararEmails() {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) {
+        alert('Selecione ao menos uma modelo.');
+        return;
+      }
+      if (!confirm(`Confirmar disparo de e-mail personalizado por IA para ${ids.length} modelo(s)?`)) return;
+
+      const btn = document.getElementById('btnSend');
+      const fb = document.getElementById('sendFeedback');
+      btn.disabled = true;
+      fb.innerText = 'Agente de IA gerando e disparando e-mails via Gmail...';
+
+      try {
+        const res = await authFetch('/api/portal/admin/ai-gmail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creatorIds: ids,
+            campaignType: document.getElementById('campaignType').value,
+            customPrompt: document.getElementById('customPrompt').value,
+            dryRun: false,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha no envio');
+        const sent = (data.results || []).filter(r => r.status === 'sent').length;
+        const errors = (data.results || []).filter(r => r.status !== 'sent').length;
+        fb.innerText = `Concluído: ${sent} e-mail(s) enviado(s)${errors ? ` • ${errors} falha(s)` : ''}.`;
+        await carregarDados();
+      } catch (e) {
+        fb.innerText = 'Erro: ' + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    carregarDados();
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { registerTelemetryRoutes } from './visitaid.js';
 import { registerVipFeedRoutes } from './vipFeedRoutes.js';
+import nodemailer from 'nodemailer';
 
 import axios from 'axios';
 import {
@@ -147,6 +148,22 @@ export function registerPortalRoutes(app) {
       ADD COLUMN IF NOT EXISTS link_label VARCHAR(80);
   `).catch(() => {});
 
+  // Tabela de log de disparos de e-mail por IA
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_email_campaigns (
+      id SERIAL PRIMARY KEY,
+      creator_id INTEGER,
+      recipient_email TEXT NOT NULL,
+      stage_name TEXT,
+      campaign_type VARCHAR(50),
+      subject TEXT,
+      body TEXT,
+      status VARCHAR(20) DEFAULT 'sent',
+      error_msg TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `).catch(() => {});
+
   // Proteção centralizada para TODAS as rotas /api/portal/admin/* (exceto /login)
   app.addHook('onRequest', async (req, reply) => {
     const urlPath = req.url.split('?')[0];
@@ -187,9 +204,152 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Rota explícita para a página de fluxo (/index.html)
+  // Página dedicada do Agente de IA — Disparos Gmail (/admin-ai-gmail)
+  app.get('/admin-ai-gmail', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'admin-ai-gmail.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  // Lista destinatárias elegíveis + histórico recente de disparos
+  app.get('/api/portal/admin/ai-gmail/data', async (req, reply) => {
+    const [creatorsRes, logsRes] = await Promise.all([
+      pool.query(`
+        SELECT id, stage_name, email, city, state, tier, verified, featured_until,
+               COALESCE(views_count, 0)::int AS views_count
+        FROM creator_accounts
+        WHERE COALESCE(email, '') <> ''
+          AND email NOT LIKE '%@demo.com'
+        ORDER BY id DESC
+      `),
+      pool.query(`
+        SELECT id, recipient_email, stage_name, campaign_type, subject, status, error_msg, created_at
+        FROM ai_email_campaigns
+        ORDER BY created_at DESC
+        LIMIT 50
+      `).catch(() => ({ rows: [] })),
+    ]);
+
+    return reply.send({
+      ok: true,
+      gmailConfigured: Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD),
+      senderEmail: process.env.GMAIL_USER || '',
+      creators: creatorsRes.rows,
+      logs: logsRes.rows,
+    });
+  });
+
+  // Gera texto personalizado com Gemini (ou template inteligente) e envia via Gmail
+  app.post('/api/portal/admin/ai-gmail/send', async (req, reply) => {
+    const { creatorIds = [], campaignType = 'boost', customPrompt = '', dryRun = false } = req.body || {};
+
+    if (!Array.isArray(creatorIds) || creatorIds.length === 0) {
+      return reply.status(400).send({ error: 'Selecione ao menos uma modelo.' });
+    }
+
+    const gmailUser = String(process.env.GMAIL_USER || '').trim();
+    const gmailPass = String(process.env.GMAIL_APP_PASSWORD || '').trim();
+
+    if (!dryRun && (!gmailUser || !gmailPass)) {
+      return reply.status(503).send({
+        error: 'Configure GMAIL_USER e GMAIL_APP_PASSWORD nas variáveis do Railway antes de disparar.',
+      });
+    }
+
+    const creatorsRes = await pool.query(
+      `SELECT id, stage_name, email, city, state, tier, COALESCE(views_count, 0)::int AS views_count
+       FROM creator_accounts
+       WHERE id = ANY($1::int[])`,
+      [creatorIds.map(Number)]
+    );
+
+    const studioUrl = `${(process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '')}/minha-conta`;
+
+    async function gerarCopyIA(creator) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const goalMap = {
+        boost: 'convidar a modelo a ativar o Destaque VIP/Diamante para voltar ao topo da vitrine e receber mais contatos no WhatsApp',
+        onboarding: 'dar boas-vindas e incentivar a completar fotos/vídeos e verificação facial para liberar o perfil na vitrine',
+        reactivation: 'reativar uma modelo inativa mostrando que há buscas na cidade dela',
+      };
+      const objetivo = goalMap[campaignType] || goalMap.boost;
+
+      if (geminiKey) {
+        try {
+          const prompt = `Você é o gerente de sucesso de criadoras da plataforma Garota VIP.
+Escreva um e-mail curto, elegante, direto e persuasivo em português para ${creator.stage_name} (${creator.city}-${creator.state}), que teve ${creator.views_count} visualizações no perfil.
+Objetivo: ${objetivo}.
+${customPrompt ? `Instrução extra do admin: ${customPrompt}` : ''}
+Inclua este link de acesso: ${studioUrl}
+Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (use quebras de linha \\n no body, sem markdown).`;
+
+          const aiRes = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+            { contents: [{ parts: [{ text: prompt }] }] },
+            { timeout: 12000 }
+          );
+          const raw = aiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const cleaned = raw.replace(/```json|```/gi, '').trim();
+          const parsed = JSON.parse(cleaned);
+          if (parsed.subject && parsed.body) return parsed;
+        } catch {}
+      }
+
+      return {
+        subject: `${creator.stage_name}, seu perfil em ${creator.city} está recebendo buscas 🔥`,
+        body: `Oi ${creator.stage_name}, tudo bem?\n\nNotamos que visitantes em ${creator.city}-${creator.state} estão procurando perfis como o seu na vitrine do Garota VIP.\n\nAtive agora o Destaque VIP no seu painel para ficar na 1ª linha e multiplicar seus cliques no WhatsApp:\n${studioUrl}\n\nQualquer dúvida, responda este e-mail!\nEquipe Garota VIP`,
+      };
+    }
+
+    if (dryRun) {
+      const sample = creatorsRes.rows[0];
+      const preview = await gerarCopyIA(sample);
+      return reply.send({ ok: true, preview, recipient: sample });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass },
+    });
+
+    const results = [];
+    for (const c of creatorsRes.rows) {
+      const copy = await gerarCopyIA(c);
+      try {
+        await transporter.sendMail({
+          from: `"Garota VIP" <${gmailUser}>`,
+          to: c.email,
+          subject: copy.subject,
+          text: copy.body,
+        });
+
+        await pool.query(
+          `INSERT INTO ai_email_campaigns (creator_id, recipient_email, stage_name, campaign_type, subject, body, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'sent')`,
+          [c.id, c.email, c.stage_name, campaignType, copy.subject, copy.body]
+        );
+        results.push({ id: c.id, email: c.email, status: 'sent' });
+      } catch (err) {
+        await pool.query(
+          `INSERT INTO ai_email_campaigns (creator_id, recipient_email, stage_name, campaign_type, subject, body, status, error_msg)
+           VALUES ($1, $2, $3, $4, $5, $6, 'error', $7)`,
+          [c.id, c.email, c.stage_name, campaignType, copy.subject, copy.body, String(err.message || err)]
+        );
+        results.push({ id: c.id, email: c.email, status: 'error', error: err.message });
+      }
+    }
+
+    return reply.send({ ok: true, results });
+  });
+
+  // Rota explícita para a página de fluxo (/index.html), com fallback seguro se não existir
   app.get('/index.html', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'index.html');
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({
+        error: 'Arquivo public/index.html não encontrado no servidor. Adicione public/index.html ao repositório e faça deploy.',
+      });
+    }
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });

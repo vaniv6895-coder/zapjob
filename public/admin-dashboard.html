@@ -521,51 +521,6 @@
       cursor: pointer;
     }
 
-    /* FlowBuilder & Parâmetros */
-    .flow-params-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 10px;
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 14px;
-    }
-    .flow-params-grid label.field-lbl {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .flow-input {
-      width: 100%;
-      min-width: 0;
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg-main);
-      color: #fff;
-      font-family: inherit;
-      font-size: 12.5px;
-    }
-    .flow-nodes-canvas {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .flow-node-card {
-      background: var(--bg-main);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: 0;
-    }
-
     /* Rail Direita */
     .right-rail {
       background: var(--bg-sidebar);
@@ -659,6 +614,7 @@
       <div>
         <div class="nav-group-title">Dashboards</div>
         <button class="nav-item active" onclick="scrollToSection('sec-overview', this)">📊 Visão Geral</button>
+        <a href="/admin-ai-gmail" class="nav-item">🤖✉️ Agente IA Gmail ↗</a>
         <button class="nav-item" onclick="abrirPaginaFluxo()">⚡ Página de Fluxo ↗</button>
         <button class="nav-item" onclick="scrollToSection('sec-trends', this)">📈 Google Trends / Buscas</button>
         <button class="nav-item" onclick="scrollToSection('sec-telemetry', this)">🕵️ Telemetria & Pulos</button>
@@ -668,7 +624,6 @@
 
       <div>
         <div class="nav-group-title">Atalhos Rápidos</div>
-        <a href="/index.html" class="nav-item">⚡ Abrir Fluxo (index.html)</a>
         <a href="/vitrine" target="_blank" class="nav-item">🌐 Abrir Vitrine</a>
         <a href="/reels" target="_blank" class="nav-item">🎬 Abrir Reels</a>
         <button class="nav-item" onclick="sairAdmin()" style="color:#fca5a5;">🚪 Sair / Bloquear</button>
@@ -680,9 +635,10 @@
       <div class="topbar">
         <div class="breadcrumb">Dashboards / <strong>Overview Executivo</strong></div>
         <div class="top-actions">
-          <button class="btn-chip lime" onclick="abrirPaginaFluxo()">⚡ Ir para Página de Fluxo ↗</button>
+          <a href="/admin-ai-gmail" class="btn-chip lime">🤖✉️ Agente IA Gmail ↗</a>
+          <button class="btn-chip" onclick="abrirPaginaFluxo()">⚡ Página de Fluxo ↗</button>
           <button class="btn-chip" onclick="carregarDashboard()">↻ Atualizar</button>
-          <button class="btn-chip" onclick="seedDemo()">+ Criar Demos</button>
+          <button class="btn-chip" onclick="seedDemo()">+ Demos</button>
           <button class="btn-chip danger" onclick="clearDemo()">Limpar Demos</button>
           <button class="btn-chip" onclick="sairAdmin()">Sair</button>
         </div>
@@ -691,7 +647,8 @@
       <!-- Barra de navegação rápida no celular -->
       <div class="mobile-quick-nav">
         <button type="button" class="btn-chip" onclick="scrollToSection('sec-overview')">📊 Visão</button>
-        <button type="button" class="btn-chip lime" onclick="abrirPaginaFluxo()">⚡ Fluxo ↗</button>
+        <a href="/admin-ai-gmail" class="btn-chip lime">🤖✉️ IA Gmail ↗</a>
+        <button type="button" class="btn-chip" onclick="abrirPaginaFluxo()">⚡ Fluxo ↗</button>
         <button type="button" class="btn-chip" onclick="scrollToSection('sec-trends')">📈 Trends</button>
         <button type="button" class="btn-chip" onclick="scrollToSection('sec-billing')">💰 Renovações</button>
         <button type="button" class="btn-chip" onclick="scrollToSection('sec-approvals')">🛡️ Modelos</button>
@@ -866,55 +823,6 @@
           <button class="btn-lime-full" onclick="copiarLinkCobranca()">Copiar Link de Impulsionamento</button>
         </div>
       </div>
-
-      <!-- SEÇÃO INTEGRADA: FLUXO DO BOT & PARÂMETROS -->
-      <div class="panel" id="sec-flow-builder" style="margin-top:18px;">
-        <div class="panel-head">
-          <div>
-            <div class="panel-title">⚡ Fluxo do Bot & Parâmetros</div>
-            <div class="panel-sub">Configure os parâmetros do paywall/fluxo ou abra o editor em index.html</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn-chip lime" onclick="abrirPaginaFluxo()">⚡ Abrir Página de Fluxo ↗</button>
-            <button type="button" class="btn-chip" onclick="addFlowNode('trigger')">+ Gatilho</button>
-            <button type="button" class="btn-chip" onclick="addFlowNode('message')">+ Mensagem</button>
-            <button type="button" class="btn-chip" onclick="addFlowNode('media')">+ Foto / Áudio / Vídeo</button>
-            <button type="button" class="btn-chip" onclick="addFlowNode('condition')">+ Condição</button>
-            <button type="button" class="btn-chip" onclick="toggleFlowJson()">JSON</button>
-            <button type="button" class="btn-chip danger" onclick="clearFlowNodes()">Limpar</button>
-            <button type="button" class="btn-action-sm" style="padding:8px 14px;" onclick="saveFlowAndParams()">Salvar Fluxo</button>
-          </div>
-        </div>
-
-        <div class="flow-params-grid">
-          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer;">
-            <input type="checkbox" id="flowPaywallEnabled" checked />
-            Ativar Paywall no Chat
-          </label>
-          <div>
-            <label class="field-lbl">Msgs grátis p/ lead</label>
-            <input type="number" id="flowFreeMessages" class="flow-input" value="3" min="0" max="50" />
-          </div>
-          <div>
-            <label class="field-lbl">Horas liberadas</label>
-            <input type="number" id="flowPaywallHours" class="flow-input" value="24" min="1" max="720" />
-          </div>
-          <div>
-            <label class="field-lbl">Valor Pix BR (R$)</label>
-            <input type="text" id="flowPriceBr" class="flow-input" value="4.90" />
-          </div>
-        </div>
-
-        <div class="flow-nodes-canvas" id="flowNodesCanvas"></div>
-
-        <div id="flowJsonBox" style="display:none;margin-top:10px;">
-          <textarea id="flowJsonTextarea" rows="7"
-            style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#090b0a;color:#bef264;font-family:monospace;font-size:12px;"></textarea>
-          <button type="button" class="btn-dark-sm" style="margin-top:6px;" onclick="applyFlowJson()">Aplicar JSON nos Blocos</button>
-        </div>
-
-        <p id="flowBuilderFeedback" style="font-size:12px;color:var(--lime);margin-top:8px;"></p>
-      </div>
     </main>
 
     <!-- RAIL DIREITA: NOTIFICAÇÕES + NOMES E GMAIL DAS MODELOS -->
@@ -1014,14 +922,6 @@
       window.location.href = FLOW_PAGE_URL;
     }
 
-    let adminFlowState = {
-      nodes: [
-        { id: 'n_1', type: 'trigger', title: 'Gatilho Inicial', text: 'Cliente mandou primeira mensagem' },
-        { id: 'n_2', type: 'message', title: 'Enviar Mensagem', text: 'Oi amor! Tudo bem? 😊 De qual cidade você fala?' }
-      ],
-      edges: []
-    };
-
     function formatDuration(sec) {
       const s = Number(sec || 0);
       if (s < 60) return `${s}s`;
@@ -1039,90 +939,6 @@
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function renderFlowNodes() {
-      const canvas = document.getElementById('flowNodesCanvas');
-      if (!canvas) return;
-      const typeLabels = {
-        trigger: '🔵 Gatilho',
-        message: '🟢 Mensagem',
-        media: '🟣 Foto / Áudio / Vídeo',
-        condition: '🟠 Condição'
-      };
-      canvas.innerHTML = adminFlowState.nodes.map((node, idx) => `
-        <div class="flow-node-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <strong style="font-size:12px;color:var(--lime);">${typeLabels[node.type] || node.title || 'Bloco'} #${idx + 1}</strong>
-            <button type="button" onclick="removeFlowNode('${node.id}')" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:13px;">✕</button>
-          </div>
-          <input type="text" value="${(node.title || '').replace(/"/g, '&quot;')}" placeholder="Título do bloco"
-            oninput="updateFlowNode('${node.id}', 'title', this.value)"
-            style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:#fff;font-size:12px;font-family:inherit;" />
-          <textarea rows="3" placeholder="Texto, URL da mídia ou regra..."
-            oninput="updateFlowNode('${node.id}', 'text', this.value)"
-            style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:#fff;font-size:12px;font-family:inherit;resize:vertical;">${node.text || ''}</textarea>
-        </div>
-      `).join('');
-
-      const ta = document.getElementById('flowJsonTextarea');
-      if (ta) ta.value = JSON.stringify(adminFlowState, null, 2);
-    }
-
-    function addFlowNode(type) {
-      const defaults = {
-        trigger: { title: 'Gatilho', text: 'Quando o cliente enviar mensagem' },
-        message: { title: 'Enviar Mensagem', text: '' },
-        media: { title: 'Enviar Mídia', text: 'https://' },
-        condition: { title: 'Condição', text: 'Se o cliente perguntar preço ou foto' }
-      };
-      const base = defaults[type] || defaults.message;
-      adminFlowState.nodes.push({
-        id: 'n_' + Date.now().toString(36),
-        type,
-        title: base.title,
-        text: base.text
-      });
-      renderFlowNodes();
-    }
-
-    function updateFlowNode(id, field, value) {
-      const item = adminFlowState.nodes.find(n => n.id === id);
-      if (item) item[field] = value;
-      const ta = document.getElementById('flowJsonTextarea');
-      if (ta) ta.value = JSON.stringify(adminFlowState, null, 2);
-    }
-
-    function removeFlowNode(id) {
-      adminFlowState.nodes = adminFlowState.nodes.filter(n => n.id !== id);
-      renderFlowNodes();
-    }
-
-    function clearFlowNodes() {
-      if (!confirm('Limpar todos os blocos do fluxo?')) return;
-      adminFlowState.nodes = [];
-      renderFlowNodes();
-    }
-
-    function toggleFlowJson() {
-      const box = document.getElementById('flowJsonBox');
-      if (!box) return;
-      box.style.display = box.style.display === 'none' ? 'block' : 'none';
-      const ta = document.getElementById('flowJsonTextarea');
-      if (ta) ta.value = JSON.stringify(adminFlowState, null, 2);
-    }
-
-    function applyFlowJson() {
-      const fb = document.getElementById('flowBuilderFeedback');
-      try {
-        const parsed = JSON.parse(document.getElementById('flowJsonTextarea').value);
-        if (!Array.isArray(parsed.nodes)) throw new Error('JSON precisa ter array nodes');
-        adminFlowState = { nodes: parsed.nodes, edges: Array.isArray(parsed.edges) ? parsed.edges : [] };
-        renderFlowNodes();
-        if (fb) fb.innerText = 'JSON aplicado aos blocos.';
-      } catch (e) {
-        if (fb) fb.innerText = 'JSON inválido: ' + e.message;
-      }
-    }
-
     async function carregarCadastrosPorTipo() {
       try {
         const res = await adminFetch('/api/portal/admin/registrations-summary');
@@ -1133,62 +949,6 @@
         document.getElementById('kpi-reg-models').innerText = reg.models ?? 0;
         document.getElementById('kpi-reg-escorts').innerText = reg.escorts ?? 0;
       } catch {}
-    }
-
-    async function carregarFluxoEParametros() {
-      try {
-        const res = await adminFetch('/api/portal/admin/bot-settings');
-        if (!res.ok) return renderFlowNodes();
-        const data = await res.json();
-        const s = data.settings || data;
-        if (s && s.visual_flow) {
-          const parsed = typeof s.visual_flow === 'string' ? JSON.parse(s.visual_flow) : s.visual_flow;
-          if (parsed && Array.isArray(parsed.nodes) && parsed.nodes.length) {
-            adminFlowState = { nodes: parsed.nodes, edges: Array.isArray(parsed.edges) ? parsed.edges : [] };
-          }
-        }
-        if (s && s.paywall_config) {
-          const pw = typeof s.paywall_config === 'string' ? JSON.parse(s.paywall_config) : s.paywall_config;
-          if (pw) {
-            const enEl = document.getElementById('flowPaywallEnabled');
-            const fmEl = document.getElementById('flowFreeMessages');
-            const hrEl = document.getElementById('flowPaywallHours');
-            const prEl = document.getElementById('flowPriceBr');
-            if (enEl && typeof pw.enabled === 'boolean') enEl.checked = pw.enabled;
-            if (fmEl && pw.freeMessages != null) fmEl.value = pw.freeMessages;
-            if (hrEl && pw.hours != null) hrEl.value = pw.hours;
-            if (prEl && pw.priceBr != null) prEl.value = pw.priceBr;
-          }
-        }
-      } catch {}
-      renderFlowNodes();
-    }
-
-    async function saveFlowAndParams() {
-      const fb = document.getElementById('flowBuilderFeedback');
-      if (fb) fb.innerText = 'Salvando fluxo e parâmetros...';
-
-      const pwPayload = {
-        enabled: Boolean(document.getElementById('flowPaywallEnabled')?.checked),
-        freeMessages: Number(document.getElementById('flowFreeMessages')?.value ?? 3),
-        hours: Number(document.getElementById('flowPaywallHours')?.value ?? 24),
-        priceBr: String(document.getElementById('flowPriceBr')?.value || '4.90'),
-      };
-
-      try {
-        const res = await adminFetch('/api/portal/admin/bot-settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            visual_flow: JSON.stringify(adminFlowState),
-            paywall_config: JSON.stringify(pwPayload),
-          }),
-        });
-        if (!res.ok) throw new Error('Falha ao salvar no servidor');
-        if (fb) fb.innerText = 'Fluxo e parâmetros salvos com sucesso!';
-      } catch {
-        if (fb) fb.innerText = 'Erro ao salvar. Faça login novamente se a sessão expirou.';
-      }
     }
 
     async function carregarDashboard() {
@@ -1348,7 +1108,7 @@
       `).join('');
 
       renderApprovalsList(allCreatorsCache);
-      await Promise.all([carregarCadastrosPorTipo(), carregarFluxoEParametros()]);
+      await carregarCadastrosPorTipo();
       document.getElementById('last-updated').innerText = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }
 
