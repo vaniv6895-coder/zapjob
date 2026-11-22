@@ -8,13 +8,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-outer: #0b0e0c;
-      --bg-main: #111312;
-      --bg-card: #171a18;
+      --bg-outer: #080a09;
+      --bg-main: #0f1210;
+      --bg-card: #151917;
+      --bg-elevated: #1b201d;
       --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(163, 230, 53, 0.38);
       --lime: #a3e635;
       --lime-bright: #bef264;
-      --lime-soft: rgba(163, 230, 53, 0.14);
+      --lime-soft: rgba(163, 230, 53, 0.12);
+      --emerald: #10b981;
+      --sky: #38bdf8;
       --danger: #ef4444;
       --warning: #f59e0b;
       --text-main: #f4f4f5;
@@ -23,29 +27,60 @@
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: var(--bg-outer);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(163, 230, 53, 0.07), transparent 36%),
+        radial-gradient(circle at 88% 8%, rgba(16, 185, 129, 0.06), transparent 32%),
+        var(--bg-outer);
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
       min-height: 100vh;
-      padding: 18px 14px 48px;
+      padding: 20px 16px 56px;
     }
-    .container { max-width: 1120px; margin: 0 auto; }
 
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 99px; }
+
+    .container { max-width: 1180px; margin: 0 auto; }
+
+    /* Topbar */
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
     }
+    .brand-header { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(163, 230, 53, 0.22), rgba(16, 185, 129, 0.18));
+      border: 1px solid rgba(163, 230, 53, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .brand-header h1 { font-size: clamp(18px, 2.3vw, 22px); font-weight: 800; letter-spacing: -0.02em; }
+    .brand-header p { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .top-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
     .btn {
       background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-main);
       padding: 9px 14px;
-      border-radius: 10px;
+      border-radius: 11px;
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 700;
@@ -53,23 +88,33 @@
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.16s ease;
+      white-space: nowrap;
     }
-    .btn:hover { border-color: var(--lime); color: var(--lime); }
+    .btn:hover { border-color: var(--border-hover); color: var(--lime); background: var(--bg-elevated); }
     .btn.lime {
-      background: var(--lime);
-      color: #090d0a;
-      border-color: var(--lime);
+      background: linear-gradient(135deg, var(--lime), #84cc16);
+      color: #080b09;
+      border-color: transparent;
+      box-shadow: 0 6px 20px rgba(163, 230, 53, 0.22);
     }
-    .btn.lime:hover { background: var(--lime-bright); color: #090d0a; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.lime:hover {
+      background: linear-gradient(135deg, var(--lime-bright), var(--lime));
+      color: #080b09;
+      transform: translateY(-1px);
+    }
+    .btn.sm { padding: 6px 10px; font-size: 11.5px; border-radius: 8px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-    .banner-status {
+    /* Status Bar & KPIs */
+    .status-strip {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 14px 16px;
-      margin-bottom: 18px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -77,24 +122,105 @@
       flex-wrap: wrap;
       font-size: 13px;
     }
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+    }
+    .status-dot.warn { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
 
-    .grid-2 {
+    .kpi-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 920px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 480px) { .kpi-grid { grid-template-columns: minmax(0, 1fr); } }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 15px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .kpi-lbl { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+    .kpi-val { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+    .kpi-sub { font-size: 11px; color: var(--lime); font-weight: 600; }
+
+    /* Main Workspace Grid */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr);
       gap: 16px;
       margin-bottom: 18px;
     }
-    @media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 920px) { .workspace-grid { grid-template-columns: minmax(0, 1fr); } }
 
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 18px;
+      padding: 20px;
       min-width: 0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
     }
-    .card h2 { font-size: 15.5px; margin-bottom: 4px; }
-    .card p.sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .step-badge {
+      display: inline-block;
+      background: var(--lime-soft);
+      color: var(--lime);
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+    }
+    .card h2 { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+    .card p.sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.45; }
+
+    /* Campaign Type Selector Cards */
+    .goal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 540px) { .goal-grid { grid-template-columns: 1fr; } }
+
+    .goal-option {
+      background: var(--bg-main);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+    }
+    .goal-option:hover { border-color: rgba(255, 255, 255, 0.2); }
+    .goal-option.active {
+      background: rgba(163, 230, 53, 0.09);
+      border-color: var(--lime);
+      box-shadow: inset 0 0 0 1px rgba(163, 230, 53, 0.25);
+    }
+    .goal-option strong { display: block; font-size: 12px; color: #fff; margin-bottom: 2px; }
+    .goal-option span { display: block; font-size: 10.5px; color: var(--text-muted); line-height: 1.3; }
 
     label.lbl {
       display: block;
@@ -103,33 +229,75 @@
       color: var(--text-muted);
       margin-bottom: 6px;
     }
-    select, textarea, input[type="text"], input[type="password"] {
+    textarea, input[type="text"], input[type="password"] {
       width: 100%;
       background: var(--bg-main);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 11px;
       padding: 10px 12px;
       color: #fff;
       font-family: inherit;
       font-size: 13px;
       margin-bottom: 12px;
       outline: none;
+      transition: border-color 0.15s;
     }
-    select:focus, textarea:focus, input:focus { border-color: var(--lime); }
+    textarea:focus, input:focus { border-color: var(--lime); }
 
-    .preview-box {
-      background: #0c0f0d;
-      border: 1px dashed rgba(163, 230, 53, 0.35);
-      border-radius: 12px;
+    /* Realistic Email Preview Mockup */
+    .email-mockup {
+      margin-top: 14px;
+      background: #0c0e0d;
+      border: 1px solid rgba(163, 230, 53, 0.3);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .email-mockup-header {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .email-meta-rows {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .email-meta-rows div span { color: var(--text-dim); display: inline-block; width: 62px; }
+    .email-body-preview {
       padding: 14px;
-      margin-top: 12px;
-      font-size: 12.5px;
-      line-height: 1.5;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #e4e4e7;
       white-space: pre-wrap;
     }
 
+    /* Search & Creator List */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 10px;
+    }
+    .search-wrap input { padding-left: 34px; margin-bottom: 0; }
+    .search-wrap span {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
     .creator-list {
-      max-height: 390px;
+      max-height: 410px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -146,130 +314,244 @@
       border-radius: 12px;
       padding: 10px 12px;
       cursor: pointer;
+      transition: all 0.14s;
     }
-    .creator-row:hover { border-color: rgba(163, 230, 53, 0.4); }
+    .creator-row:hover { border-color: rgba(255, 255, 255, 0.18); background: #141816; }
+    .creator-row.selected {
+      border-color: rgba(163, 230, 53, 0.55);
+      background: rgba(163, 230, 53, 0.06);
+    }
+    .creator-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #272e2a, #1b201d);
+      border: 1px solid var(--border);
+      color: var(--lime);
+      font-weight: 800;
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .creator-row input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--lime);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
     .pill {
       font-size: 10.5px;
       font-weight: 800;
-      padding: 3px 8px;
+      padding: 3px 9px;
       border-radius: 99px;
       background: var(--lime-soft);
       color: var(--lime);
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .pill.warn { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+    .pill.err { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 500px; }
+    /* Table */
+    .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
     th {
       text-align: left;
       color: var(--text-dim);
       font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
-      padding-bottom: 10px;
+      letter-spacing: 0.04em;
+      padding: 0 8px 10px;
       border-bottom: 1px solid var(--border);
     }
-    td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+    td { padding: 11px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover td { background: rgba(255, 255, 255, 0.015); }
 
+    /* Login Gate */
     .auth-gate {
       position: fixed;
       inset: 0;
-      background: rgba(6, 8, 7, 0.96);
+      background: radial-gradient(circle at top, #172114 0%, #060807 75%);
       z-index: 9999;
       display: none;
       align-items: center;
       justify-content: center;
       padding: 16px;
     }
+    .pwd-field { position: relative; }
+    .pwd-field input { padding-right: 42px; }
+    .pwd-toggle {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Login rápido caso abra direto sem sessão ativa -->
+  <!-- Login Gate (só exibe se não houver sessão válida) -->
   <div id="loginGate" class="auth-gate">
-    <div class="card" style="max-width:360px;width:100%;text-align:center;">
-      <div style="font-size:28px;margin-bottom:8px;">🤖✉️</div>
-      <h2 style="margin-bottom:6px;">Agente de IA — Gmail</h2>
-      <p class="sub">Digite a senha do Admin para acessar os disparos.</p>
-      <input type="password" id="pwdInput" placeholder="Senha do Admin" onkeydown="if(event.key==='Enter') fazerLogin()" />
-      <button class="btn lime" style="width:100%;justify-content:center;" onclick="fazerLogin()">Entrar</button>
-      <p id="loginErr" style="font-size:12px;color:#fca5a5;margin-top:8px;"></p>
+    <div class="card" style="max-width:380px;width:100%;text-align:center;padding:26px 22px;">
+      <div style="width:52px;height:52px;border-radius:16px;background:var(--lime-soft);border:1px solid rgba(163,230,53,0.35);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px;">🤖✉️</div>
+      <h2 style="font-size:18px;margin-bottom:6px;">Agente de IA — Gmail</h2>
+      <p class="sub" style="margin-bottom:16px;">Digite a senha do Admin (<strong>PANEL_PASSWORD</strong>) para gerenciar os disparos.</p>
+      <div class="pwd-field">
+        <input type="password" id="pwdInput" placeholder="Senha do Admin" onkeydown="if(event.key==='Enter') fazerLogin()" />
+        <button type="button" class="pwd-toggle" onclick="togglePwd()" title="Mostrar/ocultar senha">👁️</button>
+      </div>
+      <button type="button" id="btnLogin" class="btn lime" style="width:100%;" onclick="fazerLogin()">Entrar no Agente IA</button>
+      <p id="loginErr" style="font-size:12px;color:#fca5a5;margin-top:10px;min-height:16px;"></p>
     </div>
   </div>
 
   <div class="container">
+    <!-- Topbar -->
     <div class="topbar">
-      <div>
-        <h1 style="font-size:20px;font-weight:800;">🤖✉️ Agente de IA — Disparos via Gmail</h1>
-        <p style="font-size:12.5px;color:var(--text-muted);">Gera mensagens personalizadas por IA e dispara para o Gmail das modelos</p>
+      <div class="brand-header">
+        <div class="brand-icon">🤖✉️</div>
+        <div>
+          <h1>Agente de IA — Disparos via Gmail</h1>
+          <p>Prospecção e reativação personalizada com Gemini IA para criadoras da Garota VIP</p>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="/admin-dashboard" class="btn">← Voltar ao Painel Admin</a>
-        <button class="btn" onclick="carregarDados()">↻ Atualizar</button>
+      <div class="top-actions">
+        <a href="/admin-dashboard" class="btn">← Command Center</a>
+        <button type="button" class="btn" onclick="carregarDados()">↻ Atualizar</button>
+        <button type="button" class="btn" onclick="sairAdmin()" style="color:#fca5a5;">Sair</button>
       </div>
     </div>
 
-    <div class="banner-status" id="gmailStatusBanner">
-      <span>Verificando conexão com Gmail...</span>
+    <!-- Status Strip -->
+    <div class="status-strip" id="gmailStatusBanner">
+      <span><i class="status-dot warn"></i>Verificando conexão SMTP com Gmail...</span>
     </div>
 
-    <div class="grid-2">
-      <!-- CONFIGURAÇÃO DO AGENTE DE IA -->
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-lbl">Garotas com Gmail Ativo</span>
+        <span class="kpi-val" id="kpiTotalCreators">0</span>
+        <span class="kpi-sub">Base elegível para envio</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-lbl">Sem Destaque / Expiradas</span>
+        <span class="kpi-val" id="kpiNeedBoost">0</span>
+        <span class="kpi-sub" style="color:var(--warning);">Oportunidade de upgrade</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-lbl">Selecionadas Agora</span>
+        <span class="kpi-val" id="kpiSelected">0</span>
+        <span class="kpi-sub">Prontas para disparo</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-lbl">E-mails Enviados (Histórico)</span>
+        <span class="kpi-val" id="kpiTotalSent">0</span>
+        <span class="kpi-sub">Disparos registrados</span>
+      </div>
+    </div>
+
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+      <!-- Coluna 1: Configuração da IA -->
       <div class="card">
-        <h2>1. Configurar Abordagem da IA</h2>
-        <p class="sub">A IA cria um e-mail único para cada modelo usando o nome, cidade e visitas dela.</p>
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Etapa 1 • Inteligência Artificial</span>
+            <h2>Configurar Abordagem da IA</h2>
+            <p class="sub">O Gemini escreve um assunto e texto exclusivos para cada modelo com base nos dados reais dela.</p>
+          </div>
+        </div>
 
-        <label class="lbl">Objetivo da Campanha</label>
-        <select id="campaignType">
-          <option value="boost">🚀 Impulsionar Perfil (Voltar ao Topo / VIP)</option>
-          <option value="onboarding">✨ Completar Cadastro e Fotos / Verificação</option>
-          <option value="reactivation">🔥 Reativar Modelo (Alertar sobre Buscas na Cidade)</option>
-        </select>
+        <label class="lbl">Escolha o Objetivo da Campanha</label>
+        <input type="hidden" id="campaignType" value="boost" />
+        <div class="goal-grid">
+          <button type="button" class="goal-option active" onclick="selectGoal('boost', this)">
+            <strong>🚀 Impulsionar</strong>
+            <span>Convidar para VIP/Diamante e voltar ao topo</span>
+          </button>
+          <button type="button" class="goal-option" onclick="selectGoal('onboarding', this)">
+            <strong>✨ Completar Perfil</strong>
+            <span>Incentivar fotos, vídeos e biometria facial</span>
+          </button>
+          <button type="button" class="goal-option" onclick="selectGoal('reactivation', this)">
+            <strong>🔥 Reativação</strong>
+            <span>Alertar sobre buscas recentes na cidade dela</span>
+          </button>
+        </div>
 
         <label class="lbl">Instrução Extra para o Agente de IA (opcional)</label>
-        <textarea id="customPrompt" rows="3" placeholder="Ex: Mencione que temos planos a partir de R$ 9,90 e destaque imediato na 1ª linha..."></textarea>
+        <textarea id="customPrompt" rows="3" placeholder="Ex: Destaque o plano Subida ao Topo por R$ 9,90 e lembre que o Pix libera na hora..."></textarea>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="btn" id="btnPreview" onclick="gerarPrevia()">👁️ Gerar Prévia da IA</button>
-          <button type="button" class="btn lime" id="btnSend" onclick="dispararEmails()">🚀 Disparar via Gmail (<span id="selectedCount">0</span>)</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="button" class="btn" id="btnPreview" onclick="gerarPrevia()" style="flex:1;">👁️ Gerar Prévia da IA</button>
+          <button type="button" class="btn lime" id="btnSend" onclick="dispararEmails()" style="flex:1.3;">🚀 Disparar via Gmail (<span id="selectedCount">0</span>)</button>
         </div>
 
-        <div id="previewContainer" style="display:none;">
-          <div class="preview-box" id="previewBox"></div>
+        <div id="previewContainer" class="email-mockup" style="display:none;">
+          <div class="email-mockup-header">
+            <span>📨 Pré-visualização do E-mail Gerado</span>
+            <button type="button" class="btn sm" onclick="copiarPrevia()">📋 Copiar Texto</button>
+          </div>
+          <div class="email-meta-rows">
+            <div><span>Para:</span> <strong id="prevTo" style="color:#fff;">-</strong></div>
+            <div><span>Assunto:</span> <strong id="prevSubject" style="color:var(--lime);">-</strong></div>
+          </div>
+          <div class="email-body-preview" id="prevBody"></div>
         </div>
-        <p id="sendFeedback" style="font-size:12px;color:var(--lime);margin-top:10px;"></p>
+
+        <p id="sendFeedback" style="font-size:12.5px;font-weight:600;color:var(--lime);margin-top:12px;"></p>
       </div>
 
-      <!-- SELEÇÃO DE MODELOS / GMAILS -->
+      <!-- Coluna 2: Seleção de Destinatárias -->
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <div class="card-head">
           <div>
-            <h2>2. Selecionar Garotas (Gmail)</h2>
-            <p class="sub" style="margin-bottom:0;">Escolha manualmente ou filtre quem precisa impulsionar.</p>
+            <span class="step-badge">Etapa 2 • Destinatárias</span>
+            <h2>Selecionar Garotas (Gmail)</h2>
+            <p class="sub">Filtre por nome, e-mail ou cidade e marque quem vai receber.</p>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button type="button" class="btn" style="padding:6px 10px;font-size:11px;" onclick="selecionarSemDestaque()">Selecionar Sem Destaque</button>
-            <button type="button" class="btn" style="padding:6px 10px;font-size:11px;" onclick="toggleTodos()">Todas / Nenhuma</button>
+            <button type="button" class="btn sm" onclick="selecionarSemDestaque()">⚡ Sem Destaque</button>
+            <button type="button" class="btn sm" onclick="toggleTodos()">☑️ Todas / Limpar</button>
           </div>
         </div>
 
-        <input type="text" id="filterInput" placeholder="Buscar por nome, Gmail ou cidade..." oninput="renderCreators()" />
+        <div class="search-wrap">
+          <span>🔍</span>
+          <input type="text" id="filterInput" placeholder="Buscar por nome artístico, Gmail ou cidade..." oninput="renderCreators()" />
+        </div>
 
         <div class="creator-list" id="creatorList"></div>
       </div>
     </div>
 
-    <!-- HISTÓRICO DE DISPAROS -->
+    <!-- Histórico -->
     <div class="card">
-      <h2>3. Histórico de Disparos Realizados</h2>
-      <p class="sub">Últimos e-mails gerados pelo Agente de IA e enviados via Gmail.</p>
-      <div style="overflow-x:auto;">
+      <div class="card-head">
+        <div>
+          <span class="step-badge">Etapa 3 • Auditoria & Logs</span>
+          <h2>Histórico de Disparos Realizados</h2>
+          <p class="sub">Registro em tempo real dos e-mails gerados pela IA e entregues pelo Gmail.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Data</th>
+              <th>Data / Hora</th>
               <th>Modelo</th>
-              <th>Gmail</th>
-              <th>Assunto</th>
+              <th>Gmail Destino</th>
+              <th>Assunto Gerado pela IA</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -291,60 +573,134 @@
       });
     }
 
+    function togglePwd() {
+      const inp = document.getElementById('pwdInput');
+      if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    function selectGoal(val, btn) {
+      document.getElementById('campaignType').value = val;
+      document.querySelectorAll('.goal-option').forEach(el => el.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function sairAdmin() {
+      sessionStorage.removeItem('gv_admin_token');
+      adminToken = '';
+      document.getElementById('loginGate').style.display = 'flex';
+    }
+
     async function fazerLogin() {
-      const password = (document.getElementById('pwdInput')?.value || '').trim();
+      const input = document.getElementById('pwdInput');
+      const btn = document.getElementById('btnLogin');
       const err = document.getElementById('loginErr');
-      if (!password) return;
-      const res = await fetch('/api/portal/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.token) {
-        err.innerText = data.error || 'Senha incorreta.';
+      const password = (input?.value || '').trim();
+
+      if (!password) {
+        err.innerText = 'Digite a senha do Admin.';
         return;
       }
-      adminToken = data.token;
-      sessionStorage.setItem('gv_admin_token', adminToken);
-      document.getElementById('loginGate').style.display = 'none';
-      carregarDados();
+
+      btn.disabled = true;
+      btn.innerText = 'Validando...';
+      err.innerText = '';
+
+      try {
+        const res = await fetch('/api/portal/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.token) {
+          err.innerText = data.error || `Senha incorreta (HTTP ${res.status}).`;
+          return;
+        }
+        adminToken = data.token;
+        sessionStorage.setItem('gv_admin_token', adminToken);
+        input.value = '';
+        document.getElementById('loginGate').style.display = 'none';
+        await carregarDados();
+      } catch (e) {
+        err.innerText = 'Erro de conexão com o servidor.';
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Entrar no Agente IA';
+      }
     }
 
     async function carregarDados() {
+      const gate = document.getElementById('loginGate');
+      const err = document.getElementById('loginErr');
+
       if (!adminToken) {
-        document.getElementById('loginGate').style.display = 'flex';
+        gate.style.display = 'flex';
         return;
       }
-      const res = await authFetch('/api/portal/admin/ai-gmail/data');
-      if (!res.ok) {
-        sessionStorage.removeItem('gv_admin_token');
-        adminToken = '';
-        document.getElementById('loginGate').style.display = 'flex';
-        return;
-      }
-      const data = await res.json();
-      creators = data.creators || [];
 
-      const banner = document.getElementById('gmailStatusBanner');
-      if (data.gmailConfigured) {
-        banner.innerHTML = `<span>✅ <strong>Gmail Conectado:</strong> ${data.senderEmail}</span><span class="pill">Pronto para disparar</span>`;
-      } else {
-        banner.innerHTML = `<span style="color:#fcd34d;">⚠️ <strong>Gmail não configurado:</strong> Adicione <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> nas variáveis do Railway.</span><span class="pill warn">Modo Prévia</span>`;
-      }
+      try {
+        const res = await authFetch('/api/portal/admin/ai-gmail/data');
+        const data = await res.json().catch(() => ({}));
 
-      renderCreators();
-      renderLogs(data.logs || []);
+        // Só volta ao login se a sessão realmente não estiver autorizada
+        if (res.status === 401 || res.status === 403) {
+          sessionStorage.removeItem('gv_admin_token');
+          adminToken = '';
+          gate.style.display = 'flex';
+          err.innerText = data.error || 'Sessão expirada. Digite a senha novamente.';
+          return;
+        }
+
+        gate.style.display = 'none';
+
+        if (!res.ok) {
+          document.getElementById('gmailStatusBanner').innerHTML =
+            `<span><i class="status-dot warn"></i>Erro ao consultar servidor: ${data.error || 'HTTP ' + res.status}</span>`;
+          return;
+        }
+
+        creators = data.creators || [];
+        const logs = data.logs || [];
+
+        const banner = document.getElementById('gmailStatusBanner');
+        if (data.gmailConfigured) {
+          banner.innerHTML = `
+            <span><i class="status-dot"></i><strong>Gmail Conectado:</strong> ${data.senderEmail}</span>
+            <span class="pill">SMTP Ativo • Pronto para Disparar</span>
+          `;
+        } else {
+          banner.innerHTML = `
+            <span style="color:#fcd34d;"><i class="status-dot warn"></i><strong>Gmail não configurado:</strong> Adicione <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> no Railway.</span>
+            <span class="pill warn">Modo Prévia</span>
+          `;
+        }
+
+        const now = new Date();
+        const needBoost = creators.filter(c => !c.featured_until || new Date(c.featured_until) < now || c.tier === 'free').length;
+        const sentCount = logs.filter(l => l.status === 'sent').length;
+
+        document.getElementById('kpiTotalCreators').innerText = creators.length;
+        document.getElementById('kpiNeedBoost').innerText = needBoost;
+        document.getElementById('kpiTotalSent').innerText = sentCount;
+
+        renderCreators();
+        renderLogs(logs);
+      } catch (e) {
+        gate.style.display = 'none';
+        document.getElementById('gmailStatusBanner').innerHTML =
+          `<span><i class="status-dot warn"></i>Falha de rede ao carregar dados: ${e.message}</span>`;
+      }
     }
 
     function updateSelectedCounter() {
       document.getElementById('selectedCount').innerText = selectedIds.size;
+      document.getElementById('kpiSelected').innerText = selectedIds.size;
     }
 
     function toggleCreator(id) {
       if (selectedIds.has(id)) selectedIds.delete(id);
       else selectedIds.add(id);
-      updateSelectedCounter();
+      renderCreators();
     }
 
     function selecionarSemDestaque() {
@@ -376,22 +732,24 @@
       );
 
       document.getElementById('creatorList').innerHTML = filtered.map(c => {
-        const checked = selectedIds.has(c.id) ? 'checked' : '';
+        const isChecked = selectedIds.has(c.id);
         const isFree = !c.featured_until || new Date(c.featured_until) < new Date() || c.tier === 'free';
+        const initials = (c.stage_name || 'GV').slice(0, 2).toUpperCase();
         return `
-          <label class="creator-row">
+          <label class="creator-row ${isChecked ? 'selected' : ''}">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <input type="checkbox" ${checked} onchange="toggleCreator(${c.id})" />
+              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCreator(${c.id})" />
+              <div class="creator-avatar">${initials}</div>
               <div style="min-width:0;">
                 <strong style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.stage_name}</strong>
-                <span style="font-size:11.5px;color:#93c5fd;word-break:break-all;">${c.email}</span>
-                <span style="font-size:11px;color:var(--text-dim);display:block;">${c.city}-${c.state} • ${c.views_count} visitas</span>
+                <span style="font-size:11.5px;color:var(--sky);word-break:break-all;display:block;">${c.email}</span>
+                <span style="font-size:11px;color:var(--text-dim);display:block;">📍 ${c.city}-${c.state} • 👁️ ${c.views_count} visitas</span>
               </div>
             </div>
-            <span class="pill ${isFree ? 'warn' : ''}">${isFree ? 'Sem Destaque' : c.tier.toUpperCase()}</span>
+            <span class="pill ${isFree ? 'warn' : ''}">${isFree ? 'Sem Destaque' : (c.tier || 'VIP').toUpperCase()}</span>
           </label>
         `;
-      }).join('') || '<p style="font-size:12px;color:var(--text-dim);">Nenhuma modelo encontrada.</p>';
+      }).join('') || '<p style="font-size:12.5px;color:var(--text-dim);padding:12px;text-align:center;">Nenhuma modelo encontrada com esse filtro.</p>';
 
       updateSelectedCounter();
     }
@@ -401,22 +759,29 @@
         <tr>
           <td style="white-space:nowrap;color:var(--text-muted);">${new Date(l.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
           <td><strong>${l.stage_name || '-'}</strong></td>
-          <td style="color:#93c5fd;">${l.recipient_email}</td>
+          <td style="color:var(--sky);">${l.recipient_email}</td>
           <td>${l.subject || '-'}</td>
-          <td>${l.status === 'sent' ? '<span class="pill">Enviado</span>' : `<span class="pill warn" title="${l.error_msg || ''}">Erro</span>`}</td>
+          <td>${l.status === 'sent' ? '<span class="pill">✅ Enviado</span>' : `<span class="pill err" title="${l.error_msg || ''}">⚠️ Erro</span>`}</td>
         </tr>
-      `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:16px;">Nenhum disparo realizado ainda.</td></tr>';
+      `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:20px;">Nenhum disparo realizado ainda. Selecione uma garota acima para testar.</td></tr>';
+    }
+
+    function copiarPrevia() {
+      const subj = document.getElementById('prevSubject').innerText;
+      const body = document.getElementById('prevBody').innerText;
+      navigator.clipboard.writeText(`Assunto: ${subj}\n\n${body}`);
+      alert('Assunto e mensagem copiados!');
     }
 
     async function gerarPrevia() {
       const ids = Array.from(selectedIds);
       if (!ids.length) {
-        alert('Selecione ao menos 1 modelo na lista ao lado para gerar a prévia.');
+        alert('Selecione ao menos 1 garota na lista ao lado para gerar a prévia.');
         return;
       }
       const btn = document.getElementById('btnPreview');
       btn.disabled = true;
-      btn.innerText = 'Gerando texto com IA...';
+      btn.innerText = '⏳ Gerando com IA...';
 
       try {
         const res = await authFetch('/api/portal/admin/ai-gmail/send', {
@@ -431,9 +796,11 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Erro ao gerar prévia');
-        const box = document.getElementById('previewBox');
+
+        document.getElementById('prevTo').innerText = `${data.recipient.stage_name} <${data.recipient.email}>`;
+        document.getElementById('prevSubject').innerText = data.preview.subject;
+        document.getElementById('prevBody').innerText = data.preview.body;
         document.getElementById('previewContainer').style.display = 'block';
-        box.innerText = `Para: ${data.recipient.stage_name} <${data.recipient.email}>\nAssunto: ${data.preview.subject}\n\n${data.preview.body}`;
       } catch (e) {
         alert(e.message);
       } finally {
@@ -445,7 +812,7 @@
     async function dispararEmails() {
       const ids = Array.from(selectedIds);
       if (!ids.length) {
-        alert('Selecione ao menos uma modelo.');
+        alert('Selecione ao menos uma garota na lista ao lado.');
         return;
       }
       if (!confirm(`Confirmar disparo de e-mail personalizado por IA para ${ids.length} modelo(s)?`)) return;
@@ -453,7 +820,8 @@
       const btn = document.getElementById('btnSend');
       const fb = document.getElementById('sendFeedback');
       btn.disabled = true;
-      fb.innerText = 'Agente de IA gerando e disparando e-mails via Gmail...';
+      fb.style.color = 'var(--lime)';
+      fb.innerText = '⏳ Agente de IA escrevendo e disparando via Gmail...';
 
       try {
         const res = await authFetch('/api/portal/admin/ai-gmail/send', {
@@ -468,12 +836,21 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Falha no envio');
+
         const sent = (data.results || []).filter(r => r.status === 'sent').length;
-        const errors = (data.results || []).filter(r => r.status !== 'sent').length;
-        fb.innerText = `Concluído: ${sent} e-mail(s) enviado(s)${errors ? ` • ${errors} falha(s)` : ''}.`;
+        const errors = (data.results || []).filter(r => r.status !== 'sent');
+
+        if (errors.length > 0 && sent === 0) {
+          fb.style.color = '#fca5a5';
+          fb.innerText = `⚠️ Falha no envio: ${errors[0].error || 'verifique GMAIL_APP_PASSWORD'}`;
+        } else {
+          fb.style.color = 'var(--lime)';
+          fb.innerText = `✅ Concluído: ${sent} e-mail(s) enviado(s)${errors.length ? ` • ${errors.length} falha(s)` : ''}.`;
+        }
         await carregarDados();
       } catch (e) {
-        fb.innerText = 'Erro: ' + e.message;
+        fb.style.color = '#fca5a5';
+        fb.innerText = '⚠️ Erro: ' + e.message;
       } finally {
         btn.disabled = false;
       }

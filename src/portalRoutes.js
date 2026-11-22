@@ -211,31 +211,50 @@ export function registerPortalRoutes(app) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Lista destinatárias elegíveis + histórico recente de disparos
+  // Lista destinatárias elegíveis + histórico recente de disparos (blindada contra diferenças de colunas)
   app.get('/api/portal/admin/ai-gmail/data', async (req, reply) => {
-    const [creatorsRes, logsRes] = await Promise.all([
-      pool.query(`
-        SELECT id, stage_name, email, city, state, tier, verified, featured_until,
-               COALESCE(views_count, 0)::int AS views_count
+    let creators = [];
+    let logs = [];
+
+    try {
+      const creatorsRes = await pool.query(`
+        SELECT *
         FROM creator_accounts
         WHERE COALESCE(email, '') <> ''
           AND email NOT LIKE '%@demo.com'
         ORDER BY id DESC
-      `),
-      pool.query(`
+      `);
+      creators = creatorsRes.rows.map((c) => ({
+        id: c.id,
+        stage_name: c.stage_name || c.name || 'Sem nome',
+        email: c.email,
+        city: c.city || '-',
+        state: c.state || '-',
+        tier: c.tier || 'free',
+        verified: Boolean(c.verified),
+        featured_until: c.featured_until || null,
+        views_count: Number(c.views_count || 0),
+      }));
+    } catch (err) {
+      app.log.error(err, '[AI Gmail] Erro ao listar creator_accounts');
+    }
+
+    try {
+      const logsRes = await pool.query(`
         SELECT id, recipient_email, stage_name, campaign_type, subject, status, error_msg, created_at
         FROM ai_email_campaigns
         ORDER BY created_at DESC
         LIMIT 50
-      `).catch(() => ({ rows: [] })),
-    ]);
+      `);
+      logs = logsRes.rows;
+    } catch {}
 
     return reply.send({
       ok: true,
       gmailConfigured: Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD),
       senderEmail: process.env.GMAIL_USER || '',
-      creators: creatorsRes.rows,
-      logs: logsRes.rows,
+      creators,
+      logs,
     });
   });
 
@@ -507,7 +526,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     if (!pix) return reply.status(500).send({ error: 'Falha ao gerar Pix no Mercado Pago.' });
 
     await pool.query(`UPDATE highlight_orders SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), order.id]);
-    return reply.send({ ok: true, orderId: order.id, plan, qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 });
+    return reply.send({ ok: true, orderId: order.id, plan, qrCode: pix.qrCode, qrCodeBase64: pix.qrCode_base64 });
   });
 
   app.get('/r/wa/:slug', async (req, reply) => {
