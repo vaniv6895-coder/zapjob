@@ -372,24 +372,36 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
-  // Gerar legenda quente com Gemini para o post de prévia no Telegram
+  // Gerar legenda quente com Gemini para o post de prévia / agendamento no Telegram
   app.post('/api/panel/telegram-preview/caption', async (req, reply) => {
     if (!checkAuth(req, reply)) return;
-    const { contextHint = '', mood = 'provocante' } = req.body || {};
+    const { contextHint = '', mood = 'quente' } = req.body || {};
     const geminiKey = process.env.GEMINI_API_KEY;
 
+    const styleMap = {
+      quente: 'bem quente, sensual e sedutor, despertando desejo imediato',
+      safado: 'ousado, provocante e atrevido, com clima de quarto e tensão',
+      intimo: 'íntimo, sussurrado e envolvente, como um segredo só pra quem tá vendo',
+    };
+    const styleDesc = styleMap[mood] || styleMap.quente;
+
     const fallbackCaptions = [
-      'Acabei de tirar essa foto e não consegui guardar só pra mim... 🔥 Vem ver o que ficou de fora no VIP.',
-      'Olhando assim você já imagina o que tem lá no privado... 😈 Corre antes que eu apague.',
-      'Bastidores de hoje à noite tá pegando fogo... 💋 Quem quer a versão completa?',
+      'Acabei de tirar isso e não consegui guardar só pra mim... 🔥🍆 Vem ver o que ficou de fora no VIP.',
+      'Olhando assim você já imagina o que tem lá no privado... 😈🍆 Corre antes que eu apague.',
+      'Bastidores de hoje à noite tá pegando fogo... 💋🍆 Quem quer a versão completa?',
+      'Isso aqui é só um gostinho do que não cabe aqui... 🥵🍆 Quer ver o resto sem corte?',
     ];
 
     if (geminiKey) {
       try {
-        const prompt = `Escreva 1 legenda curta, quente e provocante em português para postar junto com uma foto em um canal/grupo de prévias no Telegram.
-Tom: ${mood}.
-${contextHint ? `Contexto da foto: ${contextHint}.` : ''}
-Use no máximo 2 frases, inclua 1 ou 2 emojis sensuais e termine com um gancho para o VIP sem parecer spam. Responda APENAS o texto da legenda.`;
+        const prompt = `Você escreve legendas curtas para prévias de fotos e vídeos no Telegram de um perfil adulto/sensual.
+Estilo: ${styleDesc}.
+${contextHint ? `Contexto da mídia: ${contextHint}.` : ''}
+Regras:
+- Escreva 1 ou 2 frases curtas, diretas e com muita pegada (nada de texto sem graça ou genérico).
+- Use no máximo 2 emojis sensuais/provocantes (ex: 🍆, 🔥, 😈, 🥵, 💋, 👀).
+- Crie curiosidade para o conteúdo completo/sem corte no VIP sem usar palavras bloqueadas ou links soltos.
+- Responda APENAS a legenda final, sem aspas e sem explicações.`;
 
         const aiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
