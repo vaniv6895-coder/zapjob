@@ -107,6 +107,20 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         [creatorId]
       );
 
+      const buyersRes = await pool.query(
+        `SELECT buyer_identifier, 'Assinatura' AS sale_type, price, created_at
+         FROM vip_subscriptions
+         WHERE creator_id = $1 AND paid = TRUE
+         UNION ALL
+         SELECT u.buyer_identifier, 'Avulso (PPV)' AS sale_type, u.price, u.created_at
+         FROM ppv_unlocks u
+         JOIN vip_posts p ON p.id = u.post_id
+         WHERE p.creator_id = $1 AND u.paid = TRUE
+         ORDER BY created_at DESC
+         LIMIT 30`,
+        [creatorId]
+      );
+
       const totalSubs = Number(subsRes.rows[0]?.total_subs || 0);
       const totalPpv = Number(ppvRes.rows[0]?.total_ppv || 0);
 
@@ -120,6 +134,12 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
         daily: dailyRes.rows.map((r) => ({
           label: r.label,
           total: Number(r.total || 0),
+        })),
+        recentBuyers: buyersRes.rows.map((b) => ({
+          buyer_identifier: b.buyer_identifier,
+          sale_type: b.sale_type,
+          price: Number(b.price || 0),
+          created_at: b.created_at,
         })),
       });
     });
@@ -441,6 +461,12 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
 
   app.get('/vip/:slug', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'clube-vip.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/galeria-assinantes', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'galeria-assinantes.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
