@@ -100,32 +100,43 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
   let type = mediaKind;
   if (!type) {
     if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(mediaUrl)) type = 'audio';
-    else if (/\.(mp4|mov|avi)(\?|$)/i.test(mediaUrl)) type = 'video';
+    else if (/\.(mp4|mov|avi|m4v)(\?|$)/i.test(mediaUrl)) type = 'video';
     else type = 'image';
   }
 
-  const fileRes = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+  console.log(`[WhatsApp] Preparando envio de ${type} para ${to}: ${mediaUrl}`);
+
+  const fileRes = await axios.get(mediaUrl, {
+    responseType: 'arraybuffer',
+    timeout: 60000,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+  });
+
   let buffer = Buffer.from(fileRes.data);
-  let contentType = fileRes.headers['content-type'] || '';
+  let contentType = String(fileRes.headers['content-type'] || '').split(';')[0].trim();
   let ext = 'jpg';
 
   if (type === 'audio') {
-    // Converte qualquer áudio (MP3, WAV, M4A, OGG) para OGG/Opus 48kHz mono nativo do WhatsApp PTT
     buffer = await convertAudioToOggOpus(buffer);
     contentType = 'audio/ogg; codecs=opus';
     ext = 'ogg';
   } else if (type === 'video') {
-    if (!contentType || contentType.includes('octet-stream')) contentType = 'video/mp4';
+    if (!contentType || contentType.includes('octet-stream') || !contentType.startsWith('video/')) {
+      contentType = 'video/mp4';
+    }
     ext = 'mp4';
   } else {
-    if (!contentType || contentType.includes('octet-stream')) contentType = 'image/jpeg';
+    if (!contentType || contentType.includes('octet-stream') || !contentType.startsWith('image/')) {
+      contentType = 'image/jpeg';
+    }
     ext = 'jpg';
   }
 
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('file', buffer, {
-    filename: `voice_${Date.now()}.${ext}`,
+    filename: `media_${Date.now()}.${ext}`,
     contentType,
   });
 
@@ -134,11 +145,14 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
       Authorization: `Bearer ${META_TOKEN}`,
       ...form.getHeaders(),
     },
+    timeout: 60000,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
   });
 
   const mediaId = uploadRes.data?.id;
   if (!mediaId) {
-    throw new Error('Falha ao obter media_id da Meta no upload');
+    throw new Error(`Falha ao obter media_id da Meta no upload de ${type}`);
   }
 
   const mediaObject = { id: mediaId };
@@ -155,5 +169,8 @@ export async function sendWhatsAppMedia(to, mediaUrl, mediaKind = null) {
 
   await axios.post(`${GRAPH_URL}/${PHONE_NUMBER_ID}/messages`, payload, {
     headers: authHeaders(),
+    timeout: 30000,
   });
+
+  console.log(`[WhatsApp] ${type} enviado com sucesso para ${to} (mediaId: ${mediaId})`);
 }
