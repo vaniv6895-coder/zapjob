@@ -145,14 +145,30 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     });
 
     app.post('/api/vip/posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
-      const { caption, mediaType, mediaUrl, previewUrl, price, singleView, allowSubscription } = req.body || {};
-      if (!mediaUrl) {
-        return reply.status(400).send({ error: 'Arquivo de mídia obrigatório.' });
+      const body = req.body || {};
+      const resolvedMediaUrl = String(
+        body.mediaUrl || body.media_url || body.publicUrl || body.public_url || ''
+      ).trim();
+
+      if (!resolvedMediaUrl) {
+        return reply.status(400).send({ ok: false, error: 'Arquivo de mídia obrigatório.' });
       }
 
-      const finalPrice = Number(price) > 0 ? Number(price) : 29.90;
-      const isSingle = singleView !== false;
-      const allowSub = allowSubscription !== false;
+      const resolvedMediaType = ['video', 'image', 'audio'].includes(body.mediaType || body.media_type)
+        ? (body.mediaType || body.media_type)
+        : 'image';
+      const resolvedPreviewUrl = String(
+        body.previewUrl || body.preview_url || resolvedMediaUrl
+      ).trim();
+
+      const parsedPrice = Number(String(body.price ?? '').replace(',', '.'));
+      const finalPrice = !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? Number(parsedPrice.toFixed(2)) : 0;
+
+      const rawSingle = body.singleView !== undefined ? body.singleView : body.single_view;
+      const isSingle = rawSingle !== false;
+
+      const rawSub = body.allowSubscription !== undefined ? body.allowSubscription : body.allow_subscription;
+      const allowSub = rawSub !== false;
 
       const { rows } = await pool.query(
         `INSERT INTO vip_posts (creator_id, caption, media_type, media_url, preview_url, price, single_view, allow_subscription)
@@ -160,10 +176,10 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
          RETURNING *`,
         [
           req.creator.id,
-          (caption || '').trim(),
-          mediaType || 'image',
-          mediaUrl,
-          previewUrl || mediaUrl,
+          (body.caption || '').trim(),
+          resolvedMediaType,
+          resolvedMediaUrl,
+          resolvedPreviewUrl,
           finalPrice,
           isSingle,
           allowSub,

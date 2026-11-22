@@ -181,7 +181,7 @@
     </section>
   </main>
 
-  <script>
+ <script>
     const token =
       sessionStorage.getItem('portal_token') ||
       localStorage.getItem('portal_token') ||
@@ -228,10 +228,115 @@
       barEl.style.width = `${safePct}%`;
     }
 
+    // Otimização inteligente 100% LOCAL no navegador (privacidade total, sem servidores externos)
+    // Reduz vídeos pesados (>25MB) para 1080p mantendo nitidez e áudio original
+    async function otimizarVideoLocalmente(file, onProgress) {
+      const sizeMb = file.size / (1024 * 1024);
+      if (sizeMb <= 25) return file; // Vídeos leves já sobem direto sem perda
+
+      return new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.muted = false;
+        video.playsInline = true;
+        video.preload = 'auto';
+        const srcUrl = URL.createObjectURL(file);
+        video.src = srcUrl;
+
+        video.onloadedmetadata = async () => {
+          try {
+            const duration = video.duration || 0;
+            const origW = video.videoWidth || 1080;
+            const origH = video.videoHeight || 1920;
+
+            // Mantém até 1080p no maior lado (preserva 100% da nitidez em celular)
+            const maxSide = 1080;
+            const scale = Math.max(origW, origH) > maxSide ? maxSide / Math.max(origW, origH) : 1;
+            const targetW = Math.round((origW * scale) / 2) * 2;
+            const targetH = Math.round((origH * scale) / 2) * 2;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+
+            const canvasStream = canvas.captureStream(30);
+            // Captura faixa de áudio original se disponível
+            const videoStream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+            if (videoStream) {
+              videoStream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
+            }
+
+            const mimeCandidates = [
+              'video/mp4;codecs=avc1,mp4a.40.2',
+              'video/mp4',
+              'video/webm;codecs=vp9,opus',
+              'video/webm;codecs=vp8,opus',
+              'video/webm'
+            ];
+            const chosenMime = mimeCandidates.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+            if (!chosenMime) {
+              URL.revokeObjectURL(srcUrl);
+              return resolve(file);
+            }
+
+            // Bitrate inteligente: 4.5 Mbps em 1080p garante imagem cristalina sem estourar tamanho
+            const recorder = new MediaRecorder(canvasStream, {
+              mimeType: chosenMime,
+              videoBitsPerSecond: 4_500_000,
+              audioBitsPerSecond: 128_000
+            });
+
+            const chunks = [];
+            recorder.ondataavailable = (e) => {
+              if (e.data && e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = () => {
+              URL.revokeObjectURL(srcUrl);
+              const outExt = chosenMime.includes('mp4') ? 'mp4' : 'webm';
+              const optimizedBlob = new Blob(chunks, { type: chosenMime.split(';')[0] });
+              // Só usa a versão renderizada se realmente ficou menor
+              if (optimizedBlob.size > 0 && optimizedBlob.size < file.size) {
+                const newName = file.name.replace(/\.[^.]+$/, '') + '.' + outExt;
+                resolve(new File([optimizedBlob], newName, { type: optimizedBlob.type }));
+              } else {
+                resolve(file);
+              }
+            };
+
+            video.muted = true; // evita eco nos alto-falantes durante a renderização
+            await video.play();
+            recorder.start(250);
+
+            const drawFrame = () => {
+              if (video.paused || video.ended) {
+                if (recorder.state !== 'inactive') recorder.stop();
+                return;
+              }
+              ctx.drawImage(video, 0, 0, targetW, targetH);
+              if (duration > 0 && typeof onProgress === 'function') {
+                onProgress(Math.min(99, Math.round((video.currentTime / duration) * 100)));
+              }
+              requestAnimationFrame(drawFrame);
+            };
+            drawFrame();
+          } catch {
+            URL.revokeObjectURL(srcUrl);
+            resolve(file);
+          }
+        };
+
+        video.onerror = () => {
+          URL.revokeObjectURL(srcUrl);
+          resolve(file);
+        };
+      });
+    }
+
     function uploadFileToPresignedUrl(uploadUrl, file, onProgress) {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('PUT', uploadUrl, true);
+        xhr.open('PUT', url = uploadUrl, true);
 
         xhr.upload.onprogress = (e) => {
           if (typeof onProgress === 'function' && e.lengthComputable && e.total > 0) {
@@ -251,8 +356,8 @@
       });
     }
 
-    async function handleMediaFileSelected(file) {
-      if (!file) return;
+    async function handleMediaFileSelected(rawFile) {
+      if (!rawFile) return;
       if (!token) {
         alert('Faça login na sua conta de modelo primeiro.');
         window.location.href = '/minha-conta';
@@ -264,11 +369,11 @@
       }
 
       const isVideo =
-        String(file.type || '').startsWith('video/') ||
-        /\.(mp4|mov|webm|m4v|avi)$/i.test(file.name);
+        String(rawFile.type || '').startsWith('video/') ||
+        /\.(mp4|mov|webm|m4v|avi)$/i.test(rawFile.name);
       const isImage =
-        String(file.type || '').startsWith('image/') ||
-        /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+        String(rawFile.type || '').startsWith('image/') ||
+        /\.(jpg|jpeg|png|webp|gif)$/i.test(rawFile.name);
 
       if (!isVideo && !isImage) {
         setProgress(true, 'Envie apenas vídeos (MP4, MOV) ou fotos (JPG, PNG).', 0, true);
@@ -280,19 +385,31 @@
       const visibility = allowSubscription ? 'subscriber' : 'public';
       const caption = document.getElementById('uploadCaption').value.trim();
       const price = parsePriceInput(document.getElementById('uploadPrice').value);
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
       isUploading = true;
-      setProgress(true, `Preparando envio (${sizeMb} MB)...`, 5, false);
 
       try {
-        // 1. Pede URL assinada para envio direto ao R2 (evita 413 Payload Too Large no servidor)
+        let fileToUpload = rawFile;
+        const origMb = (rawFile.size / (1024 * 1024)).toFixed(1);
+
+        // Otimiza localmente no navegador se for vídeo pesado (>25MB)
+        if (isVideo && rawFile.size > 25 * 1024 * 1024) {
+          setProgress(true, `🔒 Otimizando vídeo localmente (${origMb} MB → 1080p HD)...`, 5, false);
+          fileToUpload = await otimizarVideoLocalmente(rawFile, (pct) => {
+            setProgress(true, `🔒 Otimizando qualidade no aparelho (${pct}%)...`, pct, false);
+          });
+        }
+
+        const finalMb = (fileToUpload.size / (1024 * 1024)).toFixed(1);
+        setProgress(true, `Preparando envio seguro (${finalMb} MB)...`, 5, false);
+
+        // 1. Pede URL assinada para envio direto ao R2
         const signRes = await fetch('/api/creator/upload-url', {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+            fileName: fileToUpload.name,
+            contentType: fileToUpload.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
             visibility
           })
         });
@@ -303,10 +420,10 @@
         }
 
         // 2. Faz PUT direto para o bucket R2 com progresso real
-        const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, file, (pct) => {
+        const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, fileToUpload, (pct) => {
           setProgress(
             true,
-            `Enviando ${isVideo ? 'vídeo' : 'foto'} (${sizeMb} MB) direto para a galeria...`,
+            `Enviando ${isVideo ? 'vídeo' : 'foto'} (${finalMb} MB) para nuvem privada...`,
             pct,
             false
           );
@@ -316,20 +433,29 @@
           throw new Error(`Falha no upload direto (${putRes.status}). Verifique o CORS do bucket R2.`);
         }
 
-        setProgress(true, 'Finalizando publicação na galeria...', 99, false);
+        setProgress(true, 'Salvando na galeria exclusiva...', 99, false);
 
-        // 3. Registra o post na galeria VIP
+        // 3. Registra o post na galeria VIP (envia camelCase e snake_case para compatibilidade total)
+        const mediaTypeFinal = isVideo ? 'video' : 'image';
+        const postPayload = {
+          mediaType: mediaTypeFinal,
+          media_type: mediaTypeFinal,
+          mediaUrl: signData.publicUrl,
+          publicUrl: signData.publicUrl,
+          media_url: signData.publicUrl,
+          r2Key: signData.r2Key,
+          r2_key: signData.r2Key,
+          visibility,
+          caption,
+          price,
+          allowSubscription,
+          allow_subscription: allowSubscription
+        };
+
         const postRes = await fetch('/api/vip/posts', {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({
-            media_type: isVideo ? 'video' : 'image',
-            media_url: signData.publicUrl,
-            r2_key: signData.r2Key,
-            caption,
-            price,
-            allow_subscription: allowSubscription
-          })
+          body: JSON.stringify(postPayload)
         });
 
         if (!postRes.ok) {
@@ -339,10 +465,10 @@
 
         document.getElementById('uploadCaption').value = '';
         document.getElementById('uploadPrice').value = '';
-        setProgress(true, `${isVideo ? 'Vídeo' : 'Foto'} enviado(a) com sucesso!`, 100, false);
+        setProgress(true, `✅ ${isVideo ? 'Vídeo' : 'Foto'} publicado(a) com sucesso!`, 100, false);
 
         await loadAllData();
-        setTimeout(() => setProgress(false), 2200);
+        setTimeout(() => setProgress(false), 2400);
       } catch (err) {
         console.error('Erro no upload da galeria:', err);
         setProgress(true, err?.message || 'Erro ao enviar arquivo.', 0, true);
@@ -397,8 +523,8 @@
               <div class="relative aspect-[4/5] bg-zinc-900 overflow-hidden">
                 ${
                   isVideo
-                    ? `<video src="${post.media_url}" poster="${post.preview_url || ''}" controls playsinline preload="metadata" class="w-full h-full object-cover"></video>`
-                    : `<img src="${post.media_url}" alt="Mídia VIP" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-300" />`
+                    ? `<video src="${post.media_url}" poster="${post.preview_url || ''}" controls controlsList="nodownload" oncontextmenu="return false;" playsinline preload="metadata" class="w-full h-full object-cover"></video>`
+                    : `<img src="${post.media_url}" oncontextmenu="return false;" alt="Mídia VIP" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-300" />`
                 }
                 <div class="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5">
                   <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${isSub ? 'bg-pink-600/95 text-white' : 'bg-zinc-900/90 text-zinc-200 border border-zinc-700'}">
@@ -510,5 +636,6 @@
 
     loadAllData();
   </script>
+  
 </body>
 </html>
