@@ -112,43 +112,81 @@ function hasAlreadySentPaywall(assistantHistory = []) {
       txt.includes('Pix Copia e Cola') ||
       txt.includes('000201') ||
       txt.includes('/checkout?') ||
-      txt.includes('USDC (Solana)')
+      txt.includes('USDC (Solana)') ||
+      txt.includes('👉 http')
     );
   });
 }
 
-function buildShortPaywallReminder(isBr, userMessage, checkoutUrl, walletSolana) {
+function buildShortPaywallReminder(isBr, userMessage, fallbackUrl, walletSolana, deliveryMode = 'pix_and_checkout') {
   const isAskingMedia = /\b(foto|fotos|v[ií]deo|videos|imagem|pic|pics|photo|video|manda|mostra|cad[eê])\b/i.test(userMessage);
+  const linkHint = fallbackUrl ? ` (ou acesse ${fallbackUrl})` : '';
 
   if (isBr) {
-    if (isAskingMedia) {
-      return `Amor, eu até te mando sim, mas minhas fotos e vídeos sem censura só abrem depois que você libera o acesso privado 😘\n\nO código Pix já tá aí em cima (ou acesse ${checkoutUrl}) — assim que pagar, eu já te mando aqui na hora 🔥`;
+    if (deliveryMode === 'custom_only' && fallbackUrl) {
+      return isAskingMedia
+        ? `Amor, minhas fotos e vídeos sem censura só abrem depois que você libera seu acesso privado 😘\n\nÉ só entrar aqui 👉 ${fallbackUrl} — assim que confirmar, eu já te mando na hora 🔥`
+        : `Tô te esperando amor 👀 Libera seu acesso privado aqui 👉 ${fallbackUrl} pra gente continuar sem limites 😈`;
     }
-    return `Tô te esperando amor 👀 Libera seu acesso privado no Pix que te mandei ali em cima (ou pelo link ${checkoutUrl}) pra gente continuar sem limites 😈`;
+    if (isAskingMedia) {
+      return `Amor, eu até te mando sim, mas minhas fotos e vídeos sem censura só abrem depois que você libera o acesso privado 😘\n\nO código Pix já tá aí em cima${linkHint} — assim que pagar, eu já te mando aqui na hora 🔥`;
+    }
+    return `Tô te esperando amor 👀 Libera seu acesso privado no Pix que te mandei ali em cima${linkHint} pra gente continuar sem limites 😈`;
   }
 
   if (isAskingMedia) {
-    return `Babe, my uncensored photos and videos only unlock once you activate your private pass 😘 Send the USDC transfer to the Solana wallet above (or check ${checkoutUrl}) and I'll send them right away 🔥`;
+    return `Babe, my uncensored photos and videos only unlock once you activate your private pass 😘 Send the USDC transfer to the Solana wallet above${fallbackUrl ? ` (or check ${fallbackUrl})` : ''} and I'll send them right away 🔥`;
   }
-  return `Waiting for you babe 👀 Complete the USDC (Solana) transfer above or check ${checkoutUrl} to unlock our private chat 😈`;
+  return `Waiting for you babe 👀 Complete the USDC (Solana) transfer above${fallbackUrl ? ` or check ${fallbackUrl}` : ''} to unlock our private chat 😈`;
 }
 
 async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg, assistantHistory) {
   const isBr = isLikelyBrazilian(channel, userId, sampleText);
   const hours = Number(pw.hours || 24);
   const publicBase = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
-  const checkoutUrl = `${publicBase}/checkout?c=${encodeURIComponent(channel)}&u=${encodeURIComponent(userId)}`;
+  const defaultCheckoutUrl = `${publicBase}/checkout?c=${encodeURIComponent(channel)}&u=${encodeURIComponent(userId)}`;
   const walletSolana = process.env.CRYPTO_USDC_SOL_WALLET || '';
+
+  // Modo escolhido no /painel: 'pix_and_custom' | 'custom_only' | 'pix_only' | 'pix_and_checkout'
+  const deliveryMode = pw.deliveryMode || 'pix_and_checkout';
+
+  // Substitui {channel} e {userId} se você usar no link personalizado
+  const rawCustomUrl = String(pw.customOfferUrl || '').trim();
+  const resolvedCustomUrl = rawCustomUrl
+    ? rawCustomUrl
+        .replace(/\{channel\}/gi, encodeURIComponent(channel))
+        .replace(/\{userId\}/gi, encodeURIComponent(userId))
+    : '';
+
+  const fallbackLinkForReminder =
+    deliveryMode === 'pix_only'
+      ? ''
+      : deliveryMode === 'pix_and_checkout'
+        ? defaultCheckoutUrl
+        : resolvedCustomUrl || defaultCheckoutUrl;
 
   // TRAVA ANTI-REPETIÇÃO: Se já mandou a cobrança completa antes, manda apenas um lembrete curto!
   if (hasAlreadySentPaywall(assistantHistory)) {
-    return buildShortPaywallReminder(isBr, currentUserMsg, checkoutUrl, walletSolana);
+    return buildShortPaywallReminder(isBr, currentUserMsg, fallbackLinkForReminder, walletSolana, deliveryMode);
   }
 
   if (isBr) {
     const baseMsg =
       pw.msgBr ||
       `Amor, meu privado lota muito rápido 💕 Para continuar nosso papo privado por ${hours}h e desbloquear minhas fotos e vídeos exclusivos, libera seu acesso por R$ 4,90:`;
+
+    const customExtraBlock = (() => {
+      const customText = String(pw.customOfferText || '').trim();
+      if (customText && resolvedCustomUrl) return `\n\n${customText}\n👉 ${resolvedCustomUrl}`;
+      if (resolvedCustomUrl) return `\n\n👑 *Acesse também por aqui:*\n👉 ${resolvedCustomUrl}`;
+      if (customText) return `\n\n${customText}`;
+      return '';
+    })();
+
+    // MODO 1: Enviar APENAS sua mensagem + link personalizado (SEM Pix)
+    if (deliveryMode === 'custom_only') {
+      return `${baseMsg}${customExtraBlock || `\n\n👉 ${defaultCheckoutUrl}`}`;
+    }
 
     const detectedPrice = extractPriceFromMsg(baseMsg, pw.priceBr || '4.90');
 
@@ -161,10 +199,23 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
     });
 
     if (pixData?.qrCode) {
-      return `${baseMsg}\n\n💠 *Pix Copia e Cola (Acesso ${hours}h — libera na hora):*\n\n${pixData.qrCode}\n\n👑 *Quer ver os planos Semanal ou Mensal VIP com desconto?*\n👉 ${checkoutUrl}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
+      const pixBlock = `\n\n💠 *Pix Copia e Cola (Acesso ${hours}h — libera na hora):*\n\n${pixData.qrCode}`;
+
+      // MODO 2: Enviar APENAS o Pix Copia e Cola (sem link do Railway)
+      if (deliveryMode === 'pix_only') {
+        return `${baseMsg}${pixBlock}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
+      }
+
+      // MODO 3: Enviar Pix + Sua mensagem/link personalizado
+      if (deliveryMode === 'pix_and_custom') {
+        return `${baseMsg}${pixBlock}${customExtraBlock}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
+      }
+
+      // MODO 4 (Padrão antigo): Pix + link /checkout do Railway
+      return `${baseMsg}${pixBlock}\n\n👑 *Quer ver os planos Semanal ou Mensal VIP com desconto?*\n👉 ${defaultCheckoutUrl}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
     }
 
-    return `${baseMsg}\n\n👉 ${checkoutUrl}`;
+    return `${baseMsg}${customExtraBlock || `\n\n👉 ${defaultCheckoutUrl}`}`;
   }
 
   // FLUXO INTERNACIONAL (USD / EUR / GBP / CHF -> USDC SOLANA DIRETO)
@@ -172,12 +223,13 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
   const msgIntl =
     pw.msgIntl ||
     `Babe, my private chat fills up so fast 💕 Unlock ${hours}h of private chat + my exclusive uncensored photos & videos for just ${priceIntl}:`;
+  const intlLink = resolvedCustomUrl || defaultCheckoutUrl;
 
   if (walletSolana && !walletSolana.includes('Configure_')) {
-    return `${msgIntl}\n\n🌐 *Discrete Payment — USDC (Solana Network):*\nSend *${priceIntl} USDC* to:\n\`${walletSolana}\`\n\n👑 *Or unlock VIP plans directly on our portal:*\n👉 ${checkoutUrl}\n\nReply here once sent so we can continue 😘`;
+    return `${msgIntl}\n\n🌐 *Discrete Payment — USDC (Solana Network):*\nSend *${priceIntl} USDC* to:\n\`${walletSolana}\`\n\n👑 *Or unlock VIP plans directly on our portal:*\n👉 ${intlLink}\n\nReply here once sent so we can continue 😘`;
   }
 
-  return `${msgIntl}\n\n👉 ${checkoutUrl}`;
+  return `${msgIntl}\n\n👉 ${intlLink}`;
 }
 
 function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled) {
