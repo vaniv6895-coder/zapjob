@@ -355,6 +355,66 @@ export function registerPanelRoutes(app) {
     return { ok: true, url, mimeType };
   });
 
+  // ================= GALERIA DE MÍDIA ATIVA DO BOT (IGUAL PERFIL DAS MODELOS) =================
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS bot_active_media (
+      id SERIAL PRIMARY KEY,
+      media_type VARCHAR(15) NOT NULL DEFAULT 'video',
+      public_url TEXT NOT NULL,
+      caption TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `).catch((err) => console.error('[BOT MEDIA TABLE]', err));
+
+  app.get('/api/panel/bot-media', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const res = await pool.query(`
+      SELECT id, media_type, public_url, caption, active, created_at
+      FROM bot_active_media
+      ORDER BY created_at DESC, id DESC
+      LIMIT 30
+    `);
+    return { ok: true, items: res.rows };
+  });
+
+  app.post('/api/panel/bot-media/upload', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const data = await req.file();
+    if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
+
+    const buffer = await data.toBuffer();
+    const mimeType = data.mimetype || 'application/octet-stream';
+    const cleanName = data.filename.replace(/[^a-zA-Z0-9._-]/g, '');
+
+    const isVideo = mimeType.startsWith('video/') || /\.(mp4|mov|avi|m4v)$/i.test(cleanName);
+    const isImage = mimeType.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(cleanName);
+
+    if (!isVideo && !isImage) {
+      return reply.status(400).send({ error: 'Envie apenas vídeo ou foto.' });
+    }
+
+    const mediaType = isVideo ? 'video' : 'image';
+    const fileId = `${Date.now()}_${cleanName}`;
+    const url = await uploadMedia(buffer, 'bot_active_media', fileId, mimeType);
+
+    const ins = await pool.query(
+      `INSERT INTO bot_active_media (media_type, public_url, active)
+       VALUES ($1, $2, TRUE)
+       RETURNING *`,
+      [mediaType, url]
+    );
+
+    return { ok: true, media: ins.rows[0], url, mediaType };
+  });
+
+  app.delete('/api/panel/bot-media/:id', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const id = Number(req.params.id);
+    await pool.query(`DELETE FROM bot_active_media WHERE id = $1`, [id]);
+    return { ok: true };
+  });
+
   // Salvar e carregar o fluxo visual no PostgreSQL
   app.get('/api/panel/flow', async (req, reply) => {
     if (!checkAuth(req, reply)) return;

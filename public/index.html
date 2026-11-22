@@ -387,6 +387,107 @@
       color: #fca5a5;
     }
 
+    /* Modal de Mídia Ativa do Bot (Upload rápido pelo celular) */
+    #media-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 12000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+    #media-modal.open { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      background: var(--panel-bg);
+      border: 1.5px solid #2e4060;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75);
+      user-select: text;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .modal-close {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .upload-box {
+      background: #0d1522;
+      border: 1.5px dashed var(--accent);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      display: block;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .media-list { display: flex; flex-direction: column; gap: 8px; }
+    .media-item {
+      background: #0d1522;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .media-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .media-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      background: rgba(0, 168, 132, 0.18);
+      color: #34d399;
+    }
+    .media-url-txt {
+      color: var(--text-muted);
+      word-break: break-all;
+      font-size: 10px;
+    }
+    .media-item-actions { display: flex; gap: 6px; }
+    .mini-btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mini-btn.danger { color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+
     #toast {
       position: fixed;
       top: 64px;
@@ -422,6 +523,7 @@
       <button class="btn-block" onclick="addNode('delay')"><span class="dot-type" style="background:#94a3b8"></span>+ Espera</button>
     </div>
     <div class="header-actions">
+      <button class="btn-action secondary" onclick="openMediaModal()">📱 Mídia Bot</button>
       <button class="btn-action secondary" id="btn-fullscreen" onclick="toggleFullscreen()" title="Tela Cheia">⛶ Tela Cheia</button>
       <button class="btn-action secondary" onclick="exportFlow()">JSON</button>
       <button class="btn-action danger" onclick="resetFlow()">Limpar</button>
@@ -431,6 +533,26 @@
 
   <div id="toast">Fluxo salvo!</div>
   <div id="virtual-cursor"></div>
+
+  <!-- Modal de Mídia Ativa do Bot -->
+  <div id="media-modal" onclick="if(event.target===this)closeMediaModal()">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>📱 Mídia Ativa do Bot (Celular)</span>
+        <button class="modal-close" onclick="closeMediaModal()">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.4;">
+        Suba vídeo ou foto pelo celular: o mais recente vira automaticamente a mídia ativa do bot nas conversas.
+      </p>
+      <label class="upload-box">
+        📤 Escolher Vídeo ou Foto no Celular
+        <input type="file" accept="video/*,image/*" style="display:none;" onchange="uploadBotActiveMedia(event)" />
+      </label>
+      <div id="bot-media-list" class="media-list">
+        <div style="color:var(--text-muted);font-size:11px;">Carregando mídias...</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Menu de Contexto (Botão Direito) -->
   <div id="context-menu">
@@ -529,6 +651,116 @@
       { value: 'DE', label: '🇩🇪 Alemão (DE)' },
       { value: 'ALL', label: '🌐 Todos (ALL)' }
     ];
+
+    /* MÍDIA ATIVA DO BOT (MODAL PELO CELULAR) */
+    function getPanelPwd() {
+      let pwd = localStorage.getItem('panel_pwd');
+      if (!pwd) {
+        pwd = prompt('Digite a senha do painel:');
+        if (pwd) localStorage.setItem('panel_pwd', pwd);
+      }
+      return pwd;
+    }
+
+    async function openMediaModal() {
+      document.getElementById('media-modal').classList.add('open');
+      await loadBotActiveMediaList();
+    }
+
+    function closeMediaModal() {
+      document.getElementById('media-modal').classList.remove('open');
+    }
+
+    async function loadBotActiveMediaList() {
+      const container = document.getElementById('bot-media-list');
+      const pwd = getPanelPwd();
+      if (!pwd) return;
+
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">Carregando...</div>';
+      try {
+        const res = await fetch('/api/panel/bot-media', {
+          headers: { 'x-panel-password': pwd }
+        });
+        if (!res.ok) {
+          container.innerHTML = '<div style="color:#fca5a5;font-size:11px;">Erro ao carregar lista. Verifique a senha.</div>';
+          return;
+        }
+        const data = await res.json();
+        const items = data.items || [];
+        if (items.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">Nenhuma mídia salva ainda. Suba um vídeo ou foto acima.</div>';
+          return;
+        }
+
+        container.innerHTML = items.map((item, idx) => `
+          <div class="media-item">
+            <div class="media-item-top">
+              <span class="media-badge">${item.media_type === 'video' ? '🎥 Vídeo' : '🖼️ Foto'}${idx === 0 ? ' • ATIVO' : ''}</span>
+              <span style="color:var(--text-muted);font-size:10px;">#${item.id}</span>
+            </div>
+            <div class="media-url-txt">${escapeHtml(item.public_url)}</div>
+            <div class="media-item-actions">
+              <button class="mini-btn" onclick="applyMediaToSelected('${escapeHtml(item.public_url)}', '${item.media_type}')">Usar no Balão</button>
+              <button class="mini-btn danger" onclick="deleteBotActiveMedia(${item.id})">Excluir</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<div style="color:#fca5a5;font-size:11px;">Falha de rede ao buscar mídias.</div>';
+      }
+    }
+
+    async function uploadBotActiveMedia(event) {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      const pwd = getPanelPwd();
+      if (!pwd) return;
+
+      showToast('Enviando mídia para o bot...');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/panel/bot-media/upload', {
+        method: 'POST',
+        headers: { 'x-panel-password': pwd },
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast('Mídia salva! Já é a mídia ativa do bot.');
+        await loadBotActiveMediaList();
+        if (data.url) {
+          applyMediaToSelected(data.url, data.mediaType || 'video', true);
+        }
+      } else {
+        alert('Erro ao enviar mídia. Verifique a senha e o tamanho do arquivo.');
+      }
+    }
+
+    function applyMediaToSelected(url, mediaType, silent = false) {
+      const targetNode = nodes.find(n => n.id === selectedNodeId && n.type === 'media') || nodes.find(n => n.type === 'media');
+      if (targetNode) {
+        targetNode.text = url;
+        targetNode.mediaKind = mediaType;
+        renderAll();
+        if (!silent) showToast('Link aplicado ao balão de mídia!');
+      }
+    }
+
+    async function deleteBotActiveMedia(id) {
+      const pwd = getPanelPwd();
+      if (!pwd) return;
+      const res = await fetch(`/api/panel/bot-media/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-panel-password': pwd }
+      });
+      if (res.ok) {
+        showToast('Mídia removida');
+        await loadBotActiveMediaList();
+      }
+    }
 
     /* TELA CHEIA (FULLSCREEN) */
     function toggleFullscreen() {
@@ -646,7 +878,6 @@
       }
     }
 
-    // Atalho teclado Delete / Backspace para excluir balão selecionado
     window.addEventListener('keydown', e => {
       if (['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
@@ -654,6 +885,7 @@
       } else if (e.key === 'Escape') {
         cancelLinking();
         hideContextMenu();
+        closeMediaModal();
       }
     });
 
@@ -730,7 +962,6 @@
           ${tpl.hasOut ? `<div class="port port-out" data-port="out" data-node="${node.id}" title="Saída (Arraste ou clique para ligar)"></div>` : ''}
         `;
 
-        // Botão X de excluir com suporte direto a mouse e touch
         const delBtn = el.querySelector('.node-del');
         delBtn.addEventListener('mousedown', e => e.stopPropagation());
         delBtn.addEventListener('touchstart', e => e.stopPropagation());
@@ -756,7 +987,6 @@
           labelInput.addEventListener('input', e => { node.mediaLabel = e.target.value; });
         }
 
-        // Menu de botão direito nativo no balão
         el.addEventListener('contextmenu', e => {
           e.preventDefault();
           e.stopPropagation();
@@ -764,7 +994,6 @@
           openContextMenu(e.clientX, e.clientY, node.id);
         });
 
-        // Clique/Arraste no balão (também finaliza ligação se estiver em modo conectar)
         el.addEventListener('mousedown', e => {
           if (e.button === 2) return;
           if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL', 'SELECT'].includes(e.target.tagName)) return;
@@ -782,7 +1011,6 @@
           dragOffset.y = (e.clientY - pan.y) / scale - node.y;
         });
 
-        // Soltar linha em qualquer parte do balão conecta automaticamente (Snap fluido)
         el.addEventListener('mouseup', e => {
           if (linkingFrom && linkingFrom !== node.id) {
             e.stopPropagation();
@@ -790,7 +1018,6 @@
           }
         });
 
-        // Touch direto no balão na tela
         el.addEventListener('touchstart', e => {
           if (e.target.classList.contains('port') || ['TEXTAREA', 'BUTTON', 'INPUT', 'LABEL', 'SELECT'].includes(e.target.tagName)) return;
           e.stopPropagation();
@@ -834,9 +1061,8 @@
     async function uploadPresetMedia(event, nodeId) {
       const file = event.target.files?.[0];
       if (!file) return;
-      const pwd = localStorage.getItem('panel_pwd') || prompt('Digite a senha do painel para salvar no R2:');
+      const pwd = getPanelPwd();
       if (!pwd) return;
-      localStorage.setItem('panel_pwd', pwd);
 
       showToast('Enviando mídia para o Cloudflare R2...');
       const formData = new FormData();
@@ -994,7 +1220,6 @@
       if (tempWire) { tempWire.remove(); tempWire = null; }
     }
 
-    /* MENU DE CONTEXTO (BOTÃO DIREITO) */
     function openContextMenu(x, y, nodeId) {
       contextTargetNodeId = nodeId;
       ctxMenu.style.display = 'flex';
@@ -1038,7 +1263,6 @@
       }
     }
 
-    /* EVENTOS DE CANVAS (MOUSE E TOUCH DIRETO) */
     viewport.addEventListener('mousedown', e => {
       hideContextMenu();
       if (e.target === viewport || e.target === world || e.target === svgLayer) {
@@ -1147,7 +1371,6 @@
       updateTransform();
     }
 
-    /* MOUSEPAD / TRACKPAD DIGITAL COM BOTÃO ESQUERDO E DIREITO */
     const touchSurface = document.getElementById('touch-surface');
 
     function setPadMode(mode) {
@@ -1357,11 +1580,7 @@
 
     async function saveFlow(silent = false) {
       localStorage.setItem('zapjob_flow_v1', JSON.stringify({ nodes, edges }));
-      let pwd = localStorage.getItem('panel_pwd');
-      if (!pwd) {
-        pwd = prompt('Digite a senha do painel para salvar o fluxo na nuvem:');
-        if (pwd) localStorage.setItem('panel_pwd', pwd);
-      }
+      const pwd = getPanelPwd();
       if (pwd) {
         const res = await fetch('/api/panel/flow', {
           method: 'POST',

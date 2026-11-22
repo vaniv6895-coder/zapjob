@@ -1,4 +1,4 @@
-import { getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
+import { pool, getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
 import { getCreatorById, listCreatorMedia } from './portalDb.js';
 import { sendWhatsAppText, sendWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
 import { sendTelegramText, sendTelegramMedia, sendTelegramAction } from './telegram.js';
@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function cleanMediaUrl(url = '') {
   return String(url || '')
     .trim()
-    .replace(/(\.mp4|\.mov|\.avi|\.m4v)(\1)+(?=$|\?)/i, '$1');
+    .replace(/(\.mp4|\.mov|\.avi|\.m4v|\.jpg|\.jpeg|\.png|\.webp)(\1)+(?=$|\?)/i, '$1');
 }
 
 function detectMediaKind(url, declaredKind) {
@@ -147,32 +147,69 @@ function extractFlowVideos(flow, sentUrlsSet, clientLang) {
   return videos;
 }
 
-async function resolveActiveCreatorVideo(creatorId, sentUrlsSet) {
-  if (!creatorId) return null;
-
+// Busca sempre a mídia mais recente subida pelo celular (Galeria do Bot -> Perfil da Modelo)
+async function resolveLatestBotOrCreatorMedia(creatorId, sentUrlsSet, preferredType = null) {
+  // 1. Primeiro olha a galeria direta do bot (bot_active_media), ordenada do mais novo para o mais antigo
   try {
-    const mediaItems = await listCreatorMedia(creatorId, true);
-    if (Array.isArray(mediaItems) && mediaItems.length > 0) {
-      for (const item of mediaItems) {
-        const kind = item?.media_type || detectMediaKind(item?.public_url || '');
-        const url = cleanMediaUrl(item?.public_url || '');
-        if (kind === 'video' && url.startsWith('http') && !sentUrlsSet.has(url)) {
-          return url;
-        }
+    const params = [];
+    let where = 'WHERE active = TRUE';
+    if (preferredType) {
+      params.push(preferredType);
+      where += ` AND media_type = $1`;
+    }
+    const res = await pool.query(
+      `SELECT media_type, public_url
+       FROM bot_active_media
+       ${where}
+       ORDER BY created_at DESC, id DESC
+       LIMIT 20`,
+      params
+    );
+    for (const row of res.rows) {
+      const url = cleanMediaUrl(row.public_url || '');
+      if (url.startsWith('http') && !sentUrlsSet.has(url)) {
+        return url;
       }
     }
   } catch (err) {
-    console.warn('[FlowEngine] Erro ao buscar vídeos da galeria da modelo:', err.message);
+    console.warn('[FlowEngine] Erro ao ler bot_active_media:', err.message);
   }
 
-  try {
-    const creator = await getCreatorById(creatorId);
-    const verVideo = cleanMediaUrl(creator?.verification_video_url || '');
-    if (verVideo.startsWith('http') && !sentUrlsSet.has(verVideo)) {
-      return verVideo;
+  // 2. Depois olha a galeria da modelo vinculada (ou a modelo mais recente cadastrada)
+  let targetCreatorId = creatorId;
+  if (!targetCreatorId) {
+    try {
+      const cRes = await pool.query(`SELECT id FROM creator_accounts ORDER BY id DESC LIMIT 1`);
+      targetCreatorId = cRes.rows[0]?.id || null;
+    } catch {}
+  }
+
+  if (targetCreatorId) {
+    try {
+      const mediaItems = await listCreatorMedia(targetCreatorId, true);
+      if (Array.isArray(mediaItems) && mediaItems.length > 0) {
+        for (const item of mediaItems) {
+          const kind = item?.media_type || detectMediaKind(item?.public_url || '');
+          if (preferredType && kind !== preferredType) continue;
+          const url = cleanMediaUrl(item?.public_url || '');
+          if (url.startsWith('http') && !sentUrlsSet.has(url)) {
+            return url;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[FlowEngine] Erro ao buscar vídeos da galeria da modelo:', err.message);
     }
-  } catch (err) {
-    console.warn('[FlowEngine] Erro ao buscar verification_video_url da modelo:', err.message);
+
+    try {
+      const creator = await getCreatorById(targetCreatorId);
+      const verVideo = cleanMediaUrl(creator?.verification_video_url || '');
+      if ((!preferredType || preferredType === 'video') && verVideo.startsWith('http') && !sentUrlsSet.has(verVideo)) {
+        return verVideo;
+      }
+    } catch (err) {
+      console.warn('[FlowEngine] Erro ao buscar verification_video_url da modelo:', err.message);
+    }
   }
 
   return null;
@@ -207,14 +244,11 @@ async function sendChannelMedia(channel, userId, url, kind, caption = '') {
 }
 
 export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer, mediaMime, lastMessageId }) {
-  const [settings, aiPaused, audioCatalog, previewCatalog] = await Promise.all([
+  const [settings, aiPaused, audioCatalog] = await Promise.all([
     getBotSettings(),
     isAiPaused(channel, userId),
     listR2MediaCatalog('audiozabe/'),
-    listR2MediaCatalog('previa/'),
   ]);
-
-  const r2Catalog = [...audioCatalog, ...previewCatalog];
 
   let flow = { nodes: [], edges: [] };
   try {
@@ -248,8 +282,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | R2 Itens: ${r2Catalog.length}`);
-
   const welcomeTranscripts = {
     PT_BR: 'Oi lindo, que bom que você me chamou aqui no privado. Tava mesmo precisando de uma companhia legal hoje pra conversar. Me fala, de onde você é?',
     PT_EU: 'Olá lindo, que bom que me chamaste aqui no privado. Estava mesmo a precisar de uma companhia gira hoje para conversar. Diz-me, de onde és?',
@@ -260,13 +292,12 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   if (isFirstContact) {
     const r2Welcome =
-      r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
-      r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
+      audioCatalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
+      audioCatalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
 
     if (r2Welcome && !sentUrls.has(cleanMediaUrl(r2Welcome.url))) {
       try {
         const welcomeUrl = cleanMediaUrl(r2Welcome.url);
-        console.log(`[FlowEngine] 1º contato -> Enviando SOMENTE Áudio 01 (${clientLang}): ${welcomeUrl}`);
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
         await sleep(3200);
         await sendChannelMedia(channel, userId, welcomeUrl, 'audio');
@@ -304,7 +335,8 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     let match;
     while ((match = mediaRegex.exec(rawAiReply)) !== null) {
       const foundUrl = cleanMediaUrl(match[1]);
-      if (foundUrl && !sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
+      // Ignora links antigos da pasta previa/ para não atropelar a mídia nova subida pelo celular
+      if (foundUrl && !foundUrl.includes('/previa/') && !sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
         mediaUrls.push(foundUrl);
       }
     }
@@ -312,9 +344,13 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     const creatorId = settings?.active_creator_id || settings?.creator_id || null;
 
     if (mediaUrls.length === 0 && userMsgCount >= 2 && !sentAudioLastTurn) {
-      const creatorVideo = await resolveActiveCreatorVideo(creatorId, sentUrls);
-      if (creatorVideo) {
-        mediaUrls.push(creatorVideo);
+      const preferredType = isPhotoRequest(userMessage) ? 'image' : null;
+      const latestMedia =
+        (await resolveLatestBotOrCreatorMedia(creatorId, sentUrls, preferredType)) ||
+        (await resolveLatestBotOrCreatorMedia(creatorId, sentUrls, null));
+
+      if (latestMedia) {
+        mediaUrls.push(latestMedia);
       } else {
         const availableFlowVideos = extractFlowVideos(flow, sentUrls, clientLang);
         if (availableFlowVideos.length > 0) {
@@ -326,8 +362,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     let cleanText = rawAiReply.replace(mediaRegex, '').trim();
 
     if (cleanText && isDuplicateAssistantText(cleanText, assistantMessages)) {
-      console.log('[FlowEngine] Texto/oferta duplicado bloqueado para não repetir ao usuário.');
-      if (isPhotoRequest(userMessage)) {
+      if (isPhotoRequest(userMessage) && mediaUrls.length === 0) {
         cleanText = 'As fotos completas e os ensaios ficam lá dentro do meu acesso VIP, bem mais à vontade pra você ver tudo sem pressa 😉 Dá uma olhada no link que te mandei.';
       } else {
         cleanText = '';
@@ -346,13 +381,10 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     if (urlToSend) {
       const cleanUrl = cleanMediaUrl(urlToSend);
       const kind = detectMediaKind(cleanUrl);
-      if (kind === 'audio' && sentAudioLastTurn) {
-        console.log('[FlowEngine] Áudio segurado neste turno para não atropelar a conversa.');
-        return;
-      }
+      if (kind === 'audio' && sentAudioLastTurn) return;
 
       try {
-        console.log(`[FlowEngine] Enviando ${kind} contextual para ${userId}: ${cleanUrl}`);
+        console.log(`[FlowEngine] Enviando ${kind} atualizado para ${userId}: ${cleanUrl}`);
         await sendTypingIndicator(channel, userId, lastMessageId, kind);
         await sleep(kind === 'audio' ? 3500 : 1800);
         await sendChannelMedia(channel, userId, cleanUrl, kind);
