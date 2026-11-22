@@ -372,6 +372,114 @@ export function registerPanelRoutes(app) {
     return { ok: true };
   });
 
+  // Gerar legenda quente com Gemini para o post de prévia no Telegram
+  app.post('/api/panel/telegram-preview/caption', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const { contextHint = '', mood = 'provocante' } = req.body || {};
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    const fallbackCaptions = [
+      'Acabei de tirar essa foto e não consegui guardar só pra mim... 🔥 Vem ver o que ficou de fora no VIP.',
+      'Olhando assim você já imagina o que tem lá no privado... 😈 Corre antes que eu apague.',
+      'Bastidores de hoje à noite tá pegando fogo... 💋 Quem quer a versão completa?',
+    ];
+
+    if (geminiKey) {
+      try {
+        const prompt = `Escreva 1 legenda curta, quente e provocante em português para postar junto com uma foto em um canal/grupo de prévias no Telegram.
+Tom: ${mood}.
+${contextHint ? `Contexto da foto: ${contextHint}.` : ''}
+Use no máximo 2 frases, inclua 1 ou 2 emojis sensuais e termine com um gancho para o VIP sem parecer spam. Responda APENAS o texto da legenda.`;
+
+        const aiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+            }),
+          }
+        );
+        const aiData = await aiRes.json();
+        const text = aiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) return { ok: true, caption: text.replace(/^["']|["']$/g, '') };
+      } catch {}
+    }
+
+    const pick = fallbackCaptions[Math.floor(Math.random() * fallbackCaptions.length)];
+    return { ok: true, caption: pick };
+  });
+
+  // Upload da foto e envio direto com legenda para o grupo/canal de prévias do Telegram
+  app.post('/api/panel/telegram-preview/send', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return reply.status(400).send({ error: 'TELEGRAM_BOT_TOKEN não configurado no Railway.' });
+    }
+
+    try {
+      let chatId = '';
+      let caption = '';
+      let photoBuffer = null;
+      let photoMime = 'image/jpeg';
+      let filename = 'previa.jpg';
+
+      if (req.isMultipart()) {
+        for await (const part of req.parts()) {
+          if (part.type === 'file') {
+            photoBuffer = await part.toBuffer();
+            photoMime = part.mimetype || 'image/jpeg';
+            filename = part.filename || 'previa.jpg';
+          } else if (part.fieldname === 'chatId') {
+            chatId = String(part.value || '').trim();
+          } else if (part.fieldname === 'caption') {
+            caption = String(part.value || '').trim();
+          }
+        }
+      } else {
+        const body = req.body || {};
+        chatId = String(body.chatId || '').trim();
+        caption = String(body.caption || '').trim();
+      }
+
+      if (!chatId) {
+        return reply.status(400).send({ error: 'Informe o ID ou @canal do grupo de prévias no Telegram.' });
+      }
+      if (!photoBuffer || photoBuffer.length === 0) {
+        return reply.status(400).send({ error: 'Selecione uma foto para enviar.' });
+      }
+
+      try {
+        const cleanName = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+        await uploadMedia(photoBuffer, 'telegram_previews', `${Date.now()}_${cleanName}`, photoMime);
+      } catch {}
+
+      const form = new FormData();
+      form.append('chat_id', chatId);
+      if (caption) form.append('caption', caption);
+      form.append('photo', new Blob([photoBuffer], { type: photoMime }), filename);
+
+      const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        method: 'POST',
+        body: form,
+      });
+      const tgData = await tgRes.json();
+
+      if (!tgRes.ok || !tgData.ok) {
+        return reply.status(400).send({
+          error: tgData?.description || 'Falha ao enviar foto no Telegram. Verifique se o bot está no grupo/canal.',
+        });
+      }
+
+      return { ok: true, messageId: tgData.result?.message_id };
+    } catch (err) {
+      console.error('[TG PREVIEW SEND]', err);
+      return reply.status(500).send({ error: err.message || 'Erro ao enviar prévia no Telegram.' });
+    }
+  });
+
   // Interface Web (/painel)
   app.get('/painel', async (req, reply) => {
     reply.type('text/html; charset=utf-8').send(PANEL_HTML);
@@ -671,6 +779,33 @@ const PANEL_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Modal Prévia TG com IA -->
+  <div id="tgpreview-modal" style="display:none;position:fixed;inset:0;background:rgba(11,20,26,0.92);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:999;padding:16px;">
+    <div class="modal-box">
+      <h2>✈️ Postar Prévia com IA no Telegram</h2>
+      <p>Escolha a foto, gere uma frase quente com a IA e mande direto no grupo ou canal de prévias.</p>
+
+      <label>ID ou @canal do Grupo de Prévias (Telegram)</label>
+      <input type="text" id="tg-chat-id" placeholder="@vanessa_mia89 ou -1001234567890" />
+
+      <label>Foto da Prévia</label>
+      <input type="file" id="tg-photo-file" accept="image/*" onchange="previewTgPhoto(event)" />
+      <img id="tg-photo-preview" src="" alt="" style="display:none;width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid #2a3942;" />
+
+      <label>Dica rápida para a IA (opcional)</label>
+      <input type="text" id="tg-hint" placeholder="Ex: foto de lingerie no espelho, clima de noite..." />
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
+        <label style="margin:0;">Legenda Quente</label>
+        <button type="button" class="copy-btn" id="tg-ai-btn" onclick="generateTgCaption()">✨ IA Gerar Frase Quente</button>
+      </div>
+      <textarea id="tg-caption" rows="3" placeholder="Clique em 'IA Gerar Frase Quente' ou escreva a legenda..." style="margin-top:6px;"></textarea>
+
+      <button type="button" class="btn-primary" id="tg-send-btn" onclick="sendTgPreview()">🚀 Enviar Foto + Legenda no Telegram</button>
+      <button type="button" class="btn-secondary" onclick="closeTgPreviewModal()">Fechar</button>
+    </div>
+  </div>
+
   <!-- Modal Agenda de Conteúdo & Legendas Prontas -->
   <div id="agenda-modal">
     <div class="modal-box" style="max-width:560px;">
@@ -841,6 +976,7 @@ const PANEL_HTML = `<!DOCTYPE html>
         </div>
         <div class="header-actions">
           <button class="nav-pill orange" onclick="openAgendaModal()">📅 Agenda</button>
+          <button class="nav-pill blue" onclick="openTgPreviewModal()">✈️ Prévia TG</button>
           <button class="nav-pill teal" onclick="openWaProfileModal()">📱 Perfil Zap</button>
           <button class="nav-pill pink" onclick="openPaywallModal()">💳 Paywall</button>
           <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
@@ -1074,6 +1210,91 @@ const PANEL_HTML = `<!DOCTYPE html>
         btn.textContent = '✓ Copiado!';
         setTimeout(() => { btn.textContent = orig; }, 1800);
       });
+    }
+
+    function openTgPreviewModal() {
+      document.getElementById('tgpreview-modal').style.display = 'flex';
+      const savedChat = localStorage.getItem('gv_tg_preview_chat') || '@vanessa_mia89';
+      if (!document.getElementById('tg-chat-id').value) {
+        document.getElementById('tg-chat-id').value = savedChat;
+      }
+    }
+
+    function closeTgPreviewModal() {
+      document.getElementById('tgpreview-modal').style.display = 'none';
+    }
+
+    function previewTgPhoto(event) {
+      const file = event.target.files[0];
+      const img = document.getElementById('tg-photo-preview');
+      if (!file) {
+        img.style.display = 'none';
+        return;
+      }
+      img.src = URL.createObjectURL(file);
+      img.style.display = 'block';
+    }
+
+    async function generateTgCaption() {
+      const btn = document.getElementById('tg-ai-btn');
+      btn.disabled = true;
+      btn.textContent = '✨ Gerando...';
+      try {
+        const res = await fetch('/api/panel/telegram-preview/caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+          body: JSON.stringify({ contextHint: document.getElementById('tg-hint').value.trim() })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.caption) {
+          document.getElementById('tg-caption').value = data.caption;
+        } else {
+          alert(data.error || 'Não foi possível gerar a frase.');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ IA Gerar Frase Quente';
+      }
+    }
+
+    async function sendTgPreview() {
+      const chatId = document.getElementById('tg-chat-id').value.trim();
+      const file = document.getElementById('tg-photo-file').files[0];
+      const caption = document.getElementById('tg-caption').value.trim();
+
+      if (!chatId) return alert('Informe o ID ou @canal do grupo de prévias.');
+      if (!file) return alert('Selecione uma foto.');
+
+      localStorage.setItem('gv_tg_preview_chat', chatId);
+      const btn = document.getElementById('tg-send-btn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando para o Telegram...';
+
+      try {
+        const fd = new FormData();
+        fd.append('chatId', chatId);
+        fd.append('caption', caption);
+        fd.append('photo', file);
+
+        const res = await fetch('/api/panel/telegram-preview/send', {
+          method: 'POST',
+          headers: { 'x-panel-password': password },
+          body: fd
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert('Prévia enviada com sucesso no Telegram!');
+          document.getElementById('tg-photo-file').value = '';
+          document.getElementById('tg-photo-preview').style.display = 'none';
+          document.getElementById('tg-caption').value = '';
+          closeTgPreviewModal();
+        } else {
+          alert('Erro: ' + (data.error || 'Falha ao enviar no Telegram'));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Enviar Foto + Legenda no Telegram';
+      }
     }
 
     function closeAgendaModal() {
