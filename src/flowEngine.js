@@ -8,9 +8,11 @@ import { listR2MediaCatalog } from './storage.js';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function detectMediaKind(url, declaredKind) {
-  if (declaredKind) return declaredKind;
+  if (declaredKind === 'video' || declaredKind === 'audio' || declaredKind === 'image') {
+    return declaredKind;
+  }
   if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(url)) return 'audio';
-  if (/\.(mp4|mov|avi)(\?|$)/i.test(url)) return 'video';
+  if (/\.(mp4|mov|avi|m4v)(\?|$)/i.test(url)) return 'video';
   return 'image';
 }
 
@@ -117,6 +119,27 @@ function isLanguageMatch(nodeLang, clientLang) {
   return false;
 }
 
+function extractFlowVideos(flow, sentUrlsSet, clientLang) {
+  const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
+  const videos = [];
+
+  for (const n of nodes) {
+    if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.trim().startsWith('http')) continue;
+    const url = n.text.trim();
+    if (sentUrlsSet.has(url)) continue;
+
+    const kind = detectMediaKind(url, n.mediaKind);
+    if (kind !== 'video') continue;
+
+    const lang = n.mediaLang || 'ALL';
+    if (!isLanguageMatch(lang, clientLang)) continue;
+
+    videos.push({ url, kind, lang });
+  }
+
+  return videos;
+}
+
 async function sendTypingIndicator(channel, userId, lastMessageId, kind = 'text') {
   if (channel === 'whatsapp' && lastMessageId) {
     await sendWhatsAppTyping(lastMessageId, kind === 'audio' ? 'audio' : 'text');
@@ -145,28 +168,32 @@ async function sendChannelMedia(channel, userId, url, kind, caption = '') {
 }
 
 export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer, mediaMime, lastMessageId }) {
-  const [settings, aiPaused, r2Catalog] = await Promise.all([
+  const [settings, aiPaused, audioCatalog, previewCatalog] = await Promise.all([
     getBotSettings(),
     isAiPaused(channel, userId),
     listR2MediaCatalog('audiozabe/'),
+    listR2MediaCatalog('previa/'),
   ]);
+
+  const r2Catalog = [...audioCatalog, ...previewCatalog];
 
   let flow = { nodes: [], edges: [] };
   try {
     if (settings.visual_flow) {
-      flow = JSON.parse(settings.visual_flow);
+      flow =
+        typeof settings.visual_flow === 'string'
+          ? JSON.parse(settings.visual_flow)
+          : settings.visual_flow;
     }
   } catch (err) {
     console.warn('[FlowEngine] Erro ao ler visual_flow:', err.message);
   }
 
-  const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
-  const edges = Array.isArray(flow.edges) ? flow.edges : [];
-
   const history = await getMemory(channel, userId, 60);
   const assistantMessages = history.filter((m) => m.role === 'assistant');
   const assistantAlreadyReplied = assistantMessages.length > 0;
   const isFirstContact = !assistantAlreadyReplied;
+  const userMsgCount = history.filter((m) => m.role === 'user').length;
   const clientLang = detectClientLanguage(userMessage, userId, history);
 
   const sentUrls = new Set();
@@ -200,7 +227,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
         await sendChannelMedia(channel, userId, r2Welcome.url, 'audio');
         const spokenText = welcomeTranscripts[clientLang] || welcomeTranscripts.PT_BR;
         await saveMessage(channel, userId, 'assistant', spokenText, 'audio', r2Welcome.url);
-        return; // Encerra o turno aqui para esperar a resposta do cliente!
+        return;
       } catch (err) {
         console.error('[FlowEngine] Erro ao enviar boas-vindas do R2:', err?.response?.data || err.message);
       }
@@ -237,6 +264,13 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       }
     }
 
+    if (mediaUrls.length === 0 && userMsgCount >= 2 && !sentAudioLastTurn) {
+      const availableFlowVideos = extractFlowVideos(flow, sentUrls, clientLang);
+      if (availableFlowVideos.length > 0) {
+        mediaUrls.push(availableFlowVideos[0].url);
+      }
+    }
+
     let cleanText = rawAiReply.replace(mediaRegex, '').trim();
 
     if (cleanText && isDuplicateAssistantText(cleanText, assistantMessages)) {
@@ -256,7 +290,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       assistantMessages.push({ role: 'assistant', content: cleanText, media_type: 'text' });
     }
 
-    // Envia no máximo 1 mídia por turno, nunca repetida, e segura áudio se acabou de mandar áudio no turno anterior
     const urlToSend = mediaUrls.find((u) => !sentUrls.has(u));
     if (urlToSend) {
       const kind = detectMediaKind(urlToSend);
