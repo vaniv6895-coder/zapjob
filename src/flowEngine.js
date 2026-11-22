@@ -1,5 +1,4 @@
-import { pool, getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
-import { getCreatorById, listCreatorMedia } from './portalDb.js';
+import { getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
 import { sendWhatsAppText, sendWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
 import { sendTelegramText, sendTelegramMedia, sendTelegramAction } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
@@ -126,9 +125,10 @@ function isLanguageMatch(nodeLang, clientLang) {
   return false;
 }
 
-function extractFlowVideos(flow, sentUrlsSet, clientLang) {
+// Pega somente vídeos e fotos configurados dentro do próprio visual_flow
+function extractFlowMedia(flow, sentUrlsSet, clientLang, desiredKind = null) {
   const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
-  const videos = [];
+  const items = [];
 
   for (const n of nodes) {
     if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.trim().startsWith('http')) continue;
@@ -136,83 +136,16 @@ function extractFlowVideos(flow, sentUrlsSet, clientLang) {
     if (!url || sentUrlsSet.has(url)) continue;
 
     const kind = detectMediaKind(url, n.mediaKind);
-    if (kind !== 'video') continue;
+    if (kind === 'audio') continue;
+    if (desiredKind && kind !== desiredKind) continue;
 
     const lang = n.mediaLang || 'ALL';
     if (!isLanguageMatch(lang, clientLang)) continue;
 
-    videos.push({ url, kind, lang });
+    items.push({ url, kind, lang });
   }
 
-  return videos;
-}
-
-// Busca sempre a mídia mais recente subida pelo celular (Galeria do Bot -> Perfil da Modelo)
-async function resolveLatestBotOrCreatorMedia(creatorId, sentUrlsSet, preferredType = null) {
-  // 1. Primeiro olha a galeria direta do bot (bot_active_media), ordenada do mais novo para o mais antigo
-  try {
-    const params = [];
-    let where = 'WHERE active = TRUE';
-    if (preferredType) {
-      params.push(preferredType);
-      where += ` AND media_type = $1`;
-    }
-    const res = await pool.query(
-      `SELECT media_type, public_url
-       FROM bot_active_media
-       ${where}
-       ORDER BY created_at DESC, id DESC
-       LIMIT 20`,
-      params
-    );
-    for (const row of res.rows) {
-      const url = cleanMediaUrl(row.public_url || '');
-      if (url.startsWith('http') && !sentUrlsSet.has(url)) {
-        return url;
-      }
-    }
-  } catch (err) {
-    console.warn('[FlowEngine] Erro ao ler bot_active_media:', err.message);
-  }
-
-  // 2. Depois olha a galeria da modelo vinculada (ou a modelo mais recente cadastrada)
-  let targetCreatorId = creatorId;
-  if (!targetCreatorId) {
-    try {
-      const cRes = await pool.query(`SELECT id FROM creator_accounts ORDER BY id DESC LIMIT 1`);
-      targetCreatorId = cRes.rows[0]?.id || null;
-    } catch {}
-  }
-
-  if (targetCreatorId) {
-    try {
-      const mediaItems = await listCreatorMedia(targetCreatorId, true);
-      if (Array.isArray(mediaItems) && mediaItems.length > 0) {
-        for (const item of mediaItems) {
-          const kind = item?.media_type || detectMediaKind(item?.public_url || '');
-          if (preferredType && kind !== preferredType) continue;
-          const url = cleanMediaUrl(item?.public_url || '');
-          if (url.startsWith('http') && !sentUrlsSet.has(url)) {
-            return url;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[FlowEngine] Erro ao buscar vídeos da galeria da modelo:', err.message);
-    }
-
-    try {
-      const creator = await getCreatorById(targetCreatorId);
-      const verVideo = cleanMediaUrl(creator?.verification_video_url || '');
-      if ((!preferredType || preferredType === 'video') && verVideo.startsWith('http') && !sentUrlsSet.has(verVideo)) {
-        return verVideo;
-      }
-    } catch (err) {
-      console.warn('[FlowEngine] Erro ao buscar verification_video_url da modelo:', err.message);
-    }
-  }
-
-  return null;
+  return items;
 }
 
 async function sendTypingIndicator(channel, userId, lastMessageId, kind = 'text') {
@@ -330,32 +263,39 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
 
   if (rawAiReply) {
+    // Só aceita links que estejam explicitamente configurados nos nós de mídia do próprio fluxo
+    const flowNodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
+    const allowedFlowUrls = new Set(
+      flowNodes
+        .filter((n) => n.type === 'media' && typeof n.text === 'string' && n.text.trim().startsWith('http'))
+        .map((n) => cleanMediaUrl(n.text))
+        .filter(Boolean)
+    );
+
     const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
     const mediaUrls = [];
     let match;
     while ((match = mediaRegex.exec(rawAiReply)) !== null) {
       const foundUrl = cleanMediaUrl(match[1]);
-      // Ignora links antigos da pasta previa/ para não atropelar a mídia nova subida pelo celular
-      if (foundUrl && !foundUrl.includes('/previa/') && !sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
+      if (
+        foundUrl &&
+        allowedFlowUrls.has(foundUrl) &&
+        !sentUrls.has(foundUrl) &&
+        !mediaUrls.includes(foundUrl)
+      ) {
         mediaUrls.push(foundUrl);
       }
     }
 
-    const creatorId = settings?.active_creator_id || settings?.creator_id || null;
-
     if (mediaUrls.length === 0 && userMsgCount >= 2 && !sentAudioLastTurn) {
-      const preferredType = isPhotoRequest(userMessage) ? 'image' : null;
-      const latestMedia =
-        (await resolveLatestBotOrCreatorMedia(creatorId, sentUrls, preferredType)) ||
-        (await resolveLatestBotOrCreatorMedia(creatorId, sentUrls, null));
+      const desiredKind = isPhotoRequest(userMessage) ? 'image' : null;
+      const candidates =
+        (desiredKind ? extractFlowMedia(flow, sentUrls, clientLang, desiredKind) : []) || [];
+      const fallbackCandidates =
+        candidates.length > 0 ? candidates : extractFlowMedia(flow, sentUrls, clientLang, null);
 
-      if (latestMedia) {
-        mediaUrls.push(latestMedia);
-      } else {
-        const availableFlowVideos = extractFlowVideos(flow, sentUrls, clientLang);
-        if (availableFlowVideos.length > 0) {
-          mediaUrls.push(cleanMediaUrl(availableFlowVideos[availableFlowVideos.length - 1].url));
-        }
+      if (fallbackCandidates.length > 0) {
+        mediaUrls.push(cleanMediaUrl(fallbackCandidates[fallbackCandidates.length - 1].url));
       }
     }
 
@@ -384,7 +324,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       if (kind === 'audio' && sentAudioLastTurn) return;
 
       try {
-        console.log(`[FlowEngine] Enviando ${kind} atualizado para ${userId}: ${cleanUrl}`);
+        console.log(`[FlowEngine] Enviando ${kind} do fluxo para ${userId}: ${cleanUrl}`);
         await sendTypingIndicator(channel, userId, lastMessageId, kind);
         await sleep(kind === 'audio' ? 3500 : 1800);
         await sendChannelMedia(channel, userId, cleanUrl, kind);
