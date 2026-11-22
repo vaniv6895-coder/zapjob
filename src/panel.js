@@ -480,6 +480,149 @@ Use no máximo 2 frases, inclua 1 ou 2 emojis sensuais e termine com um gancho p
     }
   });
 
+  // ================= AGENDADOR DE POSTS NO TELEGRAM (FOTO / VÍDEO) =================
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS telegram_scheduled_posts (
+      id SERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      media_type VARCHAR(20) NOT NULL DEFAULT 'photo',
+      media_url TEXT NOT NULL,
+      caption TEXT,
+      scheduled_at TIMESTAMPTZ NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      error_msg TEXT,
+      sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `).catch((err) => console.error('[TG SCHEDULER TABLE]', err));
+
+  async function dispatchScheduledTelegramPost(row) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new Error('TELEGRAM_BOT_TOKEN não configurado no Railway.');
+    const method = row.media_type === 'video' ? 'sendVideo' : 'sendPhoto';
+    const fieldName = row.media_type === 'video' ? 'video' : 'photo';
+    const payload = {
+      chat_id: row.chat_id,
+      [fieldName]: row.media_url,
+    };
+    if (row.caption && row.caption.trim()) {
+      payload.caption = row.caption.trim();
+    }
+    const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const tgData = await tgRes.json();
+    if (!tgRes.ok || !tgData.ok) {
+      throw new Error(tgData?.description || `Falha ao enviar ${row.media_type} no Telegram`);
+    }
+    return tgData.result;
+  }
+
+  let tgSchedulerRunning = false;
+  setInterval(async () => {
+    if (tgSchedulerRunning) return;
+    tgSchedulerRunning = true;
+    try {
+      const dueRes = await pool.query(`
+        SELECT *
+        FROM telegram_scheduled_posts
+        WHERE status = 'pending' AND scheduled_at <= NOW()
+        ORDER BY scheduled_at ASC
+        LIMIT 5
+      `);
+      for (const row of dueRes.rows) {
+        try {
+          await dispatchScheduledTelegramPost(row);
+          await pool.query(
+            `UPDATE telegram_scheduled_posts SET status = 'sent', sent_at = NOW(), error_msg = NULL WHERE id = $1`,
+            [row.id]
+          );
+        } catch (err) {
+          await pool.query(
+            `UPDATE telegram_scheduled_posts SET status = 'error', error_msg = $2 WHERE id = $1`,
+            [row.id, String(err.message || err)]
+          );
+        }
+      }
+    } catch (e) {
+      console.error('[TG SCHEDULER LOOP]', e);
+    } finally {
+      tgSchedulerRunning = false;
+    }
+  }, 15000);
+
+  // Listar posts agendados / enviados
+  app.get('/api/panel/telegram-schedule', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const res = await pool.query(`
+      SELECT id, chat_id, media_type, media_url, caption, scheduled_at, status, error_msg, sent_at, created_at
+      FROM telegram_scheduled_posts
+      ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, scheduled_at ASC
+      LIMIT 60
+    `);
+    return { ok: true, posts: res.rows };
+  });
+
+  // Criar novo post agendado
+  app.post('/api/panel/telegram-schedule', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const { chatId, mediaType, mediaUrl, caption, scheduledAt } = req.body || {};
+    if (!chatId || !String(chatId).trim()) {
+      return reply.status(400).send({ error: 'Informe o @canal ou ID do grupo do Telegram.' });
+    }
+    if (!mediaUrl || !String(mediaUrl).trim()) {
+      return reply.status(400).send({ error: 'Envie uma foto ou vídeo antes de agendar.' });
+    }
+    if (!scheduledAt) {
+      return reply.status(400).send({ error: 'Escolha o dia, hora e minuto para publicar.' });
+    }
+    const dt = new Date(scheduledAt);
+    if (Number.isNaN(dt.getTime())) {
+      return reply.status(400).send({ error: 'Data e horário inválidos.' });
+    }
+    const type = mediaType === 'video' ? 'video' : 'photo';
+    const ins = await pool.query(
+      `INSERT INTO telegram_scheduled_posts (chat_id, media_type, media_url, caption, scheduled_at, status)
+       VALUES ($1, $2, $3, $4, $5, 'pending')
+       RETURNING *`,
+      [String(chatId).trim(), type, String(mediaUrl).trim(), String(caption || '').trim(), dt.toISOString()]
+    );
+    return { ok: true, post: ins.rows[0] };
+  });
+
+  // Publicar agora manualmente um item que estava agendado
+  app.post('/api/panel/telegram-schedule/:id/send-now', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const id = Number(req.params.id);
+    const res = await pool.query(`SELECT * FROM telegram_scheduled_posts WHERE id = $1`, [id]);
+    const row = res.rows[0];
+    if (!row) return reply.status(404).send({ error: 'Agendamento não encontrado.' });
+    try {
+      await dispatchScheduledTelegramPost(row);
+      await pool.query(
+        `UPDATE telegram_scheduled_posts SET status = 'sent', sent_at = NOW(), error_msg = NULL WHERE id = $1`,
+        [id]
+      );
+      return { ok: true };
+    } catch (err) {
+      await pool.query(
+        `UPDATE telegram_scheduled_posts SET status = 'error', error_msg = $2 WHERE id = $1`,
+        [id, String(err.message || err)]
+      );
+      return reply.status(400).send({ error: err.message || 'Falha ao enviar.' });
+    }
+  });
+
+  // Excluir agendamento
+  app.delete('/api/panel/telegram-schedule/:id', async (req, reply) => {
+    if (!checkAuth(req, reply)) return;
+    const id = Number(req.params.id);
+    await pool.query(`DELETE FROM telegram_scheduled_posts WHERE id = $1`, [id]);
+    return { ok: true };
+  });
+
   // Interface Web (/painel) carregada de public/painel.html
   app.get('/painel', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'painel.html');
