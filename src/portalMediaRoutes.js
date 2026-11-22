@@ -4,29 +4,46 @@ import crypto from 'crypto';
 import { addCreatorMedia, listCreatorMedia, deleteCreatorMedia } from './portalDb.js';
 
 function getStorageConfig() {
-  let endpoint = (process.env.R2_ENDPOINT || process.env.S3_ENDPOINT || '').trim();
+  let endpoint = (
+    process.env.R2_VIP_ENDPOINT ||
+    process.env.R2_ENDPOINT ||
+    process.env.S3_ENDPOINT ||
+    ''
+  ).trim();
+
   const accessKeyId = (
+    process.env.R2_VIP_KEY_ID ||
     process.env.R2_ACCESS_KEY_ID ||
     process.env.R2_ACCESS_KEY ||
     process.env.S3_ACCESS_KEY ||
     process.env.S3_ACCESS_KEY_ID ||
     ''
   ).trim();
+
   const secretAccessKey = (
+    process.env.R2_VIP_SECRET ||
     process.env.R2_SECRET_ACCESS_KEY ||
     process.env.R2_SECRET_KEY ||
     process.env.S3_SECRET_KEY ||
     process.env.S3_SECRET_ACCESS_KEY ||
     ''
   ).trim();
+
   const bucket = (
+    process.env.R2_VIP_BUCKET ||
     process.env.R2_BUCKET_NAME ||
     process.env.R2_BUCKET ||
     process.env.S3_BUCKET ||
     process.env.S3_BUCKET_NAME ||
     ''
   ).trim();
-  const publicBase = (process.env.R2_PUBLIC_URL || process.env.S3_PUBLIC_URL || '')
+
+  const publicBase = (
+    process.env.R2_VIP_URL ||
+    process.env.R2_PUBLIC_URL ||
+    process.env.S3_PUBLIC_URL ||
+    ''
+  )
     .trim()
     .replace(/\/$/, '');
 
@@ -139,12 +156,7 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
       const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
       const r2Key = buildCreatorMediaKey(req.creator.id, visibility, fileName, mediaType);
 
-      const putParams = { Bucket: bucket, Key: r2Key };
-      if (contentType && contentType !== 'application/octet-stream') {
-        putParams.ContentType = contentType;
-      }
-
-      const command = new PutObjectCommand(putParams);
+      const command = new PutObjectCommand({ Bucket: bucket, Key: r2Key });
       const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 });
       const publicUrl = `${publicBase}/${r2Key}`;
       const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
