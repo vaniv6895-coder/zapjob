@@ -5,11 +5,32 @@ import { createMercadoPagoPix } from './mercadopago.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+function getNodeContextLabel(node) {
+  if (!node || typeof node !== 'object') return '';
+  return String(
+    node.mediaLabel ||
+      node.context ||
+      node.stage ||
+      node.step ||
+      node.etapa ||
+      node.label ||
+      node.title ||
+      ''
+  ).trim();
+}
+
 function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, paywallEnabled, contextFlags) {
   const combined = [];
   const seenUrls = new Set();
 
-  const { isReturningLead, isAskingIfBot, isFlirtingOrRequesting, sentAudioLastTurn, alreadyAskedWhatDoing } = contextFlags;
+  const {
+    isReturningLead,
+    isAskingIfBot,
+    isFlirtingOrRequesting,
+    sentAudioLastTurn,
+    alreadyAskedWhatDoing,
+    canSendPreviewVideo,
+  } = contextFlags;
 
   if (!sentAudioLastTurn) {
     for (const item of r2Catalog) {
@@ -17,8 +38,13 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
       if (item.isWelcome) continue;
 
       if (item.kind === 'audio') {
-        const isProvo = item.slot === '03_PROVOCACAO' || item.slot === '02_PROVOCACAO' || /02|provo|sem_vergonha/i.test(item.url);
-        const isNotBot = item.slot === '04_NAO_SOU_ROBO' || /04|robo|robô|bot|real/i.test(item.url);
+        const isProvo =
+          item.slot === '03_PROVOCACAO' ||
+          item.slot === '02_PROVOCACAO' ||
+          /02|provo|sem_vergonha/i.test(item.url);
+        const isNotBot =
+          item.slot === '04_NAO_SOU_ROBO' ||
+          /04|robo|robô|bot|real/i.test(item.url);
 
         if (isProvo) {
           if (!isFlirtingOrRequesting) continue;
@@ -29,8 +55,10 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
         }
       }
 
-      const isCensoredPreview = /censura|preview|previa/i.test(`${item.url} ${item.label || ''}`);
-      if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video') && !isCensoredPreview) continue;
+      const isCensoredPreview = /censura|preview|previa|prévia/i.test(`${item.url} ${item.label || ''}`);
+      if (paywallEnabled && !hasPass && (item.kind === 'image' || item.kind === 'video')) {
+        if (!isCensoredPreview || !canSendPreviewVideo) continue;
+      }
 
       seenUrls.add(item.url);
       combined.push({
@@ -45,8 +73,12 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
 
   try {
     if (settings.visual_flow) {
-      const flow = JSON.parse(settings.visual_flow);
-      const nodes = Array.isArray(flow.nodes) ? flow.nodes : [];
+      const flow =
+        typeof settings.visual_flow === 'string'
+          ? JSON.parse(settings.visual_flow)
+          : settings.visual_flow;
+      const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
+
       for (const n of nodes) {
         if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.startsWith('http')) continue;
         const cleanUrl = n.text.trim();
@@ -55,11 +87,12 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
         let kind = n.mediaKind;
         if (!kind) {
           if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(cleanUrl)) kind = 'audio';
-          else if (/\.(mp4|mov|avi)(\?|$)/i.test(cleanUrl)) kind = 'video';
+          else if (/\.(mp4|mov|avi|m4v)(\?|$)/i.test(cleanUrl)) kind = 'video';
           else kind = 'image';
         }
 
-        const metaText = `${cleanUrl} ${n.mediaLabel || ''}`;
+        const contextLabel = getNodeContextLabel(n);
+        const metaText = `${cleanUrl} ${contextLabel}`;
 
         if (kind === 'audio') {
           if (sentAudioLastTurn) continue;
@@ -69,20 +102,24 @@ function extractSavedMediaCatalog(settings, r2Catalog, sentUrlsSet, hasPass, pay
           if (/05|sumido|volta|lembrei/i.test(metaText) && !isReturningLead) continue;
         }
 
-        const isCensoredPreview = /censura|preview|previa/i.test(metaText);
-        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video') && !isCensoredPreview) continue;
+        if (paywallEnabled && !hasPass && (kind === 'image' || kind === 'video')) {
+          if (!canSendPreviewVideo) continue;
+        }
 
+        const isCensoredPreview = /censura|preview|previa|prévia/i.test(metaText);
         seenUrls.add(cleanUrl);
         combined.push({
           kind,
           lang: n.mediaLang || 'ALL',
-          slot: 'MANUAL',
-          label: n.mediaLabel ? ` - Contexto: ${n.mediaLabel}` : '',
+          slot: isCensoredPreview ? 'CENSURA_PREVIEW' : 'MANUAL',
+          label: contextLabel ? ` - Contexto: ${contextLabel}` : '',
           url: cleanUrl,
         });
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[AI] Falha ao ler visual_flow:', err?.message || err);
+  }
 
   return combined.map((item, idx) => ({ index: idx + 1, ...item }));
 }
@@ -147,10 +184,8 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
   const defaultCheckoutUrl = `${publicBase}/checkout?c=${encodeURIComponent(channel)}&u=${encodeURIComponent(userId)}`;
   const walletSolana = process.env.CRYPTO_USDC_SOL_WALLET || '';
 
-  // Modo escolhido no /painel: 'pix_and_custom' | 'custom_only' | 'pix_only' | 'pix_and_checkout'
   const deliveryMode = pw.deliveryMode || 'pix_and_checkout';
 
-  // Substitui {channel} e {userId} se você usar no link personalizado
   const rawCustomUrl = String(pw.customOfferUrl || '').trim();
   const resolvedCustomUrl = rawCustomUrl
     ? rawCustomUrl
@@ -165,7 +200,6 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
         ? defaultCheckoutUrl
         : resolvedCustomUrl || defaultCheckoutUrl;
 
-  // TRAVA ANTI-REPETIÇÃO: Se já mandou a cobrança completa antes, manda apenas um lembrete curto!
   if (hasAlreadySentPaywall(assistantHistory)) {
     return buildShortPaywallReminder(isBr, currentUserMsg, fallbackLinkForReminder, walletSolana, deliveryMode);
   }
@@ -183,7 +217,6 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
       return '';
     })();
 
-    // MODO 1: Enviar APENAS sua mensagem + link personalizado (SEM Pix)
     if (deliveryMode === 'custom_only') {
       return `${baseMsg}${customExtraBlock || `\n\n👉 ${defaultCheckoutUrl}`}`;
     }
@@ -201,24 +234,20 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
     if (pixData?.qrCode) {
       const pixBlock = `\n\n💠 *Pix Copia e Cola (Acesso ${hours}h — libera na hora):*\n\n${pixData.qrCode}`;
 
-      // MODO 2: Enviar APENAS o Pix Copia e Cola (sem link do Railway)
       if (deliveryMode === 'pix_only') {
         return `${baseMsg}${pixBlock}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
       }
 
-      // MODO 3: Enviar Pix + Sua mensagem/link personalizado
       if (deliveryMode === 'pix_and_custom') {
         return `${baseMsg}${pixBlock}${customExtraBlock}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
       }
 
-      // MODO 4 (Padrão antigo): Pix + link /checkout do Railway
       return `${baseMsg}${pixBlock}\n\n👑 *Quer ver os planos Semanal ou Mensal VIP com desconto?*\n👉 ${defaultCheckoutUrl}\n\nAssim que você pagar, o sistema já libera nosso chat automaticamente aqui em segundos 😘`;
     }
 
     return `${baseMsg}${customExtraBlock || `\n\n👉 ${defaultCheckoutUrl}`}`;
   }
 
-  // FLUXO INTERNACIONAL (USD / EUR / GBP / CHF -> USDC SOLANA DIRETO)
   const priceIntl = pw.priceIntl || '$4.99';
   const msgIntl =
     pw.msgIntl ||
@@ -235,7 +264,7 @@ async function buildPaywallReply(pw, channel, userId, sampleText, currentUserMsg
 function buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled) {
   const lockedMediaHint =
     paywallEnabled && !hasPass
-      ? '\n- MODO DESBLOQUEIO (TIMO CLUB): Fotos e vídeos sem censura estão BLOQUEADOS até o cliente pagar o acesso privado do chat. Se ele pedir foto ou vídeo sem censura agora, provoque dizendo que acabou de tirar/gravar uma bem ousada e que vai mandar assim que ele liberar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para foto/vídeo que não esteja listada acima).'
+      ? '\n- MODO DESBLOQUEIO: Se o cliente pedir mais fotos/vídeos depois que a prévia já tiver sido enviada, provoque dizendo que o resto completo fica liberado assim que ele ativar o acesso privado aqui no chat (NUNCA invente tag [ENVIAR_MIDIA:...] para mídia que não esteja listada acima).'
       : '';
 
   let mediaSection = '';
@@ -251,7 +280,7 @@ REGRAS DE ENCAIXE E PACIÊNCIA (CRÍTICO):
 - NÃO tenha pressa de desovar áudios! O objetivo principal é envolver o cliente na conversa, criar tensão sexual/curiosidade e fazer ele desejar mais.
 - Se houver **ÁUDIO DE PROVOCAÇÃO** acima: use apenas quando ele realmente elogiar você ou entrar na brincadeira picante, colocando [ENVIAR_MIDIA:URL] no final.
 - Se houver **ÁUDIO PROVA REAL ("não sou robô")** acima: use agora para responder à desconfiança dele.
-- Se houver **PRÉVIA COM CENSURA** acima: mande quando o clima já estiver quente para provocar antes do pagamento.
+- Se houver **VÍDEO / FOTO DISPONÍVEL** acima: INCLUA a tag [ENVIAR_MIDIA:URL] na resposta para enviar o vídeo/foto. NUNCA use a palavra "censura" nem fale que o vídeo está censurado ou cortado; apresente de forma natural e quente, por exemplo: "ah, olha, acabei de sair do banho e fiz esse vídeo especial pra vc" (variando em 1 ou 2 frases curtas).
 - Escolha EXCLUSIVAMENTE a mídia com o mesmo IDIOMA do cliente (PT_BR, PT_EU, ES, EN ou DE) ou ALL e copie a tag [ENVIAR_MIDIA:URL] inteira sem alterar nada.${lockedMediaHint}`;
   } else {
     mediaSection = `NENHUMA MÍDIA LIBERADA NESTE TURNO:
@@ -345,6 +374,7 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
 
   const r2Catalog = [...audioCatalog, ...previewCatalog];
   const assistantMessages = history.filter((m) => m.role === 'assistant');
+  const userMsgCount = history.filter((m) => m.role === 'user').length;
 
   let pw = null;
   try {
@@ -355,7 +385,6 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
 
   if (paywallEnabled && !hasPass) {
     const freeLimit = Math.max(0, Number(pw.freeMessages ?? 3));
-    const userMsgCount = history.filter((m) => m.role === 'user').length;
     if (userMsgCount > freeLimit) {
       const allUserText =
         history
@@ -403,7 +432,12 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
 
   const isFlirtingOrRequesting =
     assistantMessages.length >= 2 &&
-    /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|safadinha|quente|ousada|gata|sexy|hot|pelada|nua|quero vc|quero você|te pegar|te ver|guapa|hermosa|rica|caliente|schön|geil)\b/i.test(rawTextOnly);
+    /\b(gostosa|linda|del[ií]cia|tes[aã]o|safada|safadinha|quente|ousada|gata|sexy|hot|pelada|nua|quero vc|quero você|te pegar|te ver|guap[ao]|hermos[ao]|ric[ao]|caliente|schön|geil)\b/i.test(rawTextOnly);
+
+  const canSendPreviewVideo =
+    assistantMessages.length >= 2 &&
+    userMsgCount >= 2 &&
+    !sentAudioLastTurn;
 
   const mediaCatalog = extractSavedMediaCatalog(settings, r2Catalog, sentUrls, hasPass, paywallEnabled, {
     isReturningLead,
@@ -411,9 +445,13 @@ export async function generateAgentReply(channel, userId, userMessage, mediaBuff
     isFlirtingOrRequesting,
     sentAudioLastTurn,
     alreadyAskedWhatDoing,
+    canSendPreviewVideo,
   });
 
-  console.log(`[AI] Mídias liberadas: ${mediaCatalog.length} | Flerte real: ${isFlirtingOrRequesting} | Desconfiança IA: ${isAskingIfBot}`);
+  console.log(
+    `[AI] Mídias liberadas: ${mediaCatalog.length} | Flerte real: ${isFlirtingOrRequesting} | Desconfiança IA: ${isAskingIfBot}`,
+    mediaCatalog.map((m) => `${m.kind}:${m.slot}:${m.url}`)
+  );
 
   const recentHistory = history.slice(-30);
   const formattedHistory = recentHistory
