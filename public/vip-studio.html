@@ -420,14 +420,6 @@
     }
 
     /* Vídeos & Retenção */
-    .drop-area {
-      border: 1.5px dashed rgba(244, 63, 94, 0.45);
-      background: linear-gradient(135deg, rgba(225, 29, 72, 0.06), rgba(147, 51, 234, 0.06));
-      border-radius: 16px;
-      padding: 22px 14px;
-      text-align: center;
-      cursor: pointer;
-    }
     .videos-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
     @media(min-width: 680px) { .videos-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
     .video-ret-card {
@@ -472,7 +464,7 @@
     }
     .btn-del-mini { background: rgba(225, 29, 72, 0.14); border: 1px solid rgba(225, 29, 72, 0.3); color: #fda4af; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
 
-    /* Toast de Upload */
+    /* Toast de Notificação */
     .toast-upload {
       position: fixed;
       bottom: 18px;
@@ -538,6 +530,7 @@
         <div class="brand-pill">💎 CLUBE <span>VIP STUDIO</span></div>
       </div>
       <div class="nav-actions">
+        <a href="/galeria-assinantes" class="nav-back">🔒 Galeria</a>
         <a href="/vip-mensagens" class="nav-back">💬 Mensagens</a>
         <a id="navVerVipBtn" href="/vitrine" onclick="abrirPaginaVipModelo(event)" class="nav-back">👁️ Ver VIP</a>
       </div>
@@ -712,28 +705,14 @@
 
     <!-- ABA 2: VÍDEOS & RETENÇÃO -->
     <div id="tab-videos" class="tab-pane">
-      <div class="upload-box">
-        <h3 style="font-size:15px;font-weight:800;margin-bottom:4px;">➕ Publicar Novo Vídeo ou Foto</h3>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Conteúdos <strong>Exclusivos VIP</strong> aparecem para assinantes e medem a retenção de cada vídeo.</p>
-        <div class="plans-grid">
-          <div>
-            <label>Visibilidade</label>
-            <select id="mediaVisibility">
-              <option value="subscriber">🔒 Exclusivo Assinantes Clube VIP</option>
-              <option value="public">🌐 Público (Vitrine & Reels)</option>
-            </select>
-          </div>
-          <div>
-            <label>Legenda / Título</label>
-            <input type="text" id="mediaCaption" placeholder="Ex: Bastidores do ensaio 🔥" />
-          </div>
+      <div class="upload-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:15px;font-weight:800;margin-bottom:4px;">🔒 Publicação de Vídeos & Fotos</h3>
+          <p style="font-size:12px;color:var(--muted);">O envio de vídeos e fotos agora é feito diretamente na <strong>Galeria de Assinantes</strong> via upload direto para o storage.</p>
         </div>
-        <div class="drop-area" onclick="document.getElementById('vipMediaInput').click()">
-          <strong style="font-size:14px;color:#fff;display:block;">🎬 Toque para enviar Vídeo ou Foto</strong>
-          <span style="font-size:11.5px;color:var(--muted);">MP4, MOV, JPG ou PNG</span>
-          <input type="file" id="vipMediaInput" accept="image/*,video/*" style="display:none" onchange="subirMidiaVip(this.files[0]); this.value='';" />
-        </div>
-        <p id="uploadStatus" style="font-size:12px;color:var(--green);font-weight:700;margin-top:10px;"></p>
+        <a href="/galeria-assinantes" style="background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;text-decoration:none;padding:10px 16px;border-radius:12px;font-size:12.5px;font-weight:800;white-space:nowrap;">
+          📤 Ir para Galeria de Assinantes
+        </a>
       </div>
 
       <h3 style="font-size:15px;font-weight:800;margin-bottom:12px;">⏱️ Retenção por Vídeo</h3>
@@ -748,7 +727,7 @@
             <h3 style="font-size:15px;font-weight:800;">📸 Suas Fotos Publicadas</h3>
             <p style="font-size:12px;color:var(--muted);">Galeria exclusiva VIP e pública</p>
           </div>
-          <button type="button" onclick="document.getElementById('vipMediaInput').click()" style="background:var(--pink);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">+ Nova Foto</button>
+          <a href="/galeria-assinantes" style="background:var(--pink);color:#fff;text-decoration:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;">+ Enviar na Galeria</a>
         </div>
         <div class="photos-grid" id="photosGalleryGrid"></div>
       </div>
@@ -795,8 +774,6 @@
 
     function notificarUpload(texto, tipo = 'info') {
       const toast = document.getElementById('uploadToast');
-      const inlineSt = document.getElementById('uploadStatus');
-      if (inlineSt) inlineSt.innerText = texto;
       if (!toast) return;
 
       toast.innerText = texto;
@@ -1167,47 +1144,6 @@
         await carregarStudioVip();
       } catch {
         notificarUpload('❌ Erro de conexão durante o upload', 'err');
-      }
-    }
-
-    async function subirMidiaVip(file) {
-      if (!file) return;
-      const isVideo = String(file.type || '').startsWith('video/');
-      const visibility = document.getElementById('mediaVisibility').value;
-      const caption = document.getElementById('mediaCaption').value.trim();
-
-      notificarUpload(
-        isVideo ? '⏳ Fazendo upload do seu vídeo...' : '⏳ Fazendo upload da sua foto...',
-        'loading'
-      );
-
-      try {
-        const base64Data = await fileToBase64(file);
-        const upRes = await fetch('/api/creator/upload-direct', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ fileName: file.name, contentType: file.type, visibility, base64Data })
-        });
-        const up = await upRes.json();
-
-        if (!upRes.ok || !up.ok) {
-          return notificarUpload('❌ ' + (up.error || 'Erro ao enviar arquivo'), 'err');
-        }
-
-        await fetch('/api/creator/media', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ mediaType: up.mediaType, visibility, r2Key: up.r2Key, publicUrl: up.publicUrl, caption })
-        });
-
-        document.getElementById('mediaCaption').value = '';
-        notificarUpload(
-          isVideo ? '✅ Vídeo publicado com sucesso!' : '✅ Foto publicada com sucesso!',
-          'ok'
-        );
-        await carregarStudioVip();
-      } catch {
-        notificarUpload('❌ Erro ao publicar mídia', 'err');
       }
     }
 

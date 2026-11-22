@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import { addCreatorMedia, listCreatorMedia, deleteCreatorMedia } from './portalDb.js';
 
 function getStorageConfig() {
-  // Prioriza as variáveis S3_* que já estão funcionando no bot-midias, com fallback para R2_*
   let endpoint = (process.env.S3_ENDPOINT || process.env.R2_ENDPOINT || '').trim();
   const accessKeyId = (process.env.S3_ACCESS_KEY || process.env.S3_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || '').trim();
   const secretAccessKey = (process.env.S3_SECRET_KEY || process.env.S3_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || '').trim();
@@ -33,8 +32,16 @@ function getR2Client() {
   });
 }
 
+function buildCreatorMediaKey(creatorId, visibility, fileName, mediaKind) {
+  const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
+  const defaultExt = mediaKind === 'video' ? 'mp4' : mediaKind === 'audio' ? 'mp3' : 'jpg';
+  const ext = (String(fileName || '').split('.').pop() || defaultExt).replace(/[^a-z0-9]/gi, '').toLowerCase() || defaultExt;
+  const unique = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  return `creators/${creatorId}/${safeVis}/${unique}.${ext}`;
+}
+
 export function registerPortalMediaRoutes(app, requireCreatorAuth) {
-  // 1. Upload direto via servidor para o R2 (Zero erro de CORS ou assinatura no navegador)
+  // 1. Upload direto via servidor para o R2 (recomendado para imagens/arquivos leves)
   app.post('/api/creator/upload-direct', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const r2 = getR2Client();
@@ -56,12 +63,8 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
         return reply.status(400).send({ ok: false, error: 'Envie apenas fotos, vídeos ou áudios.' });
       }
 
-      const creatorId = req.creator.id;
-      const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
-      const defaultExt = isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg';
-      const ext = (fileName.split('.').pop() || defaultExt).replace(/[^a-z0-9]/gi, '').toLowerCase();
-      const unique = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      const r2Key = `creators/${creatorId}/${safeVis}/${unique}.${ext}`;
+      const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
+      const r2Key = buildCreatorMediaKey(req.creator.id, visibility, fileName, mediaType);
 
       const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
       const buffer = Buffer.from(cleanBase64, 'base64');
@@ -74,7 +77,7 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
       }));
 
       const publicUrl = `${publicBase}/${r2Key}`;
-      const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
+      const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
 
       return reply.send({ ok: true, r2Key, publicUrl, mediaType, visibility: safeVis });
     } catch (err) {
@@ -83,7 +86,7 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
     }
   });
 
-  // 2. Presigned URL sem assinar ContentType (evita 400 Bad Request)
+  // 2. Presigned URL para envio direto do navegador/celular ao R2 (ideal para vídeos pesados e várias modelos)
   app.post('/api/creator/upload-url', { preHandler: requireCreatorAuth }, async (req, reply) => {
     try {
       const r2 = getR2Client();
@@ -93,7 +96,6 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
         return reply.status(500).send({ ok: false, error: 'Storage R2/S3 não configurado no Railway.' });
       }
 
-      const creatorId = req.creator.id;
       const { fileName = 'arquivo', contentType = 'image/jpeg', visibility = 'public' } = req.body || {};
       const isVideo = contentType.startsWith('video/');
       const isImage = contentType.startsWith('image/');
@@ -103,16 +105,13 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
         return reply.status(400).send({ ok: false, error: 'Envie apenas fotos, vídeos ou áudios.' });
       }
 
-      const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
-      const defaultExt = isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg';
-      const ext = (fileName.split('.').pop() || defaultExt).replace(/[^a-z0-9]/gi, '').toLowerCase();
-      const unique = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      const r2Key = `creators/${creatorId}/${safeVis}/${unique}.${ext}`;
+      const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
+      const r2Key = buildCreatorMediaKey(req.creator.id, visibility, fileName, mediaType);
 
       const command = new PutObjectCommand({ Bucket: bucket, Key: r2Key });
       const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 });
       const publicUrl = `${publicBase}/${r2Key}`;
-      const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
+      const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
 
       return reply.send({ ok: true, uploadUrl, r2Key, publicUrl, mediaType, visibility: safeVis });
     } catch (err) {

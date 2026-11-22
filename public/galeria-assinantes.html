@@ -31,7 +31,7 @@
       </div>
       <div class="flex items-center gap-2">
         <a href="/vip-studio" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 transition">
-          + Novo Post
+          VIP Studio
         </a>
         <a href="/minha-conta" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-300 transition">
           Minha Conta
@@ -55,13 +55,59 @@
             Estas fotos e vídeos vão aparecer exclusivamente para seus assinantes
           </h2>
           <p class="text-xs sm:text-sm text-zinc-300 mt-1">
-            Visitantes sem assinatura ativa veem apenas a prévia bloqueada. Assim que o cliente assinar seu plano mensal via Pix, todo o conteúdo marcado como <strong>Incluso na Assinatura</strong> é liberado automaticamente para ele.
+            Envie seus vídeos e fotos direto para a nuvem sem travar o servidor. Assim que o cliente assinar seu plano mensal via Pix, todo o conteúdo marcado como <strong>Incluso na Assinatura</strong> é liberado automaticamente para ele.
           </p>
         </div>
       </div>
       <div class="shrink-0 bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2.5 text-left sm:text-right w-full sm:w-auto">
         <div class="text-[11px] text-zinc-400">Valor da sua assinatura</div>
         <div class="text-lg font-extrabold text-emerald-400" id="monthlyPriceLabel">R$ 49,90/mês</div>
+      </div>
+    </section>
+
+    <!-- Box de Envio Direto de Vídeo ou Foto (R2 Presigned PUT) -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h3 class="text-sm sm:text-base font-bold text-white">📤 Enviar Novo Vídeo ou Foto para a Galeria</h3>
+          <p class="text-xs text-zinc-400">Envio direto para o storage com barra de progresso real (MP4, MOV, JPG, PNG).</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Tipo de Acesso</label>
+          <select id="uploadAccessType" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-pink-500 outline-none">
+            <option value="subscriber">🔒 Exclusivo Assinantes (Incluso)</option>
+            <option value="ppv">💎 Conteúdo Avulso (Compra 1x)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Legenda / Título</label>
+          <input id="uploadCaption" type="text" placeholder="Ex: Ensaio exclusivo no quarto 🔥" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-pink-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Valor Avulso (R$ opcional)</label>
+          <input id="uploadPrice" type="text" inputmode="decimal" placeholder="Ex: 19,90 (ou 0,00)" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-pink-500 outline-none" />
+        </div>
+      </div>
+
+      <div id="dropZone" onclick="document.getElementById('galleryMediaInput').click()" class="border-2 border-dashed border-pink-500/40 hover:border-pink-400 bg-zinc-950/60 rounded-2xl p-6 text-center cursor-pointer transition">
+        <div class="text-2xl mb-1">🎬📷</div>
+        <div class="text-sm font-bold text-white">Toque aqui para escolher um Vídeo ou Foto</div>
+        <div class="text-xs text-zinc-400 mt-0.5">Formatos aceitos: MP4, MOV, WEBM, JPG, PNG</div>
+        <input id="galleryMediaInput" type="file" accept="image/*,video/*" class="hidden" onchange="handleMediaFileSelected(this.files[0]); this.value='';" />
+      </div>
+
+      <!-- Barra de Progresso do Upload -->
+      <div id="uploadProgressBox" class="hidden bg-zinc-950/90 border border-zinc-800 rounded-xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold">
+          <span id="uploadProgressText" class="text-pink-300">Preparando envio...</span>
+          <span id="uploadProgressPercent" class="text-emerald-400">0%</span>
+        </div>
+        <div class="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div id="uploadProgressBar" class="h-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-emerald-400 transition-all duration-150" style="width: 0%;"></div>
+        </div>
       </div>
     </section>
 
@@ -136,12 +182,26 @@
   </main>
 
   <script>
-    const token = localStorage.getItem('portal_token') || localStorage.getItem('creator_token') || '';
+    const token =
+      sessionStorage.getItem('portal_token') ||
+      localStorage.getItem('portal_token') ||
+      localStorage.getItem('creator_token') ||
+      sessionStorage.getItem('token') ||
+      localStorage.getItem('token') ||
+      '';
+
     let allPosts = [];
     let currentFilter = 'subs';
+    let isUploading = false;
 
     function formatBRL(val) {
       return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function parsePriceInput(val) {
+      if (!val || !String(val).trim()) return 0;
+      const num = parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
+      return Number.isNaN(num) || num < 0 ? 0 : Number(num.toFixed(2));
     }
 
     function authHeaders() {
@@ -149,6 +209,146 @@
         'Content-Type': 'application/json',
         ...(token ? { Authorization: 'Bearer ' + token } : {})
       };
+    }
+
+    function setProgress(visible, text, pct, isError = false) {
+      const box = document.getElementById('uploadProgressBox');
+      const txtEl = document.getElementById('uploadProgressText');
+      const pctEl = document.getElementById('uploadProgressPercent');
+      const barEl = document.getElementById('uploadProgressBar');
+      if (!box) return;
+
+      box.classList.toggle('hidden', !visible);
+      if (!visible) return;
+
+      txtEl.textContent = text || 'Enviando...';
+      txtEl.className = isError ? 'text-red-400' : 'text-pink-300';
+      const safePct = Math.max(0, Math.min(100, Number(pct) || 0));
+      pctEl.textContent = `${safePct}%`;
+      barEl.style.width = `${safePct}%`;
+    }
+
+    function uploadFileToPresignedUrl(uploadUrl, file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl, true);
+
+        xhr.upload.onprogress = (e) => {
+          if (typeof onProgress === 'function' && e.lengthComputable && e.total > 0) {
+            onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+          }
+        };
+
+        xhr.onload = () => {
+          resolve({
+            ok: xhr.status >= 200 && xhr.status < 300,
+            status: xhr.status
+          });
+        };
+
+        xhr.onerror = () => reject(new Error('Falha de rede no envio direto para o storage'));
+        xhr.send(file);
+      });
+    }
+
+    async function handleMediaFileSelected(file) {
+      if (!file) return;
+      if (!token) {
+        alert('Faça login na sua conta de modelo primeiro.');
+        window.location.href = '/minha-conta';
+        return;
+      }
+      if (isUploading) {
+        alert('Já existe um envio em andamento. Aguarde concluir.');
+        return;
+      }
+
+      const isVideo =
+        String(file.type || '').startsWith('video/') ||
+        /\.(mp4|mov|webm|m4v|avi)$/i.test(file.name);
+      const isImage =
+        String(file.type || '').startsWith('image/') ||
+        /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+
+      if (!isVideo && !isImage) {
+        setProgress(true, 'Envie apenas vídeos (MP4, MOV) ou fotos (JPG, PNG).', 0, true);
+        return;
+      }
+
+      const accessType = document.getElementById('uploadAccessType').value;
+      const allowSubscription = accessType === 'subscriber';
+      const visibility = allowSubscription ? 'subscriber' : 'public';
+      const caption = document.getElementById('uploadCaption').value.trim();
+      const price = parsePriceInput(document.getElementById('uploadPrice').value);
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+
+      isUploading = true;
+      setProgress(true, `Preparando envio (${sizeMb} MB)...`, 5, false);
+
+      try {
+        // 1. Pede URL assinada para envio direto ao R2 (evita 413 Payload Too Large no servidor)
+        const signRes = await fetch('/api/creator/upload-url', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+            visibility
+          })
+        });
+
+        const signData = await signRes.json().catch(() => ({}));
+        if (!signRes.ok || !signData.ok || !signData.uploadUrl) {
+          throw new Error(signData.error || 'Não foi possível gerar URL de upload');
+        }
+
+        // 2. Faz PUT direto para o bucket R2 com progresso real
+        const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, file, (pct) => {
+          setProgress(
+            true,
+            `Enviando ${isVideo ? 'vídeo' : 'foto'} (${sizeMb} MB) direto para a galeria...`,
+            pct,
+            false
+          );
+        });
+
+        if (!putRes.ok) {
+          throw new Error(`Falha no upload direto (${putRes.status}). Verifique o CORS do bucket R2.`);
+        }
+
+        setProgress(true, 'Finalizando publicação na galeria...', 99, false);
+
+        // 3. Registra o post na galeria VIP
+        const postRes = await fetch('/api/vip/posts', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            media_type: isVideo ? 'video' : 'image',
+            media_url: signData.publicUrl,
+            r2_key: signData.r2Key,
+            caption,
+            price,
+            allow_subscription: allowSubscription
+          })
+        });
+
+        if (!postRes.ok) {
+          const errPost = await postRes.json().catch(() => ({}));
+          throw new Error(errPost.error || 'Erro ao salvar post na galeria');
+        }
+
+        document.getElementById('uploadCaption').value = '';
+        document.getElementById('uploadPrice').value = '';
+        setProgress(true, `${isVideo ? 'Vídeo' : 'Foto'} enviado(a) com sucesso!`, 100, false);
+
+        await loadAllData();
+        setTimeout(() => setProgress(false), 2200);
+      } catch (err) {
+        console.error('Erro no upload da galeria:', err);
+        setProgress(true, err?.message || 'Erro ao enviar arquivo.', 0, true);
+      } finally {
+        isUploading = false;
+      }
     }
 
     function setFilter(mode) {
@@ -179,11 +379,8 @@
             <div class="text-3xl">📸</div>
             <div class="text-sm font-semibold text-white">Nenhuma mídia encontrada nesta aba</div>
             <p class="text-xs text-zinc-400 max-w-md mx-auto">
-              Suba suas fotos e vídeos no Estúdio VIP e marque a opção de liberar para assinantes para que apareçam aqui.
+              Use a área de envio acima para subir suas fotos e vídeos direto para a galeria de assinantes.
             </p>
-            <a href="/vip-studio" class="inline-block px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-xs font-bold text-white">
-              + Adicionar Fotos e Vídeos
-            </a>
           </div>
         `;
         return;
@@ -200,7 +397,7 @@
               <div class="relative aspect-[4/5] bg-zinc-900 overflow-hidden">
                 ${
                   isVideo
-                    ? `<video src="${post.media_url}" poster="${post.preview_url || ''}" controls playsinline class="w-full h-full object-cover"></video>`
+                    ? `<video src="${post.media_url}" poster="${post.preview_url || ''}" controls playsinline preload="metadata" class="w-full h-full object-cover"></video>`
                     : `<img src="${post.media_url}" alt="Mídia VIP" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-300" />`
                 }
                 <div class="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5">
