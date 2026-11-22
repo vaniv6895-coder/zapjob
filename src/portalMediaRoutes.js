@@ -4,11 +4,31 @@ import crypto from 'crypto';
 import { addCreatorMedia, listCreatorMedia, deleteCreatorMedia } from './portalDb.js';
 
 function getStorageConfig() {
-  let endpoint = (process.env.S3_ENDPOINT || process.env.R2_ENDPOINT || '').trim();
-  const accessKeyId = (process.env.S3_ACCESS_KEY || process.env.S3_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || '').trim();
-  const secretAccessKey = (process.env.S3_SECRET_KEY || process.env.S3_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || '').trim();
-  const bucket = (process.env.S3_BUCKET || process.env.S3_BUCKET_NAME || process.env.R2_BUCKET_NAME || '').trim();
-  const publicBase = (process.env.S3_PUBLIC_URL || process.env.R2_PUBLIC_URL || '').trim().replace(/\/$/, '');
+  let endpoint = (process.env.R2_ENDPOINT || process.env.S3_ENDPOINT || '').trim();
+  const accessKeyId = (
+    process.env.R2_ACCESS_KEY_ID ||
+    process.env.R2_ACCESS_KEY ||
+    process.env.S3_ACCESS_KEY ||
+    process.env.S3_ACCESS_KEY_ID ||
+    ''
+  ).trim();
+  const secretAccessKey = (
+    process.env.R2_SECRET_ACCESS_KEY ||
+    process.env.R2_SECRET_KEY ||
+    process.env.S3_SECRET_KEY ||
+    process.env.S3_SECRET_ACCESS_KEY ||
+    ''
+  ).trim();
+  const bucket = (
+    process.env.R2_BUCKET_NAME ||
+    process.env.R2_BUCKET ||
+    process.env.S3_BUCKET ||
+    process.env.S3_BUCKET_NAME ||
+    ''
+  ).trim();
+  const publicBase = (process.env.R2_PUBLIC_URL || process.env.S3_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/$/, '');
 
   if (bucket && endpoint.endsWith('/' + bucket)) {
     endpoint = endpoint.slice(0, -('/' + bucket).length);
@@ -35,7 +55,10 @@ function getR2Client() {
 function buildCreatorMediaKey(creatorId, visibility, fileName, mediaKind) {
   const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
   const defaultExt = mediaKind === 'video' ? 'mp4' : mediaKind === 'audio' ? 'mp3' : 'jpg';
-  const ext = (String(fileName || '').split('.').pop() || defaultExt).replace(/[^a-z0-9]/gi, '').toLowerCase() || defaultExt;
+  const ext =
+    (String(fileName || '').split('.').pop() || defaultExt)
+      .replace(/[^a-z0-9]/gi, '')
+      .toLowerCase() || defaultExt;
   const unique = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   return `creators/${creatorId}/${safeVis}/${unique}.${ext}`;
 }
@@ -51,7 +74,13 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
         return reply.status(500).send({ ok: false, error: 'Storage R2/S3 não configurado no Railway.' });
       }
 
-      const { fileName = 'arquivo', contentType = 'application/octet-stream', visibility = 'public', base64Data } = req.body || {};
+      const {
+        fileName = 'arquivo',
+        contentType = 'application/octet-stream',
+        visibility = 'public',
+        base64Data,
+      } = req.body || {};
+
       if (!base64Data) {
         return reply.status(400).send({ ok: false, error: 'Arquivo vazio.' });
       }
@@ -69,12 +98,14 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
       const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
       const buffer = Buffer.from(cleanBase64, 'base64');
 
-      await r2.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: r2Key,
-        Body: buffer,
-        ContentType: contentType,
-      }));
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: r2Key,
+          Body: buffer,
+          ContentType: contentType,
+        })
+      );
 
       const publicUrl = `${publicBase}/${r2Key}`;
       const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';
@@ -108,7 +139,12 @@ export function registerPortalMediaRoutes(app, requireCreatorAuth) {
       const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
       const r2Key = buildCreatorMediaKey(req.creator.id, visibility, fileName, mediaType);
 
-      const command = new PutObjectCommand({ Bucket: bucket, Key: r2Key });
+      const putParams = { Bucket: bucket, Key: r2Key };
+      if (contentType && contentType !== 'application/octet-stream') {
+        putParams.ContentType = contentType;
+      }
+
+      const command = new PutObjectCommand(putParams);
       const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 });
       const publicUrl = `${publicBase}/${r2Key}`;
       const safeVis = ['public', 'preview', 'subscriber'].includes(visibility) ? visibility : 'public';

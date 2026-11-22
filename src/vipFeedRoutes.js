@@ -22,6 +22,15 @@ export async function ensureVipTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    ALTER TABLE vip_posts
+      ADD COLUMN IF NOT EXISTS preview_url TEXT;
+
+    ALTER TABLE vip_posts
+      ADD COLUMN IF NOT EXISTS single_view BOOLEAN DEFAULT TRUE;
+
+    ALTER TABLE vip_posts
+      ADD COLUMN IF NOT EXISTS allow_subscription BOOLEAN DEFAULT TRUE;
+
     CREATE TABLE IF NOT EXISTS ppv_unlocks (
       id SERIAL PRIMARY KEY,
       post_id INTEGER NOT NULL,
@@ -145,48 +154,56 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     });
 
     app.post('/api/vip/posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
-      const body = req.body || {};
-      const resolvedMediaUrl = String(
-        body.mediaUrl || body.media_url || body.publicUrl || body.public_url || ''
-      ).trim();
+      try {
+        const body = req.body || {};
+        const resolvedMediaUrl = String(
+          body.mediaUrl || body.media_url || body.publicUrl || body.public_url || ''
+        ).trim();
 
-      if (!resolvedMediaUrl) {
-        return reply.status(400).send({ ok: false, error: 'Arquivo de mídia obrigatório.' });
+        if (!resolvedMediaUrl) {
+          return reply.status(400).send({ ok: false, error: 'Arquivo de mídia obrigatório.' });
+        }
+
+        const resolvedMediaType = ['video', 'image', 'audio'].includes(body.mediaType || body.media_type)
+          ? (body.mediaType || body.media_type)
+          : 'image';
+        const resolvedPreviewUrl = String(
+          body.previewUrl || body.preview_url || resolvedMediaUrl
+        ).trim();
+
+        const parsedPrice = Number(String(body.price ?? '').replace(',', '.'));
+        const finalPrice = !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? Number(parsedPrice.toFixed(2)) : 0;
+
+        const rawSingle = body.singleView !== undefined ? body.singleView : body.single_view;
+        const isSingle = rawSingle !== false;
+
+        const rawSub = body.allowSubscription !== undefined ? body.allowSubscription : body.allow_subscription;
+        const allowSub = rawSub !== false;
+
+        const { rows } = await pool.query(
+          `INSERT INTO vip_posts (creator_id, caption, media_type, media_url, preview_url, price, single_view, allow_subscription)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING *`,
+          [
+            req.creator.id,
+            (body.caption || '').trim(),
+            resolvedMediaType,
+            resolvedMediaUrl,
+            resolvedPreviewUrl,
+            finalPrice,
+            isSingle,
+            allowSub,
+          ]
+        );
+
+        return reply.send({ ok: true, post: rows[0] });
+      } catch (err) {
+        app.log.error(err, '[VIP] Erro ao inserir post em vip_posts');
+        return reply.status(500).send({
+          ok: false,
+          error: 'Erro ao salvar post na galeria: ' + (err?.message || 'falha interna'),
+        });
       }
-
-      const resolvedMediaType = ['video', 'image', 'audio'].includes(body.mediaType || body.media_type)
-        ? (body.mediaType || body.media_type)
-        : 'image';
-      const resolvedPreviewUrl = String(
-        body.previewUrl || body.preview_url || resolvedMediaUrl
-      ).trim();
-
-      const parsedPrice = Number(String(body.price ?? '').replace(',', '.'));
-      const finalPrice = !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? Number(parsedPrice.toFixed(2)) : 0;
-
-      const rawSingle = body.singleView !== undefined ? body.singleView : body.single_view;
-      const isSingle = rawSingle !== false;
-
-      const rawSub = body.allowSubscription !== undefined ? body.allowSubscription : body.allow_subscription;
-      const allowSub = rawSub !== false;
-
-      const { rows } = await pool.query(
-        `INSERT INTO vip_posts (creator_id, caption, media_type, media_url, preview_url, price, single_view, allow_subscription)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING *`,
-        [
-          req.creator.id,
-          (body.caption || '').trim(),
-          resolvedMediaType,
-          resolvedMediaUrl,
-          resolvedPreviewUrl,
-          finalPrice,
-          isSingle,
-          allowSub,
-        ]
-      );
-
-      return reply.send({ ok: true, post: rows[0] });
     });
 
     app.get('/api/vip/my-posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
