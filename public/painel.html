@@ -733,6 +733,89 @@
     }
     .chat-input-bar button:hover { opacity: 0.92; }
 
+    /* Upload Progress & Scheduled Posts */
+    .upload-progress-wrap {
+      display: none;
+      margin-top: 10px;
+      background: #0b1015;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .upload-progress-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--sky);
+      margin-bottom: 6px;
+    }
+    .upload-progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .upload-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--sky), var(--accent));
+      border-radius: 99px;
+      transition: width 0.15s ease;
+    }
+    .sched-post-card {
+      background: #0b1015;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .sched-thumb {
+      width: 54px;
+      height: 54px;
+      border-radius: 9px;
+      object-fit: cover;
+      background: #162029;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sched-info { flex: 1; min-width: 0; }
+    .sched-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+    .sched-caption {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sched-actions { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .mini-btn {
+      padding: 5px 8px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mini-btn.del { color: var(--danger); border-color: rgba(248, 113, 113, 0.25); }
+    .mini-btn.del:hover { background: rgba(248, 113, 113, 0.16); }
+
     @media (max-width: 768px) {
       #sidebar { width: 100%; min-width: 100%; }
       #chat-area { display: none; width: 100%; }
@@ -794,31 +877,74 @@
     </div>
   </div>
 
-  <!-- Modal Agenda de Conteúdo & Legendas Prontas -->
+  <!-- Modal Agendador Automático Telegram + Checklist -->
   <div id="agenda-modal">
-    <div class="modal-box" style="max-width:560px;">
+    <div class="modal-box" style="max-width:580px;">
       <div class="modal-header-row">
-        <h2>📅 Agenda de Conteúdo & Legendas</h2>
+        <h2>📅 Agendar Posts Automáticos (Telegram)</h2>
         <button type="button" class="modal-close-x" onclick="closeAgendaModal()">✕</button>
       </div>
-      <p>Organize as postagens do Canal de Prévias (Telegram) e do VIP (Fanvue) e copie legendas prontas com 1 clique.</p>
+      <p>Escolha a foto ou vídeo, marque o dia, hora e minuto e o servidor publica sozinho no canal.</p>
 
       <div class="agenda-tabs">
-        <button type="button" class="agenda-tab-btn active" onclick="switchAgendaTab('telegram', this)">✈️ Prévias (Diário)</button>
-        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('fanvue', this)">🔥 VIP Fanvue (Semana)</button>
-        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('legendas', this)">📋 Legendas Prontas</button>
+        <button type="button" class="agenda-tab-btn active" onclick="switchAgendaTab('agendar', this)">⏰ Agendar Post</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('fila', this)">📋 Fila (<span id="sched-count">0</span>)</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('telegram', this)">✅ Rotina</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('legendas', this)">💬 Legendas</button>
       </div>
 
-      <div id="agenda-tab-telegram">
+      <!-- Aba 1: Agendar Novo Post (Foto ou Vídeo + Progresso de Upload) -->
+      <div id="agenda-tab-agendar">
+        <label>Canal ou Grupo de Prévias (Telegram)</label>
+        <input type="text" id="sched-chat-id" placeholder="@vanessa_mia89 ou -1001234567890" />
+
+        <label>Dia, Hora e Minuto para Publicar</label>
+        <input type="datetime-local" id="sched-datetime" />
+
+        <label>Foto ou Vídeo da Prévia</label>
+        <input type="file" id="sched-media-file" accept="image/*,video/*" onchange="handleScheduleFileSelect(event)" />
+
+        <!-- Barra de progresso real do carregamento da foto/vídeo -->
+        <div class="upload-progress-wrap" id="sched-progress-wrap">
+          <div class="upload-progress-top">
+            <span id="sched-progress-label">⏳ Carregando arquivo...</span>
+            <span id="sched-progress-pct">0%</span>
+          </div>
+          <div class="upload-progress-bar">
+            <div class="upload-progress-fill" id="sched-progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- Prévia visual após carregar -->
+        <div id="sched-media-preview-box" style="display:none;margin-top:10px;">
+          <img id="sched-img-preview" src="" alt="" style="display:none;width:100%;max-height:200px;object-fit:cover;border-radius:12px;border:1px solid var(--border-strong);" />
+          <video id="sched-vid-preview" src="" controls style="display:none;width:100%;max-height:220px;border-radius:12px;border:1px solid var(--border-strong);background:#000;"></video>
+        </div>
+
+        <label>Dica para a IA (opcional)</label>
+        <input type="text" id="sched-hint" placeholder="Ex: vídeo curto no quarto, clima provocante..." />
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">
+          <label style="margin:0;">Legenda Quente do Post</label>
+          <button type="button" class="copy-btn" id="sched-ai-btn" onclick="generateScheduleCaption()">✨ IA Gerar Frase Quente</button>
+        </div>
+        <textarea id="sched-caption" rows="3" placeholder="Clique em 'IA Gerar Frase Quente' ou escreva a legenda..." style="margin-top:6px;"></textarea>
+
+        <button type="button" class="btn-primary" id="sched-save-btn" onclick="saveScheduledPost()">⏰ Confirmar Agendamento</button>
+      </div>
+
+      <!-- Aba 2: Fila de Posts Agendados e Enviados -->
+      <div id="agenda-tab-fila" style="display:none;">
+        <div id="sched-posts-list"></div>
+      </div>
+
+      <!-- Aba 3: Checklist Diário -->
+      <div id="agenda-tab-telegram" style="display:none;">
         <div class="agenda-card" id="checklist-telegram"></div>
         <button type="button" class="btn-secondary" onclick="resetAgendaChecks('telegram')">🔄 Resetar Checklist de Hoje</button>
       </div>
 
-      <div id="agenda-tab-fanvue" style="display:none;">
-        <div class="agenda-card" id="checklist-fanvue"></div>
-        <button type="button" class="btn-secondary" onclick="resetAgendaChecks('fanvue')">🔄 Resetar Checklist da Semana</button>
-      </div>
-
+      <!-- Aba 4: Legendas Prontas -->
       <div id="agenda-tab-legendas" style="display:none;">
         <div id="legendas-list"></div>
       </div>
@@ -1173,17 +1299,271 @@
       });
     }
 
+    let uploadedScheduleMediaUrl = '';
+    let uploadedScheduleMediaType = 'photo';
+    let isScheduleUploading = false;
+
     function switchAgendaTab(tab, btn) {
       document.querySelectorAll('.agenda-tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      document.getElementById('agenda-tab-agendar').style.display = tab === 'agendar' ? 'block' : 'none';
+      document.getElementById('agenda-tab-fila').style.display = tab === 'fila' ? 'block' : 'none';
       document.getElementById('agenda-tab-telegram').style.display = tab === 'telegram' ? 'block' : 'none';
-      document.getElementById('agenda-tab-fanvue').style.display = tab === 'fanvue' ? 'block' : 'none';
       document.getElementById('agenda-tab-legendas').style.display = tab === 'legendas' ? 'block' : 'none';
+      if (tab === 'fila') loadScheduledPosts();
+    }
+
+    function getDefaultScheduleDateTime() {
+      const d = new Date(Date.now() + 15 * 60 * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function handleScheduleFileSelect(event) {
+      const file = event.target.files[0];
+      const progWrap = document.getElementById('sched-progress-wrap');
+      const progFill = document.getElementById('sched-progress-fill');
+      const progPct = document.getElementById('sched-progress-pct');
+      const progLbl = document.getElementById('sched-progress-label');
+      const prevBox = document.getElementById('sched-media-preview-box');
+      const imgPrev = document.getElementById('sched-img-preview');
+      const vidPrev = document.getElementById('sched-vid-preview');
+      const saveBtn = document.getElementById('sched-save-btn');
+
+      uploadedScheduleMediaUrl = '';
+      if (!file) {
+        progWrap.style.display = 'none';
+        prevBox.style.display = 'none';
+        return;
+      }
+
+      const isVideo = (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi)$/i.test(file.name);
+      uploadedScheduleMediaType = isVideo ? 'video' : 'photo';
+
+      const localObjUrl = URL.createObjectURL(file);
+      prevBox.style.display = 'block';
+      if (isVideo) {
+        imgPrev.style.display = 'none';
+        vidPrev.src = localObjUrl;
+        vidPrev.style.display = 'block';
+      } else {
+        vidPrev.style.display = 'none';
+        imgPrev.src = localObjUrl;
+        imgPrev.style.display = 'block';
+      }
+
+      progWrap.style.display = 'block';
+      progFill.style.width = '0%';
+      progPct.textContent = '0%';
+      progLbl.style.color = 'var(--sky)';
+      progLbl.textContent = `⏳ Carregando ${isVideo ? 'vídeo' : 'foto'}...`;
+      isScheduleUploading = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = '⏳ Aguarde o carregamento...';
+
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/panel/upload-media', true);
+      xhr.setRequestHeader('x-panel-password', password);
+
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          progFill.style.width = pct + '%';
+          progPct.textContent = pct + '%';
+          progLbl.textContent = `⏳ Carregando ${isVideo ? 'vídeo' : 'foto'}...`;
+        }
+      };
+
+      xhr.onload = function () {
+        isScheduleUploading = false;
+        saveBtn.disabled = false;
+        saveBtn.textContent = '⏰ Confirmar Agendamento';
+        try {
+          const data = JSON.parse(xhr.responseText || '{}');
+          if (xhr.status >= 200 && xhr.status < 300 && data.ok && data.url) {
+            uploadedScheduleMediaUrl = data.url;
+            progFill.style.width = '100%';
+            progPct.textContent = '100%';
+            progLbl.style.color = 'var(--accent)';
+            progLbl.textContent = `✅ ${isVideo ? 'Vídeo' : 'Foto'} carregado(a) com sucesso!`;
+          } else {
+            progLbl.style.color = 'var(--danger)';
+            progLbl.textContent = '❌ Erro ao carregar: ' + (data.error || 'falha no upload');
+          }
+        } catch {
+          progLbl.style.color = 'var(--danger)';
+          progLbl.textContent = '❌ Erro inesperado ao processar upload.';
+        }
+      };
+
+      xhr.onerror = function () {
+        isScheduleUploading = false;
+        saveBtn.disabled = false;
+        saveBtn.textContent = '⏰ Confirmar Agendamento';
+        progLbl.style.color = 'var(--danger)';
+        progLbl.textContent = '❌ Falha de rede ao enviar arquivo.';
+      };
+
+      xhr.send(fd);
+    }
+
+    async function generateScheduleCaption() {
+      const btn = document.getElementById('sched-ai-btn');
+      btn.disabled = true;
+      btn.textContent = '✨ Gerando...';
+      try {
+        const res = await fetch('/api/panel/telegram-preview/caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+          body: JSON.stringify({ contextHint: document.getElementById('sched-hint').value.trim() })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.caption) {
+          document.getElementById('sched-caption').value = data.caption;
+        } else {
+          alert(data.error || 'Não foi possível gerar a frase.');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ IA Gerar Frase Quente';
+      }
+    }
+
+    async function saveScheduledPost() {
+      if (isScheduleUploading) return alert('Aguarde o carregamento da foto ou vídeo terminar.');
+      const chatId = document.getElementById('sched-chat-id').value.trim();
+      const dtVal = document.getElementById('sched-datetime').value;
+      const caption = document.getElementById('sched-caption').value.trim();
+
+      if (!chatId) return alert('Informe o @canal ou ID do grupo do Telegram.');
+      if (!uploadedScheduleMediaUrl) return alert('Selecione e aguarde o carregamento da foto ou vídeo.');
+      if (!dtVal) return alert('Escolha o dia, hora e minuto para publicar.');
+
+      const isoDate = new Date(dtVal).toISOString();
+      localStorage.setItem('gv_tg_preview_chat', chatId);
+
+      const btn = document.getElementById('sched-save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Salvando agendamento...';
+
+      try {
+        const res = await fetch('/api/panel/telegram-schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+          body: JSON.stringify({
+            chatId,
+            mediaType: uploadedScheduleMediaType,
+            mediaUrl: uploadedScheduleMediaUrl,
+            caption,
+            scheduledAt: isoDate
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert('Post agendado! O sistema vai publicar automaticamente no horário marcado.');
+          uploadedScheduleMediaUrl = '';
+          document.getElementById('sched-media-file').value = '';
+          document.getElementById('sched-progress-wrap').style.display = 'none';
+          document.getElementById('sched-media-preview-box').style.display = 'none';
+          document.getElementById('sched-caption').value = '';
+          document.getElementById('sched-datetime').value = getDefaultScheduleDateTime();
+          await loadScheduledPosts();
+          const filaBtn = document.querySelectorAll('.agenda-tab-btn')[1];
+          if (filaBtn) switchAgendaTab('fila', filaBtn);
+        } else {
+          alert('Erro: ' + (data.error || 'Falha ao agendar post'));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⏰ Confirmar Agendamento';
+      }
+    }
+
+    async function loadScheduledPosts() {
+      const box = document.getElementById('sched-posts-list');
+      if (box) box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12.5px;">Carregando fila...</div>';
+      const res = await fetch('/api/panel/telegram-schedule', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const data = await res.json();
+      const posts = data.posts || [];
+      const pendingCount = posts.filter(p => p.status === 'pending').length;
+      const cntEl = document.getElementById('sched-count');
+      if (cntEl) cntEl.textContent = pendingCount;
+
+      if (!box) return;
+      if (!posts.length) {
+        box.innerHTML = '<div style="text-align:center;padding:24px 12px;color:var(--text-dim);font-size:12.5px;">Nenhum post agendado ainda. Use a aba <strong>⏰ Agendar Post</strong>.</div>';
+        return;
+      }
+
+      box.innerHTML = posts.map(p => {
+        const dtStr = new Date(p.scheduled_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const statusBadge = p.status === 'sent'
+          ? '<span class="badge badge-whatsapp">✅ Publicado</span>'
+          : p.status === 'error'
+          ? `<span class="badge badge-paused" title="${escapeHtml(p.error_msg || '')}">⚠️ Erro</span>`
+          : '<span class="badge badge-paid">⏰ Agendado</span>';
+        const thumbHtml = p.media_type === 'video'
+          ? `<video src="${escapeHtml(p.media_url)}" class="sched-thumb" muted></video>`
+          : `<img src="${escapeHtml(p.media_url)}" class="sched-thumb" />`;
+
+        return `
+          <div class="sched-post-card">
+            ${thumbHtml}
+            <div class="sched-info">
+              <div class="sched-meta">
+                <span style="color:var(--sky);">📅 ${dtStr}</span>
+                <span>• ${escapeHtml(p.chat_id)}</span>
+                ${statusBadge}
+              </div>
+              <div class="sched-caption">${escapeHtml(p.caption || '(Sem legenda)')}</div>
+              ${p.status === 'error' && p.error_msg ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;">${escapeHtml(p.error_msg)}</div>` : ''}
+            </div>
+            <div class="sched-actions">
+              ${p.status !== 'sent' ? `<button type="button" class="mini-btn" onclick="sendScheduledNow(${p.id})">🚀 Agora</button>` : ''}
+              <button type="button" class="mini-btn del" onclick="deleteScheduledPost(${p.id})">🗑️</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function sendScheduledNow(id) {
+      if (!confirm('Publicar este post agendado agora no Telegram?')) return;
+      const res = await fetch(`/api/panel/telegram-schedule/${id}/send-now`, {
+        method: 'POST',
+        headers: { 'x-panel-password': password }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        alert('Publicado no Telegram!');
+      } else {
+        alert('Erro: ' + (data.error || 'Falha ao publicar'));
+      }
+      await loadScheduledPosts();
+    }
+
+    async function deleteScheduledPost(id) {
+      if (!confirm('Remover este agendamento?')) return;
+      await fetch(`/api/panel/telegram-schedule/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-panel-password': password }
+      });
+      await loadScheduledPosts();
     }
 
     async function openAgendaModal() {
       document.getElementById('agenda-modal').style.display = 'flex';
+      const savedChat = localStorage.getItem('gv_tg_preview_chat') || '@vanessa_mia89';
+      const chatInp = document.getElementById('sched-chat-id');
+      if (chatInp && !chatInp.value) chatInp.value = savedChat;
+      const dtInp = document.getElementById('sched-datetime');
+      if (dtInp && !dtInp.value) dtInp.value = getDefaultScheduleDateTime();
       renderAgendaChecklists();
+      loadScheduledPosts();
 
       let s = { link_telegram: '[Link Telegram]', link_fatalfans: '[Link FatalFans]', link_fanvue: '[Link Fanvue]' };
       try {
