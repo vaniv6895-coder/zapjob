@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Painel CRM — Atendimento VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-root: #070b0e;
+      --bg-sidebar: #0d1318;
+      --bg-surface: #131b22;
+      --bg-elevated: #19232c;
+      --bg-hover: #1f2b36;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --accent: #00d285;
+      --accent-hover: #00e692;
+      --accent-soft: rgba(0, 210, 133, 0.14);
+      --bubble-out: #0b4635;
+      --bubble-out-border: rgba(0, 210, 133, 0.25);
+      --bubble-in: #162029;
+      --sky: #38bdf8;
+      --purple: #c084fc;
+      --pink: #f472b6;
+      --amber: #fbbf24;
+      --orange: #fb923c;
+      --teal: #2dd4bf;
+      --danger: #f87171;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    html, body {
+      background: var(--bg-root);
+      color: var(--text-main);
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+    /* Login & Modais */
+    #login-screen, #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal, #agenda-modal, #tgpreview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 11, 0.86);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+      animation: fadeIn 0.16s ease-out;
+    }
+    #settings-modal, #analytics-modal, #vitrine-modal, #paywall-modal, #waprofile-modal, #agenda-modal, #tgpreview-modal {
+      display: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.985); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-box {
+      background: linear-gradient(180deg, #161f27 0%, #11181f 100%);
+      padding: 24px;
+      border-radius: 18px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.68), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-strong);
+      max-height: 88dvh;
+      overflow-y: auto;
+    }
+    .modal-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .modal-close-x {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .modal-close-x:hover { background: rgba(248, 113, 113, 0.16); color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
+
+    .modal-box h2 {
+      color: var(--text-main);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-box p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.45;
+    }
+    .modal-box label {
+      display: block;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      margin-top: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .modal-box input, .modal-box textarea, .modal-box select {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: #0b1015;
+      color: #fff;
+      font-size: 13.5px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .modal-box input:focus, .modal-box textarea:focus, .modal-box select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      outline: none;
+    }
+
+    .pwd-wrapper { position: relative; display: flex; align-items: center; }
+    .pwd-wrapper input { padding-right: 42px; }
+    .pwd-eye {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+    .pwd-eye:hover { color: var(--accent); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 11px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+      color: #04130d;
+      font-weight: 800;
+      font-size: 13.5px;
+      cursor: pointer;
+      margin-top: 16px;
+      box-shadow: 0 8px 20px rgba(0, 210, 133, 0.22);
+      transition: transform 0.12s, opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.94; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.07); color: var(--text-main); }
+
+    /* Analytics Grid */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .kpi-card {
+      background: #0b1015;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .kpi-val { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+    .kpi-lbl { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+    .stat-section { margin-top: 16px; }
+    .stat-section h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--sky);
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .stat-count { font-weight: 800; color: var(--accent); }
+
+    /* Agenda & Legendas */
+    .agenda-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      background: #0b1015;
+      padding: 4px;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+    }
+    .agenda-tab-btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .agenda-tab-btn.active { background: var(--accent); color: #04130d; }
+    .agenda-card {
+      background: #0b1015;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .agenda-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .agenda-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .agenda-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .agenda-item.done .agenda-title { text-decoration: line-through; color: var(--text-dim); }
+    .agenda-time {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--sky);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      margin-right: 6px;
+    }
+    .agenda-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
+    .agenda-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+    .copy-box {
+      background: #0b1015;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .copy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+    .copy-tag { font-size: 11px; font-weight: 800; color: var(--sky); text-transform: uppercase; letter-spacing: 0.03em; }
+    .copy-btn {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(0, 210, 133, 0.3);
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { background: var(--accent); color: #04130d; }
+    .copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .copy-text { font-size: 12.5px; color: #cbd5e1; white-space: pre-line; line-height: 1.45; }
+
+    /* App Layout */
+    #app { display: flex; height: 100%; width: 100%; overflow: hidden; }
+    #sidebar {
+      width: 400px;
+      min-width: 350px;
+      height: 100%;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      background: linear-gradient(180deg, #141d24 0%, #10171d 100%);
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-top-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .brand-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+      color: #04130d;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 210, 133, 0.25);
+    }
+    .brand-title h3 { font-size: 15px; font-weight: 800; color: var(--text-main); letter-spacing: -0.01em; }
+    .brand-sub { font-size: 10.5px; color: var(--accent); font-weight: 700; display: flex; align-items: center; gap: 4px; }
+    .live-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .top-util-btns { display: flex; align-items: center; gap: 6px; }
+    .icon-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 5px 9px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--border-strong); }
+    .logout-btn {
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 8px;
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+    .logout-btn:hover { background: rgba(248, 113, 113, 0.18); }
+
+    /* Toolbar de Ferramentas Rápidas */
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .header-actions::-webkit-scrollbar { display: none; }
+    .nav-pill {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(0, 210, 133, 0.25);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .nav-pill:hover { transform: translateY(-1px); filter: brightness(1.12); }
+    .nav-pill.blue { background: rgba(56, 189, 248, 0.12); color: var(--sky); border-color: rgba(56, 189, 248, 0.26); }
+    .nav-pill.amber { background: rgba(251, 191, 36, 0.12); color: var(--amber); border-color: rgba(251, 191, 36, 0.26); }
+    .nav-pill.purple { background: rgba(192, 132, 252, 0.12); color: var(--purple); border-color: rgba(192, 132, 252, 0.26); }
+    .nav-pill.pink { background: rgba(244, 114, 182, 0.12); color: var(--pink); border-color: rgba(244, 114, 182, 0.26); }
+    .nav-pill.teal { background: rgba(45, 212, 191, 0.12); color: var(--teal); border-color: rgba(45, 212, 191, 0.26); }
+    .nav-pill.orange { background: rgba(251, 146, 60, 0.12); color: var(--orange); border-color: rgba(251, 146, 60, 0.26); }
+
+    /* Busca e Filtros de Canal */
+    .search-box {
+      padding: 8px 12px 0;
+      background: var(--bg-sidebar);
+      flex-shrink: 0;
+    }
+    .search-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-inner span {
+      position: absolute;
+      left: 11px;
+      font-size: 12px;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+    .search-inner input {
+      width: 100%;
+      background: #090d11;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px 8px 32px;
+      color: var(--text-main);
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-inner input:focus { border-color: var(--accent); }
+
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 5px 11px;
+      border-radius: 99px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { color: var(--text-main); border-color: var(--border-strong); }
+    .filter-btn.active {
+      background: var(--accent);
+      color: #04130d;
+      border-color: var(--accent);
+    }
+
+    /* Lista de Conversas */
+    #conv-list { flex: 1; overflow-y: auto; }
+    .conv-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .conv-item:hover { background: rgba(255, 255, 255, 0.035); }
+    .conv-item.active {
+      background: rgba(0, 210, 133, 0.09);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .conv-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-main);
+      flex-shrink: 0;
+    }
+    .conv-avatar.ch-whatsapp { background: rgba(0, 210, 133, 0.12); color: var(--accent); border-color: rgba(0, 210, 133, 0.25); }
+    .conv-avatar.ch-telegram { background: rgba(56, 189, 248, 0.12); color: var(--sky); border-color: rgba(56, 189, 248, 0.25); }
+    .conv-avatar.ch-messenger { background: rgba(192, 132, 252, 0.12); color: var(--purple); border-color: rgba(192, 132, 252, 0.25); }
+
+    .conv-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .conv-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .conv-phone {
+      font-weight: 700;
+      font-size: 13.5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      color: var(--text-main);
+    }
+    .badge {
+      font-size: 9.5px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+    .badge-whatsapp { background: rgba(0, 210, 133, 0.15); color: var(--accent); }
+    .badge-telegram { background: rgba(56, 189, 248, 0.15); color: var(--sky); }
+    .badge-messenger { background: rgba(192, 132, 252, 0.15); color: var(--purple); }
+    .badge-paused { background: rgba(248, 113, 113, 0.16); color: var(--danger); }
+    .badge-paid { background: rgba(251, 191, 36, 0.16); color: var(--amber); }
+    .conv-time { font-size: 10.5px; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+    .conv-preview {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Chat Area */
+    #chat-area {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 80% 15%, rgba(0, 210, 133, 0.04), transparent 35%),
+        radial-gradient(circle at 20% 85%, rgba(56, 189, 248, 0.035), transparent 35%),
+        var(--bg-root);
+      overflow: hidden;
+      position: relative;
+    }
+    #chat-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      flex-direction: column;
+      gap: 12px;
+      padding: 28px;
+      text-align: center;
+    }
+    .empty-icon-box {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+    #chat-active { display: none; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
+
+    .chat-header {
+      background: rgba(19, 27, 34, 0.92);
+      backdrop-filter: blur(8px);
+      padding: 11px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .chat-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    #back-btn {
+      display: none;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 800;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .ai-btn {
+      padding: 7px 12px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .ai-on { background: var(--accent-soft); color: var(--accent); border-color: rgba(0, 210, 133, 0.3); }
+    .ai-off { background: rgba(248, 113, 113, 0.16); color: var(--danger); border-color: rgba(248, 113, 113, 0.3); }
+    .pass-btn {
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--sky);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      padding: 7px 12px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .pass-btn:hover { background: rgba(56, 189, 248, 0.24); }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg {
+      max-width: 78%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 13.5px;
+      line-height: 1.48;
+      word-wrap: break-word;
+      position: relative;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+    .msg-user {
+      align-self: flex-start;
+      background: var(--bubble-in);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-top-left-radius: 4px;
+    }
+    .msg-assistant {
+      align-self: flex-end;
+      background: var(--bubble-out);
+      border: 1px solid var(--bubble-out-border);
+      color: #f0fdf4;
+      border-top-right-radius: 4px;
+    }
+    .msg-meta {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.55);
+      text-align: right;
+      margin-top: 5px;
+      font-weight: 600;
+    }
+    .msg img, .msg video { max-width: 100%; border-radius: 9px; margin-bottom: 6px; display: block; }
+    .msg audio { max-width: 100%; margin-bottom: 6px; }
+
+    /* Barra de digitação */
+    .chat-input-bar {
+      background: var(--bg-surface);
+      padding: 10px 14px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      width: 100%;
+      z-index: 10;
+    }
+    .chat-input-bar input {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 14px;
+      border-radius: 11px;
+      border: 1px solid var(--border-strong);
+      background: #0b1015;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .chat-input-bar input:focus { border-color: var(--accent); }
+    .chat-input-bar button {
+      background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+      color: #04130d;
+      border: none;
+      padding: 11px 18px;
+      border-radius: 11px;
+      font-weight: 800;
+      font-size: 13.5px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .chat-input-bar button:hover { opacity: 0.92; }
+
+    @media (max-width: 768px) {
+      #sidebar { width: 100%; min-width: 100%; }
+      #chat-area { display: none; width: 100%; }
+      body.chat-open #sidebar { display: none; }
+      body.chat-open #chat-area { display: flex; }
+      #back-btn { display: inline-flex; }
+      .msg { max-width: 86%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Tela de Login -->
+  <div id="login-screen">
+    <div class="modal-box" style="max-width:380px;text-align:center;padding:28px 24px;">
+      <div style="width:52px;height:52px;border-radius:16px;background:var(--accent-soft);border:1px solid rgba(0,210,133,0.3);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px;">💬</div>
+      <h2 style="justify-content:center;font-size:20px;">Painel CRM VIP</h2>
+      <p>Digite a senha de acesso para gerenciar atendimentos, disparos e vitrine.</p>
+      <div class="pwd-wrapper">
+        <input type="password" id="pwd-input" placeholder="Senha do painel" onkeydown="if(event.key==='Enter') login()" />
+        <button type="button" class="pwd-eye" onclick="togglePasswordVisibility()" title="Mostrar/ocultar senha" aria-label="Mostrar ou ocultar senha">
+          <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+      <button class="btn-primary" onclick="login()">Entrar no Painel</button>
+    </div>
+  </div>
+
+  <!-- Modal Prévia TG com IA -->
+  <div id="tgpreview-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>✈️ Postar Prévia com IA no Telegram</h2>
+        <button type="button" class="modal-close-x" onclick="closeTgPreviewModal()">✕</button>
+      </div>
+      <p>Escolha a foto, gere uma frase quente com a IA e publique direto no canal ou grupo de prévias.</p>
+
+      <label>ID ou @canal do Grupo de Prévias (Telegram)</label>
+      <input type="text" id="tg-chat-id" placeholder="@vanessa_mia89 ou -1001234567890" />
+
+      <label>Foto da Prévia</label>
+      <input type="file" id="tg-photo-file" accept="image/*" onchange="previewTgPhoto(event)" />
+      <img id="tg-photo-preview" src="" alt="" style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px;border:1px solid var(--border-strong);" />
+
+      <label>Dica rápida para a IA (opcional)</label>
+      <input type="text" id="tg-hint" placeholder="Ex: foto de lingerie no espelho, clima de noite..." />
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">
+        <label style="margin:0;">Legenda Quente</label>
+        <button type="button" class="copy-btn" id="tg-ai-btn" onclick="generateTgCaption()">✨ IA Gerar Frase Quente</button>
+      </div>
+      <textarea id="tg-caption" rows="3" placeholder="Clique em 'IA Gerar Frase Quente' ou escreva a legenda..." style="margin-top:6px;"></textarea>
+
+      <button type="button" class="btn-primary" id="tg-send-btn" onclick="sendTgPreview()">🚀 Enviar Foto + Legenda no Telegram</button>
+      <button type="button" class="btn-secondary" onclick="closeTgPreviewModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Agenda de Conteúdo & Legendas Prontas -->
+  <div id="agenda-modal">
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-header-row">
+        <h2>📅 Agenda de Conteúdo & Legendas</h2>
+        <button type="button" class="modal-close-x" onclick="closeAgendaModal()">✕</button>
+      </div>
+      <p>Organize as postagens do Canal de Prévias (Telegram) e do VIP (Fanvue) e copie legendas prontas com 1 clique.</p>
+
+      <div class="agenda-tabs">
+        <button type="button" class="agenda-tab-btn active" onclick="switchAgendaTab('telegram', this)">✈️ Prévias (Diário)</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('fanvue', this)">🔥 VIP Fanvue (Semana)</button>
+        <button type="button" class="agenda-tab-btn" onclick="switchAgendaTab('legendas', this)">📋 Legendas Prontas</button>
+      </div>
+
+      <div id="agenda-tab-telegram">
+        <div class="agenda-card" id="checklist-telegram"></div>
+        <button type="button" class="btn-secondary" onclick="resetAgendaChecks('telegram')">🔄 Resetar Checklist de Hoje</button>
+      </div>
+
+      <div id="agenda-tab-fanvue" style="display:none;">
+        <div class="agenda-card" id="checklist-fanvue"></div>
+        <button type="button" class="btn-secondary" onclick="resetAgendaChecks('fanvue')">🔄 Resetar Checklist da Semana</button>
+      </div>
+
+      <div id="agenda-tab-legendas" style="display:none;">
+        <div id="legendas-list"></div>
+      </div>
+
+      <button class="btn-secondary" style="margin-top:12px;" onclick="closeAgendaModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Perfil WhatsApp -->
+  <div id="waprofile-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>📱 Foto e Perfil do WhatsApp</h2>
+        <button type="button" class="modal-close-x" onclick="closeWaProfileModal()">✕</button>
+      </div>
+      <p>Troque a foto de perfil, o recado ("Sobre") e o link do site do número oficial direto pelo painel.</p>
+
+      <div id="wa-current-preview" style="display:flex;align-items:center;gap:12px;background:#0b1015;padding:12px;border-radius:12px;border:1px solid var(--border);margin-bottom:10px;">
+        <img id="wa-preview-img" src="" alt="" style="width:54px;height:54px;border-radius:50%;object-fit:cover;background:#1e293b;display:none;" />
+        <div style="font-size:12.5px;color:var(--text-muted);" id="wa-preview-status">Carregando perfil atual...</div>
+      </div>
+
+      <label>Nova Foto de Perfil (JPG ou PNG quadrada)</label>
+      <input type="file" id="wa-photo-file" accept="image/jpeg,image/png" onchange="previewWaPhoto(event)" />
+
+      <label>Recado / Bio ("Sobre" do WhatsApp)</label>
+      <input type="text" id="wa-about" maxlength="139" placeholder="Conteúdo exclusivo e chat privado 💕" />
+
+      <label>Site / Link na Bio do WhatsApp</label>
+      <input type="text" id="wa-website" placeholder="https://seu-link-vitrine..." />
+
+      <button class="btn-primary" id="wa-save-btn" onclick="saveWaProfile()">Salvar Perfil no WhatsApp</button>
+      <button class="btn-secondary" onclick="closeWaProfileModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Links VIP -->
+  <div id="settings-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>🔗 Links e Valores VIP</h2>
+        <button type="button" class="modal-close-x" onclick="closeSettings()">✕</button>
+      </div>
+      <p>Edite aqui e a IA já passa a mandar os links e valores atualizados automaticamente.</p>
+      <label>Link Canal de Prévias (Telegram)</label>
+      <input type="text" id="set-telegram" placeholder="https://t.me/..." />
+      <label>Link Fatal Fans (Brasil - R$)</label>
+      <input type="text" id="set-fatalfans" placeholder="https://fatalfans.com/..." />
+      <label>Valor Brasil (Reais)</label>
+      <input type="text" id="set-brl" placeholder="R$ 49,90/mês" />
+      <label>Link Fanvue (Gringos - EUR / USD / GBP)</label>
+      <input type="text" id="set-fanvue" placeholder="https://fanvue.com/..." />
+      <label>Valor Europa (Euros)</label>
+      <input type="text" id="set-eur" placeholder="25€/mês" />
+      <label>Valor Equador / Panamá (Dólar)</label>
+      <input type="text" id="set-usd" placeholder="$25 USD/mês" />
+      <label>Valor Reino Unido (Libras)</label>
+      <input type="text" id="set-gbp" placeholder="£22/month" />
+      <button class="btn-primary" onclick="saveSettings()">Salvar Alterações</button>
+      <button class="btn-secondary" onclick="closeSettings()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Paywall -->
+  <div id="paywall-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>💳 Cobrar para Conversar (Paywall)</h2>
+        <button type="button" class="modal-close-x" onclick="closePaywallModal()">✕</button>
+      </div>
+      <p>Configure quantas mensagens são grátis antes de exigir pagamento para continuar o chat.</p>
+
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;color:#fff;margin-top:8px;text-transform:none;">
+        <input type="checkbox" id="pw-enabled" style="width:18px;height:18px;accent-color:var(--accent);" />
+        Ativar Paywall no Chat
+      </label>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label>Msgs grátis p/ lead</label>
+          <input type="number" id="pw-free" value="3" min="0" />
+        </div>
+        <div>
+          <label>Horas liberadas após pagar</label>
+          <input type="number" id="pw-hours" value="24" min="1" />
+        </div>
+      </div>
+
+      <label>Link Pagamento Gringa (Stripe US$ 1)</label>
+      <input type="text" id="pw-link-intl" placeholder="https://buy.stripe.com/..." />
+      <label>Texto Cobrança Gringa (Inglês/Espanhol)</label>
+      <textarea id="pw-msg-intl" rows="2" placeholder="Babe, unlock 24h of private chat with me for just $1 💕"></textarea>
+
+      <label>Link Pagamento Brasil (PIX / Checkout R$ 4,90)</label>
+      <input type="text" id="pw-link-br" placeholder="https://..." />
+      <label>Texto Cobrança Brasil (Português)</label>
+      <textarea id="pw-msg-br" rows="2" placeholder="Amor, libera seu acesso privado de 24h por R$ 4,90 para continuarmos 💕"></textarea>
+
+      <button class="btn-primary" onclick="savePaywallConfig()">Salvar Paywall</button>
+      <button class="btn-secondary" onclick="closePaywallModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Analytics -->
+  <div id="analytics-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>📊 Cliques e Origem da Vitrine</h2>
+        <button type="button" class="modal-close-x" onclick="closeAnalytics()">✕</button>
+      </div>
+      <p>Dados reais em tempo real de visitas e cliques nos botões da sua bio.</p>
+      <div id="analytics-content">Carregando...</div>
+      <button class="btn-secondary" style="border-color:rgba(248,113,113,0.3);color:var(--danger);margin-top:14px;" onclick="resetAnalytics()">🗑️ Zerar Contadores (Limpar Testes)</button>
+      <button class="btn-secondary" onclick="closeAnalytics()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Vitrine -->
+  <div id="vitrine-modal">
+    <div class="modal-box">
+      <div class="modal-header-row">
+        <h2>🎨 Editar Vitrine (Link-in-Bio)</h2>
+        <button type="button" class="modal-close-x" onclick="closeVitrineModal()">✕</button>
+      </div>
+      <p>Suba a foto de perfil, capa de fundo e edite os botões. Atualiza no ar na hora!</p>
+
+      <label>@Usuário</label>
+      <input type="text" id="vit-handle" placeholder="@bellalonguinho" />
+
+      <label>Foto de Perfil (Subir imagem ou colar URL)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <input type="text" id="vit-avatar" placeholder="https://..." style="flex:1;" />
+        <label style="background:rgba(56,189,248,0.14);color:var(--sky);border:1px solid rgba(56,189,248,0.28);padding:10px 12px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;margin:0;text-transform:none;">
+          📷 Subir Foto
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadVitrineAvatar(event)" />
+        </label>
+      </div>
+
+      <label>Foto de Fundo / Capa (Opcional)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <input type="text" id="vit-bg" placeholder="https://... (deixe vazio p/ fundo padrão)" style="flex:1;" />
+        <label style="background:rgba(56,189,248,0.14);color:var(--sky);border:1px solid rgba(56,189,248,0.28);padding:10px 12px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;margin:0;text-transform:none;">
+          🖼️ Subir Capa
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadVitrineBg(event)" />
+        </label>
+      </div>
+
+      <label style="margin-top:14px;">Botões da Vitrine</label>
+      <div id="vit-links-list" style="display:flex;flex-direction:column;gap:8px;margin-top:6px;"></div>
+      <button type="button" class="btn-secondary" onclick="addVitrineLinkRow()" style="border-style:dashed;color:var(--sky);">+ Adicionar Botão</button>
+
+      <button class="btn-primary" onclick="saveVitrineConfig()">Salvar Vitrine</button>
+      <button class="btn-secondary" onclick="closeVitrineModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Layout Principal -->
+  <div id="app">
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-top-row">
+          <div class="brand-title">
+            <div class="brand-dot">VIP</div>
+            <div>
+              <h3>Painel CRM</h3>
+              <div class="brand-sub"><span class="live-pulse"></span> Atendimento ao Vivo</div>
+            </div>
+          </div>
+          <div class="top-util-btns">
+            <button type="button" class="icon-btn" id="fs-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶ Tela Cheia</button>
+            <button type="button" class="logout-btn" onclick="logout()">Sair</button>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="nav-pill blue" onclick="openTgPreviewModal()">✈️ Prévia TG</button>
+          <button class="nav-pill orange" onclick="openAgendaModal()">📅 Agenda</button>
+          <button class="nav-pill teal" onclick="openWaProfileModal()">📱 Perfil Zap</button>
+          <button class="nav-pill pink" onclick="openPaywallModal()">💳 Paywall</button>
+          <button class="nav-pill purple" onclick="openVitrineModal()">🎨 Vitrine</button>
+          <button class="nav-pill amber" onclick="openAnalytics()">📊 Cliques</button>
+          <a href="/fluxo" class="nav-pill blue">⚡ Fluxos</a>
+          <button class="nav-pill" onclick="openSettings()">🔗 Links VIP</button>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <div class="search-inner">
+          <span>🔍</span>
+          <input type="text" id="conv-search" placeholder="Buscar por número ou mensagem..." oninput="renderConversations()" />
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all', this)">Todos (<span id="cnt-all">0</span>)</button>
+        <button class="filter-btn" onclick="setFilter('whatsapp', this)">WhatsApp (<span id="cnt-wa">0</span>)</button>
+        <button class="filter-btn" onclick="setFilter('telegram', this)">Telegram (<span id="cnt-tg">0</span>)</button>
+        <button class="filter-btn" onclick="setFilter('messenger', this)">Messenger (<span id="cnt-ms">0</span>)</button>
+      </div>
+
+      <div id="conv-list"></div>
+    </div>
+
+    <div id="chat-area">
+      <div id="chat-empty">
+        <div class="empty-icon-box">💬</div>
+        <strong style="font-size:16px;color:var(--text-main);">Nenhuma conversa selecionada</strong>
+        <p style="max-width:360px;font-size:13px;line-height:1.5;">Escolha um contato na lista ao lado para acompanhar ou assumir o chat, ou use os atalhos no topo para <strong>Prévia TG</strong>, <strong>Agenda</strong>, <strong>Paywall</strong> e <strong>Vitrine</strong>.</p>
+      </div>
+
+      <div id="chat-active">
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <button id="back-btn" onclick="closeChatMobile()">←</button>
+            <div>
+              <div id="active-phone" style="font-weight:800;font-size:15px;color:#fff;"></div>
+              <div id="active-channel" style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:0.04em;"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="pass-btn" onclick="grantManualPass()">🔓 Liberar 24h</button>
+            <button id="toggle-ai-btn" class="ai-btn ai-on" onclick="toggleAI()">IA Ativa</button>
+          </div>
+        </div>
+        <div id="messages"></div>
+        <div class="chat-input-bar">
+          <input type="text" id="msg-input" placeholder="Digite uma resposta manual (pausa a IA automaticamente)..." onkeydown="if(event.key==='Enter') sendManual()" />
+          <button onclick="sendManual()">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let password = localStorage.getItem('panel_pwd') || '';
+    let conversations = [];
+    let currentFilter = 'all';
+    let selectedChat = null;
+    let currentAiPaused = false;
+    let vitrineLinksState = [];
+
+    function toggleFullscreen() {
+      const btn = document.getElementById('fs-btn');
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          btn.textContent = '🗗 Sair Tela Cheia';
+        }).catch(() => {});
+      } else {
+        document.exitFullscreen().then(() => {
+          btn.textContent = '⛶ Tela Cheia';
+        }).catch(() => {});
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('fs-btn');
+      if (btn) btn.textContent = document.fullscreenElement ? '🗗 Sair Tela Cheia' : '⛶ Tela Cheia';
+    });
+
+    function togglePasswordVisibility() {
+      const input = document.getElementById('pwd-input');
+      const icon = document.getElementById('eye-icon');
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      icon.innerHTML = isHidden
+        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    }
+
+    if (password) {
+      verifyAndStart();
+    }
+
+    async function login() {
+      password = document.getElementById('pwd-input').value.trim();
+      await verifyAndStart();
+    }
+
+    async function verifyAndStart() {
+      const res = await fetch('/api/panel/conversations', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        localStorage.setItem('panel_pwd', password);
+        document.getElementById('login-screen').style.display = 'none';
+        const data = await res.json();
+        conversations = data.conversations || [];
+        renderConversations();
+        setInterval(refreshAll, 3500);
+      } else {
+        alert('Senha incorreta');
+        localStorage.removeItem('panel_pwd');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('panel_pwd');
+      location.reload();
+    }
+
+    /* ================= AGENDA & LEGENDAS ================= */
+    const AGENDA_DATA = {
+      telegram: [
+        { id: 'tg_1200', time: '12:00', title: 'Foto "Bom dia / Espelho" (Corte Seco)', desc: 'Lingerie ou roupa curta sem nudez explícita + link do WhatsApp.' },
+        { id: 'tg_1730', time: '17:30', title: 'Áudio Curto (5–10s) Sussurrando', desc: 'Falar que acabou de gravar algo ousado + chamada para o Zap.' },
+        { id: 'tg_2130', time: '21:30', title: 'Vídeo Curto (3–5s) + Oferta VIP', desc: 'Teaser rápido em câmera lenta puxando clique para o Fanvue/FatalFans.' },
+        { id: 'tg_2330', time: '23:30', title: 'Gatilho de Urgência (Madrugada)', desc: 'Foto de cama avisando que só vai responder mais 5 no WhatsApp.' }
+      ],
+      fanvue: [
+        { id: 'fv_seg', time: 'SEG', title: 'Ensaio de Fotos (5 a 8 fotos)', desc: 'Tema quarto/lingerie para assinantes + Mensagem em Massa de boas-vindas.' },
+        { id: 'fv_ter', time: 'TER', title: 'Vídeo Curto (1 a 2 min)', desc: 'Provocação/troca de roupa + 1 foto grátis para Seguidores como isca.' },
+        { id: 'fv_qua', time: 'QUA', title: 'Foto Única + Enquete + PPV', desc: 'Perguntar o que querem ver na sexta + criar 1 Link de Mídia Paga.' },
+        { id: 'fv_qui', time: 'QUI', title: 'Bastidores / Banho + Promoção', desc: 'Fotos molhada/toalha + soltar desconto no 1º mês para seguidores.' },
+        { id: 'fv_sex', time: 'SEX', title: 'Vídeo Principal da Semana (3 a 5 min)', desc: 'Conteúdo completo sem censura + avisar no Canal do Telegram.' },
+        { id: 'fv_sab', time: 'SÁB', title: 'Ensaio Noturno / Look Ousado', desc: 'Responder mensagens privadas no Fanvue oferecendo personalizados.' },
+        { id: 'fv_dom', time: 'DOM', title: 'Domingo de Preguiça + Fila', desc: 'Foto natural na cama + deixar a Fila da semana seguinte agendada.' }
+      ]
+    };
+
+    function getSavedChecks() {
+      try { return JSON.parse(localStorage.getItem('vip_agenda_checks') || '{}'); } catch { return {}; }
+    }
+
+    function toggleAgendaCheck(id) {
+      const checks = getSavedChecks();
+      checks[id] = !checks[id];
+      localStorage.setItem('vip_agenda_checks', JSON.stringify(checks));
+      renderAgendaChecklists();
+    }
+
+    function resetAgendaChecks(group) {
+      const checks = getSavedChecks();
+      AGENDA_DATA[group].forEach(item => delete checks[item.id]);
+      localStorage.setItem('vip_agenda_checks', JSON.stringify(checks));
+      renderAgendaChecklists();
+    }
+
+    function renderAgendaChecklists() {
+      const checks = getSavedChecks();
+      ['telegram', 'fanvue'].forEach(group => {
+        const container = document.getElementById('checklist-' + group);
+        if (!container) return;
+        container.innerHTML = AGENDA_DATA[group].map(item => {
+          const done = Boolean(checks[item.id]);
+          return `
+            <div class="agenda-item ${done ? 'done' : ''}">
+              <input type="checkbox" ${done ? 'checked' : ''} onchange="toggleAgendaCheck('${item.id}')" />
+              <div>
+                <div class="agenda-title"><span class="agenda-time">${item.time}</span>${item.title}</div>
+                <div class="agenda-desc">${item.desc}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      });
+    }
+
+    function switchAgendaTab(tab, btn) {
+      document.querySelectorAll('.agenda-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('agenda-tab-telegram').style.display = tab === 'telegram' ? 'block' : 'none';
+      document.getElementById('agenda-tab-fanvue').style.display = tab === 'fanvue' ? 'block' : 'none';
+      document.getElementById('agenda-tab-legendas').style.display = tab === 'legendas' ? 'block' : 'none';
+    }
+
+    async function openAgendaModal() {
+      document.getElementById('agenda-modal').style.display = 'flex';
+      renderAgendaChecklists();
+
+      let s = { link_telegram: '[Link Telegram]', link_fatalfans: '[Link FatalFans]', link_fanvue: '[Link Fanvue]' };
+      try {
+        const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.settings) {
+            if (data.settings.link_telegram) s.link_telegram = data.settings.link_telegram;
+            if (data.settings.link_fatalfans) s.link_fatalfans = data.settings.link_fatalfans;
+            if (data.settings.link_fanvue) s.link_fanvue = data.settings.link_fanvue;
+          }
+        }
+      } catch {}
+
+      const legendas = [
+        {
+          tag: '📌 Mensagem Fixada (Topo do Telegram)',
+          text: `Seja bem-vindo ao meu cantinho privado 🔥\nAqui eu posto prévias do meu dia a dia que não posso postar nas outras redes.\n\n🔞 Quer acesso imediato aos meus vídeos completos e sem censura?\n👉 VIP Brasil: ${s.link_fatalfans}\n👉 VIP Internacional: ${s.link_fanvue}`
+        },
+        {
+          tag: '☀️ Telegram 12:00 — Foto Espelho',
+          text: `Almoçando e pensando besteira... 😈 Tirei essa agora pouco, mas a continuação sem corte tá lá no meu VIP 👇\n👉 ${s.link_fatalfans}`
+        },
+        {
+          tag: '🎙️ Telegram 17:30 — Legenda p/ Áudio',
+          text: `Acabei de gravar um negócio muito ousado no quarto... 🥵 Quem quer ver me chama no privado antes que eu apague 😘`
+        },
+        {
+          tag: '🌙 Telegram 23:30 — Urgência Madrugada',
+          text: `Não tô conseguindo dormir hoje... 👀 Vou ficar online pelos próximos 20 minutinhos respondendo vocês no privado, corre 💕`
+        },
+        {
+          tag: '🔥 Fanvue / VIP — Mensagem em Massa',
+          text: `Hey babe 💕 Acabei de subir um vídeo novo super exclusivo no meu perfil só para assinantes... vai lá ver e me conta o que achou 😈🔥`
+        }
+      ];
+
+      document.getElementById('legendas-list').innerHTML = legendas.map((l, idx) => `
+        <div class="copy-box">
+          <div class="copy-header">
+            <span class="copy-tag">${l.tag}</span>
+            <button type="button" class="copy-btn" onclick="copyLegenda(${idx}, this)">📋 Copiar</button>
+          </div>
+          <div class="copy-text" id="legenda-txt-${idx}">${escapeHtml(l.text)}</div>
+        </div>
+      `).join('');
+    }
+
+    function copyLegenda(idx, btn) {
+      const txt = document.getElementById('legenda-txt-' + idx).innerText;
+      navigator.clipboard.writeText(txt).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copiado!';
+        setTimeout(() => { btn.textContent = orig; }, 1800);
+      });
+    }
+
+    function closeAgendaModal() {
+      document.getElementById('agenda-modal').style.display = 'none';
+    }
+
+    /* ================= PRÉVIA TG COM IA ================= */
+    function openTgPreviewModal() {
+      document.getElementById('tgpreview-modal').style.display = 'flex';
+      const savedChat = localStorage.getItem('gv_tg_preview_chat') || '@vanessa_mia89';
+      if (!document.getElementById('tg-chat-id').value) {
+        document.getElementById('tg-chat-id').value = savedChat;
+      }
+    }
+
+    function closeTgPreviewModal() {
+      document.getElementById('tgpreview-modal').style.display = 'none';
+    }
+
+    function previewTgPhoto(event) {
+      const file = event.target.files[0];
+      const img = document.getElementById('tg-photo-preview');
+      if (!file) {
+        img.style.display = 'none';
+        return;
+      }
+      img.src = URL.createObjectURL(file);
+      img.style.display = 'block';
+    }
+
+    async function generateTgCaption() {
+      const btn = document.getElementById('tg-ai-btn');
+      btn.disabled = true;
+      btn.textContent = '✨ Gerando...';
+      try {
+        const res = await fetch('/api/panel/telegram-preview/caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+          body: JSON.stringify({ contextHint: document.getElementById('tg-hint').value.trim() })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.caption) {
+          document.getElementById('tg-caption').value = data.caption;
+        } else {
+          alert(data.error || 'Não foi possível gerar a frase.');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ IA Gerar Frase Quente';
+      }
+    }
+
+    async function sendTgPreview() {
+      const chatId = document.getElementById('tg-chat-id').value.trim();
+      const file = document.getElementById('tg-photo-file').files[0];
+      const caption = document.getElementById('tg-caption').value.trim();
+
+      if (!chatId) return alert('Informe o ID ou @canal do grupo de prévias.');
+      if (!file) return alert('Selecione uma foto.');
+
+      localStorage.setItem('gv_tg_preview_chat', chatId);
+      const btn = document.getElementById('tg-send-btn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando para o Telegram...';
+
+      try {
+        const fd = new FormData();
+        fd.append('chatId', chatId);
+        fd.append('caption', caption);
+        fd.append('photo', file);
+
+        const res = await fetch('/api/panel/telegram-preview/send', {
+          method: 'POST',
+          headers: { 'x-panel-password': password },
+          body: fd
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert('Prévia enviada com sucesso no Telegram!');
+          document.getElementById('tg-photo-file').value = '';
+          document.getElementById('tg-photo-preview').style.display = 'none';
+          document.getElementById('tg-caption').value = '';
+          closeTgPreviewModal();
+        } else {
+          alert('Erro: ' + (data.error || 'Falha ao enviar no Telegram'));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Enviar Foto + Legenda no Telegram';
+      }
+    }
+
+    /* ================= PERFIL WHATSAPP ================= */
+    async function openWaProfileModal() {
+      document.getElementById('waprofile-modal').style.display = 'flex';
+      document.getElementById('wa-photo-file').value = '';
+      document.getElementById('wa-preview-status').textContent = 'Carregando perfil atual...';
+      const res = await fetch('/api/panel/whatsapp-profile', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        const { profile } = await res.json();
+        document.getElementById('wa-about').value = profile.about || '';
+        document.getElementById('wa-website').value = Array.isArray(profile.websites) && profile.websites[0] ? profile.websites[0] : '';
+        const img = document.getElementById('wa-preview-img');
+        if (profile.profile_picture_url) {
+          img.src = profile.profile_picture_url;
+          img.style.display = 'block';
+          document.getElementById('wa-preview-status').textContent = 'Foto atual carregada. Escolha uma nova abaixo se quiser trocar.';
+        } else {
+          img.style.display = 'none';
+          document.getElementById('wa-preview-status').textContent = 'Nenhuma foto definida ainda.';
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        document.getElementById('wa-preview-status').textContent = err.error || 'Não foi possível carregar o perfil.';
+      }
+    }
+
+    function previewWaPhoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const img = document.getElementById('wa-preview-img');
+      img.src = URL.createObjectURL(file);
+      img.style.display = 'block';
+      document.getElementById('wa-preview-status').textContent = 'Nova foto selecionada! Clique em Salvar Perfil no WhatsApp.';
+    }
+
+    function closeWaProfileModal() {
+      document.getElementById('waprofile-modal').style.display = 'none';
+    }
+
+    async function saveWaProfile() {
+      const btn = document.getElementById('wa-save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando para o WhatsApp...';
+      try {
+        const fd = new FormData();
+        const file = document.getElementById('wa-photo-file').files[0];
+        if (file) fd.append('file', file);
+        fd.append('about', document.getElementById('wa-about').value.trim());
+        fd.append('website', document.getElementById('wa-website').value.trim());
+
+        const res = await fetch('/api/panel/whatsapp-profile', {
+          method: 'POST',
+          headers: { 'x-panel-password': password },
+          body: fd
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          alert('Perfil e foto do WhatsApp atualizados com sucesso!');
+          closeWaProfileModal();
+        } else {
+          alert('Erro: ' + (data.error || 'Falha ao atualizar perfil'));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Perfil no WhatsApp';
+      }
+    }
+
+    /* ================= PAYWALL ================= */
+    async function openPaywallModal() {
+      document.getElementById('paywall-modal').style.display = 'flex';
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { settings } = await res.json();
+      let pw = { enabled: false, freeMessages: 3, hours: 24, linkIntl: '', msgIntl: '', linkBr: '', msgBr: '' };
+      try {
+        if (settings.paywall_config) pw = { ...pw, ...JSON.parse(settings.paywall_config) };
+      } catch {}
+      document.getElementById('pw-enabled').checked = Boolean(pw.enabled);
+      document.getElementById('pw-free').value = pw.freeMessages ?? 3;
+      document.getElementById('pw-hours').value = pw.hours ?? 24;
+      document.getElementById('pw-link-intl').value = pw.linkIntl || '';
+      document.getElementById('pw-msg-intl').value = pw.msgIntl || '';
+      document.getElementById('pw-link-br').value = pw.linkBr || '';
+      document.getElementById('pw-msg-br').value = pw.msgBr || '';
+    }
+
+    function closePaywallModal() {
+      document.getElementById('paywall-modal').style.display = 'none';
+    }
+
+    async function savePaywallConfig() {
+      const payload = {
+        enabled: document.getElementById('pw-enabled').checked,
+        freeMessages: Number(document.getElementById('pw-free').value) || 0,
+        hours: Number(document.getElementById('pw-hours').value) || 24,
+        linkIntl: document.getElementById('pw-link-intl').value.trim(),
+        msgIntl: document.getElementById('pw-msg-intl').value.trim(),
+        linkBr: document.getElementById('pw-link-br').value.trim(),
+        msgBr: document.getElementById('pw-msg-br').value.trim(),
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ paywall_config: JSON.stringify(payload) })
+      });
+      if (res.ok) {
+        alert('Configuração do Paywall salva!');
+        closePaywallModal();
+      }
+    }
+
+    async function grantManualPass() {
+      if (!selectedChat) return;
+      const res = await fetch('/api/panel/grant-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ channel: selectedChat.channel, phone: selectedChat.phone, hours: 24 })
+      });
+      if (res.ok) {
+        alert('Acesso liberado por 24h e IA reativada para este contato!');
+        await refreshAll();
+      }
+    }
+
+    /* ================= VITRINE ================= */
+    async function openVitrineModal() {
+      document.getElementById('vitrine-modal').style.display = 'flex';
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { settings } = await res.json();
+      let cfg = {
+        handle: '@bellalonguinho',
+        avatarUrl: '',
+        bgUrl: '',
+        links: [
+          { title: 'FATALFANS 🙈', url: settings.link_fatalfans || '', icon: 'dots' },
+          { title: 'PRIVACY / VIP 🥵', url: settings.link_fanvue || '', icon: 'lock' },
+          { title: 'PRÉVIAS GRÁTIS (TELEGRAM) ✈️', url: settings.link_telegram || '', icon: 'lock' }
+        ]
+      };
+      try {
+        if (settings.vitrine_config) cfg = JSON.parse(settings.vitrine_config);
+      } catch {}
+
+      document.getElementById('vit-handle').value = cfg.handle || '';
+      document.getElementById('vit-avatar').value = cfg.avatarUrl || '';
+      document.getElementById('vit-bg').value = cfg.bgUrl || '';
+      vitrineLinksState = Array.isArray(cfg.links) ? cfg.links : [];
+      renderVitrineRows();
+    }
+
+    function closeVitrineModal() {
+      document.getElementById('vitrine-modal').style.display = 'none';
+    }
+
+    function renderVitrineRows() {
+      const box = document.getElementById('vit-links-list');
+      box.innerHTML = vitrineLinksState.map((item, i) => `
+        <div style="background:#0b1015;padding:10px;border-radius:10px;border:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:6px;">
+            <input type="text" placeholder="Nome do botão" value="${escapeHtml(item.title)}" oninput="vitrineLinksState[${i}].title=this.value" style="flex:1;" />
+            <select onchange="vitrineLinksState[${i}].icon=this.value" style="width:auto;padding:0 10px;font-size:12px;">
+              <option value="lock" ${item.icon === 'lock' ? 'selected' : ''}>🔒 Cadeado</option>
+              <option value="dots" ${item.icon === 'dots' ? 'selected' : ''}>⋮ Pontinhos</option>
+            </select>
+            <button type="button" onclick="vitrineLinksState.splice(${i},1);renderVitrineRows()" style="background:rgba(248,113,113,0.16);color:var(--danger);border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:0 11px;cursor:pointer;font-weight:700;">✕</button>
+          </div>
+          <input type="text" placeholder="https://..." value="${escapeHtml(item.url)}" oninput="vitrineLinksState[${i}].url=this.value" />
+        </div>
+      `).join('');
+    }
+
+    function addVitrineLinkRow() {
+      vitrineLinksState.push({ title: 'NOVO LINK 🔥', url: 'https://', icon: 'lock' });
+      renderVitrineRows();
+    }
+
+    async function uploadVitrineAvatar(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/panel/upload-media', {
+        method: 'POST',
+        headers: { 'x-panel-password': password },
+        body: fd
+      });
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('vit-avatar').value = data.url;
+        alert('Foto de perfil enviada com sucesso!');
+      } else {
+        alert('Erro ao enviar foto.');
+      }
+    }
+
+    async function uploadVitrineBg(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/panel/upload-media', {
+        method: 'POST',
+        headers: { 'x-panel-password': password },
+        body: fd
+      });
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('vit-bg').value = data.url;
+        alert('Foto de capa enviada com sucesso!');
+      } else {
+        alert('Erro ao enviar capa.');
+      }
+    }
+
+    async function saveVitrineConfig() {
+      const payload = {
+        handle: document.getElementById('vit-handle').value.trim(),
+        avatarUrl: document.getElementById('vit-avatar').value.trim(),
+        bgUrl: document.getElementById('vit-bg').value.trim(),
+        links: vitrineLinksState.filter(l => l.title && l.url)
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ vitrine_config: JSON.stringify(payload) })
+      });
+      if (res.ok) {
+        alert('Vitrine atualizada! Já está valendo no ar.');
+        closeVitrineModal();
+      }
+    }
+
+    /* ================= ANALYTICS ================= */
+    async function openAnalytics() {
+      document.getElementById('analytics-modal').style.display = 'flex';
+      document.getElementById('analytics-content').innerHTML = 'Carregando estatísticas...';
+      const res = await fetch('/api/panel/analytics', { headers: { 'x-panel-password': password } });
+      if (!res.ok) return;
+      const { stats } = await res.json();
+      const t = stats.totals || {};
+
+      const renderRows = (arr) =>
+        arr && arr.length
+          ? arr.map(r => `<div class="stat-row"><span>${escapeHtml(r.name)}</span><span class="stat-count">${r.total}</span></div>`).join('')
+          : '<div style="font-size:12px;color:var(--text-dim);padding:6px 0;">Nenhum dado registrado ainda.</div>';
+
+      document.getElementById('analytics-content').innerHTML = `
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-val">${t.views_24h || 0}</div><div class="kpi-lbl">Visitas (24h) • Total: ${t.total_views || 0}</div></div>
+          <div class="kpi-card"><div class="kpi-val">${t.clicks_24h || 0}</div><div class="kpi-lbl">Cliques (24h) • Total: ${t.total_clicks || 0}</div></div>
+        </div>
+        <div class="stat-section"><h4>Cliques por Botão</h4>${renderRows(stats.buttons)}</div>
+        <div class="stat-section"><h4>De onde vieram (Origem)</h4>${renderRows(stats.sources)}</div>
+        <div class="stat-section"><h4>Países / Idiomas</h4>${renderRows(stats.countries)}</div>
+      `;
+    }
+
+    async function resetAnalytics() {
+      if (!confirm('Tem certeza que deseja zerar todos os contadores de visitas e cliques?')) return;
+      const res = await fetch('/api/panel/analytics/reset', {
+        method: 'POST',
+        headers: { 'x-panel-password': password }
+      });
+      if (res.ok) {
+        await openAnalytics();
+      }
+    }
+
+    function closeAnalytics() {
+      document.getElementById('analytics-modal').style.display = 'none';
+    }
+
+    /* ================= SETTINGS ================= */
+    async function openSettings() {
+      const res = await fetch('/api/panel/settings', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        const { settings } = await res.json();
+        document.getElementById('set-telegram').value = settings.link_telegram || '';
+        document.getElementById('set-fatalfans').value = settings.link_fatalfans || '';
+        document.getElementById('set-brl').value = settings.price_brl || '';
+        document.getElementById('set-fanvue').value = settings.link_fanvue || '';
+        document.getElementById('set-eur').value = settings.price_eur || '';
+        document.getElementById('set-usd').value = settings.price_usd || '';
+        document.getElementById('set-gbp').value = settings.price_gbp || '';
+        document.getElementById('settings-modal').style.display = 'flex';
+      }
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    async function saveSettings() {
+      const payload = {
+        link_telegram: document.getElementById('set-telegram').value,
+        link_fatalfans: document.getElementById('set-fatalfans').value,
+        price_brl: document.getElementById('set-brl').value,
+        link_fanvue: document.getElementById('set-fanvue').value,
+        price_eur: document.getElementById('set-eur').value,
+        price_usd: document.getElementById('set-usd').value,
+        price_gbp: document.getElementById('set-gbp').value,
+      };
+      const res = await fetch('/api/panel/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Links e valores salvos com sucesso!');
+        closeSettings();
+      }
+    }
+
+    /* ================= CHAT & CONVERSAS ================= */
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderConversations();
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+
+    function renderConversations() {
+      const list = document.getElementById('conv-list');
+      const searchQ = (document.getElementById('conv-search')?.value || '').toLowerCase().trim();
+
+      // Atualiza contadores por canal
+      const cntAll = document.getElementById('cnt-all');
+      const cntWa = document.getElementById('cnt-wa');
+      const cntTg = document.getElementById('cnt-tg');
+      const cntMs = document.getElementById('cnt-ms');
+      if (cntAll) cntAll.textContent = conversations.length;
+      if (cntWa) cntWa.textContent = conversations.filter(c => c.channel === 'whatsapp').length;
+      if (cntTg) cntTg.textContent = conversations.filter(c => c.channel === 'telegram').length;
+      if (cntMs) cntMs.textContent = conversations.filter(c => c.channel === 'messenger').length;
+
+      let filtered = currentFilter === 'all' ? conversations : conversations.filter(c => c.channel === currentFilter);
+      if (searchQ) {
+        filtered = filtered.filter(c =>
+          String(c.phone || '').toLowerCase().includes(searchQ) ||
+          String(c.last_message || '').toLowerCase().includes(searchQ)
+        );
+      }
+
+      if (!filtered.length) {
+        list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-dim);font-size:12.5px;">Nenhuma conversa encontrada nesse filtro.</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(c => {
+        const isActive = selectedChat && selectedChat.channel === c.channel && selectedChat.phone === c.phone;
+        const chTag = c.channel === 'whatsapp' ? 'WA' : c.channel === 'telegram' ? 'TG' : 'MS';
+        return `
+          <div class="conv-item ${isActive ? 'active' : ''}" onclick="openChat('${c.channel}', '${c.phone}')">
+            <div class="conv-avatar ch-${c.channel}">${chTag}</div>
+            <div class="conv-body">
+              <div class="conv-top">
+                <span class="conv-phone">
+                  +${escapeHtml(c.phone)}
+                  <span class="badge badge-${c.channel}">${c.channel}</span>
+                  ${c.has_pass ? '<span class="badge badge-paid">VIP Ativo</span>' : ''}
+                  ${c.ai_paused ? '<span class="badge badge-paused">IA Pausada</span>' : ''}
+                </span>
+                <span class="conv-time">${formatTime(c.last_at)}</span>
+              </div>
+              <div class="conv-preview">${c.last_role === 'assistant' ? '✓ ' : ''}${escapeHtml(c.last_message)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openChat(channel, phone) {
+      selectedChat = { channel, phone };
+      document.body.classList.add('chat-open');
+      document.getElementById('chat-empty').style.display = 'none';
+      document.getElementById('chat-active').style.display = 'flex';
+      document.getElementById('active-phone').textContent = '+' + phone;
+      document.getElementById('active-channel').textContent = channel.toUpperCase();
+      renderConversations();
+      await loadMessages(true);
+    }
+
+    function closeChatMobile() {
+      document.body.classList.remove('chat-open');
+      selectedChat = null;
+    }
+
+    async function loadMessages(scrollBottom = false) {
+      if (!selectedChat) return;
+      const res = await fetch(`/api/panel/messages?channel=${selectedChat.channel}&phone=${selectedChat.phone}`, {
+        headers: { 'x-panel-password': password }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      currentAiPaused = data.ai_paused;
+      updateAiButton();
+
+      const box = document.getElementById('messages');
+      const wasAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 80;
+
+      box.innerHTML = data.messages.map(m => {
+        let mediaHtml = '';
+        if (m.media_url && m.media_type === 'image') mediaHtml = `<img src="${m.media_url}" />`;
+        if (m.media_url && m.media_type === 'video') mediaHtml = `<video src="${m.media_url}" controls></video>`;
+        if (m.media_url && m.media_type === 'audio') mediaHtml = `<audio src="${m.media_url}" controls></audio>`;
+
+        return `
+          <div class="msg ${m.role === 'user' ? 'msg-user' : 'msg-assistant'}">
+            ${mediaHtml}
+            <div>${escapeHtml(m.content).replace(/\n/g, '<br>')}</div>
+            <div class="msg-meta">${formatTime(m.created_at)}</div>
+          </div>
+        `;
+      }).join('');
+
+      if (scrollBottom || wasAtBottom) {
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+
+    function updateAiButton() {
+      const btn = document.getElementById('toggle-ai-btn');
+      if (currentAiPaused) {
+        btn.className = 'ai-btn ai-off';
+        btn.textContent = '⏸ IA Pausada';
+      } else {
+        btn.className = 'ai-btn ai-on';
+        btn.textContent = '● IA Ativa';
+      }
+    }
+
+    async function toggleAI() {
+      if (!selectedChat) return;
+      await fetch('/api/panel/toggle-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ channel: selectedChat.channel, phone: selectedChat.phone, paused: !currentAiPaused })
+      });
+      await refreshAll();
+    }
+
+    async function sendManual() {
+      if (!selectedChat) return;
+      const input = document.getElementById('msg-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      await fetch('/api/panel/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-panel-password': password },
+        body: JSON.stringify({ channel: selectedChat.channel, phone: selectedChat.phone, text })
+      });
+      await refreshAll(true);
+    }
+
+    async function refreshAll(scrollBottom = false) {
+      const res = await fetch('/api/panel/conversations', { headers: { 'x-panel-password': password } });
+      if (res.ok) {
+        const data = await res.json();
+        conversations = data.conversations || [];
+        renderConversations();
+      }
+      if (selectedChat) {
+        await loadMessages(scrollBottom);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
