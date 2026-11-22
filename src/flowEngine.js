@@ -1,4 +1,5 @@
 import { getBotSettings, getMemory, saveMessage, isAiPaused } from './db.js';
+import { getCreatorById, listCreatorMedia } from './portalDb.js';
 import { sendWhatsAppText, sendWhatsAppMedia, sendWhatsAppTyping } from './whatsapp.js';
 import { sendTelegramText, sendTelegramMedia, sendTelegramAction } from './telegram.js';
 import { sendMessengerText } from './messenger.js';
@@ -6,6 +7,12 @@ import { generateAgentReply } from './ai.js';
 import { listR2MediaCatalog } from './storage.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function cleanMediaUrl(url = '') {
+  return String(url || '')
+    .trim()
+    .replace(/(\.mp4|\.mov|\.avi|\.m4v)(\1)+(?=$|\?)/i, '$1');
+}
 
 function detectMediaKind(url, declaredKind) {
   if (declaredKind === 'video' || declaredKind === 'audio' || declaredKind === 'image') {
@@ -125,8 +132,8 @@ function extractFlowVideos(flow, sentUrlsSet, clientLang) {
 
   for (const n of nodes) {
     if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.trim().startsWith('http')) continue;
-    const url = n.text.trim();
-    if (sentUrlsSet.has(url)) continue;
+    const url = cleanMediaUrl(n.text);
+    if (!url || sentUrlsSet.has(url)) continue;
 
     const kind = detectMediaKind(url, n.mediaKind);
     if (kind !== 'video') continue;
@@ -138,6 +145,37 @@ function extractFlowVideos(flow, sentUrlsSet, clientLang) {
   }
 
   return videos;
+}
+
+async function resolveActiveCreatorVideo(creatorId, sentUrlsSet) {
+  if (!creatorId) return null;
+
+  try {
+    const mediaItems = await listCreatorMedia(creatorId, true);
+    if (Array.isArray(mediaItems) && mediaItems.length > 0) {
+      for (const item of mediaItems) {
+        const kind = item?.media_type || detectMediaKind(item?.public_url || '');
+        const url = cleanMediaUrl(item?.public_url || '');
+        if (kind === 'video' && url.startsWith('http') && !sentUrlsSet.has(url)) {
+          return url;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[FlowEngine] Erro ao buscar vídeos da galeria da modelo:', err.message);
+  }
+
+  try {
+    const creator = await getCreatorById(creatorId);
+    const verVideo = cleanMediaUrl(creator?.verification_video_url || '');
+    if (verVideo.startsWith('http') && !sentUrlsSet.has(verVideo)) {
+      return verVideo;
+    }
+  } catch (err) {
+    console.warn('[FlowEngine] Erro ao buscar verification_video_url da modelo:', err.message);
+  }
+
+  return null;
 }
 
 async function sendTypingIndicator(channel, userId, lastMessageId, kind = 'text') {
@@ -157,13 +195,14 @@ async function sendChannelText(channel, userId, text) {
 }
 
 async function sendChannelMedia(channel, userId, url, kind, caption = '') {
-  if (!url?.startsWith('http')) return;
+  const cleanUrl = cleanMediaUrl(url);
+  if (!cleanUrl?.startsWith('http')) return;
   if (channel === 'whatsapp') {
-    await sendWhatsAppMedia(userId, url, kind);
+    await sendWhatsAppMedia(userId, cleanUrl, kind);
   } else if (channel === 'telegram') {
-    await sendTelegramMedia(userId, url, kind, caption);
+    await sendTelegramMedia(userId, cleanUrl, kind, caption);
   } else if (channel === 'messenger') {
-    await sendMessengerText(userId, url);
+    await sendMessengerText(userId, cleanUrl);
   }
 }
 
@@ -198,9 +237,15 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   const sentUrls = new Set();
   for (const msg of history) {
-    if (msg.media_url) sentUrls.add(msg.media_url.trim());
+    if (msg.media_url) {
+      const cleaned = cleanMediaUrl(msg.media_url);
+      if (cleaned) sentUrls.add(cleaned);
+    }
     const tagMatch = String(msg.content || '').match(/\[ENVIAR_MIDIA:(https?:\/\/[^\]]+)\]/i);
-    if (tagMatch) sentUrls.add(tagMatch[1].trim());
+    if (tagMatch) {
+      const cleanedTagUrl = cleanMediaUrl(tagMatch[1]);
+      if (cleanedTagUrl) sentUrls.add(cleanedTagUrl);
+    }
   }
 
   console.log(`[FlowEngine] Usuário: ${userId} | 1º Contato: ${isFirstContact} | Idioma: ${clientLang} | R2 Itens: ${r2Catalog.length}`);
@@ -213,20 +258,20 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     DE: 'Hey Süßer, wie schön dass du mir hier privat schreibst. Ich habe heute wirklich nette Gesellschaft zum Quatschen gebraucht. Sag mal, woher kommst du?',
   };
 
-  // REGRA 1: No 1º contato, dispara APENAS o Áudio 01 de boas-vindas do R2 e PARA (espera o cliente responder!)
   if (isFirstContact) {
     const r2Welcome =
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang && item.isWelcome) ||
       r2Catalog.find((item) => item.kind === 'audio' && item.lang === clientLang);
 
-    if (r2Welcome && !sentUrls.has(r2Welcome.url)) {
+    if (r2Welcome && !sentUrls.has(cleanMediaUrl(r2Welcome.url))) {
       try {
-        console.log(`[FlowEngine] 1º contato -> Enviando SOMENTE Áudio 01 (${clientLang}): ${r2Welcome.url}`);
+        const welcomeUrl = cleanMediaUrl(r2Welcome.url);
+        console.log(`[FlowEngine] 1º contato -> Enviando SOMENTE Áudio 01 (${clientLang}): ${welcomeUrl}`);
         await sendTypingIndicator(channel, userId, lastMessageId, 'audio');
         await sleep(3200);
-        await sendChannelMedia(channel, userId, r2Welcome.url, 'audio');
+        await sendChannelMedia(channel, userId, welcomeUrl, 'audio');
         const spokenText = welcomeTranscripts[clientLang] || welcomeTranscripts.PT_BR;
-        await saveMessage(channel, userId, 'assistant', spokenText, 'audio', r2Welcome.url);
+        await saveMessage(channel, userId, 'assistant', spokenText, 'audio', welcomeUrl);
         return;
       } catch (err) {
         console.error('[FlowEngine] Erro ao enviar boas-vindas do R2:', err?.response?.data || err.message);
@@ -258,16 +303,23 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     const mediaUrls = [];
     let match;
     while ((match = mediaRegex.exec(rawAiReply)) !== null) {
-      const foundUrl = match[1].trim();
-      if (!sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
+      const foundUrl = cleanMediaUrl(match[1]);
+      if (foundUrl && !sentUrls.has(foundUrl) && !mediaUrls.includes(foundUrl)) {
         mediaUrls.push(foundUrl);
       }
     }
 
+    const creatorId = settings?.active_creator_id || settings?.creator_id || null;
+
     if (mediaUrls.length === 0 && userMsgCount >= 2 && !sentAudioLastTurn) {
-      const availableFlowVideos = extractFlowVideos(flow, sentUrls, clientLang);
-      if (availableFlowVideos.length > 0) {
-        mediaUrls.push(availableFlowVideos[0].url);
+      const creatorVideo = await resolveActiveCreatorVideo(creatorId, sentUrls);
+      if (creatorVideo) {
+        mediaUrls.push(creatorVideo);
+      } else {
+        const availableFlowVideos = extractFlowVideos(flow, sentUrls, clientLang);
+        if (availableFlowVideos.length > 0) {
+          mediaUrls.push(cleanMediaUrl(availableFlowVideos[availableFlowVideos.length - 1].url));
+        }
       }
     }
 
@@ -290,21 +342,22 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       assistantMessages.push({ role: 'assistant', content: cleanText, media_type: 'text' });
     }
 
-    const urlToSend = mediaUrls.find((u) => !sentUrls.has(u));
+    const urlToSend = mediaUrls.find((u) => !sentUrls.has(cleanMediaUrl(u)));
     if (urlToSend) {
-      const kind = detectMediaKind(urlToSend);
+      const cleanUrl = cleanMediaUrl(urlToSend);
+      const kind = detectMediaKind(cleanUrl);
       if (kind === 'audio' && sentAudioLastTurn) {
         console.log('[FlowEngine] Áudio segurado neste turno para não atropelar a conversa.');
         return;
       }
 
       try {
-        console.log(`[FlowEngine] Enviando ${kind} contextual para ${userId}: ${urlToSend}`);
+        console.log(`[FlowEngine] Enviando ${kind} contextual para ${userId}: ${cleanUrl}`);
         await sendTypingIndicator(channel, userId, lastMessageId, kind);
         await sleep(kind === 'audio' ? 3500 : 1800);
-        await sendChannelMedia(channel, userId, urlToSend, kind);
-        await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, urlToSend);
-        sentUrls.add(urlToSend);
+        await sendChannelMedia(channel, userId, cleanUrl, kind);
+        await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, cleanUrl);
+        sentUrls.add(cleanUrl);
       } catch (mediaErr) {
         console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
       }
