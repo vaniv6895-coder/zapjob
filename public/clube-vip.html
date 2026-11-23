@@ -714,31 +714,15 @@
       }
     }
 
-    async function confirmarRetornoStripeVipSeHouver(deviceHash) {
+    async function confirmarRetornoPaxumVipSeHouver(deviceHash) {
       const params = new URLSearchParams(window.location.search);
-      const paid = params.get('stripe_paid');
-      const sessionId = params.get('session_id');
-      const vipType = params.get('vipType');
-      const subId = params.get('subId');
-      const unlockId = params.get('unlockId');
+      const paid = params.get('paxum_paid') || params.get('stripe_paid');
 
-      if (paid === '1' && sessionId) {
-        try {
-          const qs = new URLSearchParams({
-            session_id: sessionId,
-            ...(vipType ? { vipType } : {}),
-            ...(subId ? { subId } : {}),
-            ...(unlockId ? { unlockId } : {}),
-          });
-          const res = await fetch('/api/vip/stripe-confirm?' + qs.toString());
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.paid) {
-            showConfirmedBanner('✅ Pagamento internacional confirmado! Seu acesso VIP foi liberado.');
-            if (deviceHash && CREATOR_ID > 0) {
-              await verificarAssinaturaAtiva(deviceHash);
-            }
-          }
-        } catch {}
+      if (paid === '1') {
+        showConfirmedBanner('✅ Pagamento internacional confirmado! Seu acesso VIP foi liberado.');
+        if (deviceHash && CREATOR_ID > 0) {
+          await verificarAssinaturaAtiva(deviceHash);
+        }
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
@@ -752,7 +736,7 @@
         const hash = await window.getDeviceHash();
         document.getElementById('dev-badge').innerText = 'ID: ' + hash.slice(0, 6).toUpperCase();
         if (CREATOR_ID > 0) await verificarAssinaturaAtiva(hash);
-        await confirmarRetornoStripeVipSeHouver(hash);
+        await confirmarRetornoPaxumVipSeHouver(hash);
       }
     });
 
@@ -912,8 +896,12 @@
     async function carregarClubeVip() {
       let payload = await buscarPerfilPorSlug(activeSlug);
 
-      if (!payload) {
-        const creatorToken = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || localStorage.getItem('creator_token') || '';
+      if (!payload || !payload.creator) {
+        const creatorToken =
+          sessionStorage.getItem('portal_token') ||
+          localStorage.getItem('portal_token') ||
+          localStorage.getItem('creator_token') ||
+          '';
         if (creatorToken) {
           try {
             const meRes = await fetch('/api/portal/me', {
@@ -921,10 +909,16 @@
             });
             if (meRes.ok) {
               const meData = await meRes.json();
-              const meSlug = meData?.creator?.slug || meData?.slug;
-              if (meSlug && meSlug !== activeSlug) {
-                activeSlug = meSlug;
-                payload = await buscarPerfilPorSlug(activeSlug);
+              const creatorObj = meData?.creator || (meData?.id ? meData : null);
+              if (creatorObj) {
+                const meSlug = creatorObj.slug;
+                if (meSlug && meSlug !== activeSlug) {
+                  activeSlug = meSlug;
+                  payload = await buscarPerfilPorSlug(activeSlug);
+                }
+                if (!payload || !payload.creator) {
+                  payload = { creator: creatorObj, posts: [] };
+                }
               }
             }
           } catch {}
@@ -957,7 +951,7 @@
 
       document.title = 'Clube VIP — ' + creator.stage_name;
       document.getElementById('vip-name').innerText = creator.stage_name;
-      document.getElementById('vip-meta').innerText = '@' + creator.slug + ' • 📍 ' + (creator.city || 'Brasil');
+      document.getElementById('vip-meta').innerText = '@' + (creator.slug || activeSlug) + ' • 📍 ' + (creator.city || 'Brasil');
       document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo exclusivo, bastidores e ensaios especiais para assinantes VIP.';
       if (creator.avatar_url) document.getElementById('vip-avatar').src = withCacheBust(creator.avatar_url);
 
@@ -1069,7 +1063,7 @@
       const fanPayload = getFanBuyerPayload();
       const deviceHash = await window.getDeviceHash();
 
-      const res = await fetch('/api/vip/stripe-checkout', {
+      const res = await fetch('/api/vip/paxum-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1081,7 +1075,7 @@
           fanCode: fanPayload.fanCode,
           fanNickname: fanPayload.fanNickname,
           deviceHash,
-          currency: activeCurrency.toLowerCase(),
+          currency: activeCurrency,
         })
       });
       const data = await res.json().catch(() => ({}));
