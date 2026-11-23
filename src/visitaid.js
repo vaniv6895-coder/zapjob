@@ -234,7 +234,7 @@ export function registerTelemetryRoutes(app, pool) {
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações, Conta de Fã e rotas de Mensagens VIP
+  // 2C. Página dedicada, ID de Fã, Impulsionar, Avaliações e Conta de Fã
   app.get('/impulsionar', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'impulsionar.html');
     const html = fs.readFileSync(filePath, 'utf-8');
@@ -323,59 +323,6 @@ export function registerTelemetryRoutes(app, pool) {
       });
     } catch {
       return reply.status(500).send({ error: 'Erro ao gerar cobrança internacional/cripto.' });
-    }
-  });
-
-  app.post('/api/vip/fan-nickname', async (req, reply) => {
-    try {
-      const { fanCode = '', nickname = '', contact = '', deviceHash = '' } = req.body || {};
-      const cleanCode = String(fanCode).trim().toUpperCase();
-      const cleanNick = String(nickname).trim();
-      const cleanContact = String(contact).trim().toLowerCase();
-      const cleanDev = String(deviceHash).trim();
-
-      if (!cleanNick) {
-        return reply.status(400).send({ error: 'Informe como deseja ser chamado.' });
-      }
-
-      let res = await pool.query(
-        `UPDATE fan_accounts
-         SET nickname = $2, full_name = $2
-         WHERE fan_code = $1
-         RETURNING id, fan_code, full_name, nickname, contact_identifier`,
-        [cleanCode, cleanNick]
-      );
-
-      if (!res.rows[0] && cleanDev) {
-        res = await pool.query(
-          `UPDATE fan_accounts
-           SET nickname = $2, full_name = $2
-           WHERE device_hash = $1
-           RETURNING id, fan_code, full_name, nickname, contact_identifier`,
-          [cleanDev, cleanNick]
-        );
-      }
-
-      if (!res.rows[0] && cleanCode) {
-        const fallbackContact = cleanContact || `${cleanCode.toLowerCase()}@vip.local`;
-        const passHash = crypto.createHash('sha256').update(cleanCode + '_' + Date.now()).digest('hex');
-        res = await pool.query(
-          `INSERT INTO fan_accounts (fan_code, full_name, nickname, contact_identifier, password_hash, device_hash)
-           VALUES ($1, $2, $2, $3, $4, $5)
-           ON CONFLICT (fan_code) DO UPDATE SET
-             nickname = EXCLUDED.nickname,
-             full_name = EXCLUDED.full_name
-           RETURNING id, fan_code, full_name, nickname, contact_identifier`,
-          [cleanCode, cleanNick, fallbackContact, passHash, cleanDev || null]
-        );
-      }
-
-      if (!res.rows[0]) {
-        return reply.status(404).send({ error: 'Conta de fã não encontrada.' });
-      }
-      return reply.send({ ok: true, fan: res.rows[0] });
-    } catch {
-      return reply.status(500).send({ error: 'Erro ao salvar apelido.' });
     }
   });
 
@@ -611,64 +558,6 @@ export function registerTelemetryRoutes(app, pool) {
     }
   });
 
-  app.get('/api/vip/fan-panel', async (req, reply) => {
-    try {
-      const deviceHash = String(req.query.deviceHash || '').trim();
-      if (!deviceHash) {
-        return reply.status(400).send({ ok: false, error: 'deviceHash obrigatório' });
-      }
-
-      const fanCode = buildFanCode(deviceHash);
-
-      const subsRes = await pool.query(
-        `SELECT s.id,
-                s.creator_id,
-                s.buyer_identifier,
-                s.device_hash,
-                s.status,
-                s.created_at,
-                s.expires_at,
-                c.stage_name AS creator_name,
-                c.slug AS creator_slug,
-                c.avatar_url AS creator_avatar,
-                c.city AS creator_city
-         FROM vip_subscriptions s
-         LEFT JOIN creator_accounts c ON c.id = s.creator_id
-         WHERE s.device_hash = $1
-         ORDER BY s.id DESC`,
-        [deviceHash]
-      ).catch(() => ({ rows: [] }));
-
-      let unlocks = [];
-      try {
-        const uRes = await pool.query(
-          `SELECT u.id, u.post_id, u.amount, u.created_at, u.used_at,
-                  p.caption, p.media_type, c.stage_name AS creator_name, c.slug AS creator_slug
-           FROM vip_post_unlocks u
-           LEFT JOIN vip_posts p ON p.id = u.post_id
-           LEFT JOIN creator_accounts c ON c.id = p.creator_id
-           WHERE u.device_hash = $1
-           ORDER BY u.id DESC
-           LIMIT 50`,
-          [deviceHash]
-        );
-        unlocks = uRes.rows || [];
-      } catch {
-        unlocks = [];
-      }
-
-      return reply.send({
-        ok: true,
-        fanCode,
-        deviceHash,
-        subscriptions: subsRes.rows || [],
-        unlocks,
-      });
-    } catch {
-      return reply.status(500).send({ ok: false, error: 'Erro ao carregar painel do fã' });
-    }
-  });
-
   app.get('/api/portal/creator/vip-subscribers', async (req, reply) => {
     try {
       const auth = req.headers.authorization || '';
@@ -694,105 +583,6 @@ export function registerTelemetryRoutes(app, pool) {
       return reply.send({ ok: true, fans });
     } catch {
       return reply.status(500).send({ error: 'Erro ao carregar assinantes VIP' });
-    }
-  });
-
-  app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
-    try {
-      const {
-        subscriberContact = '',
-        subscriberName = 'Assinante VIP',
-        messageText = '',
-        deviceHash = '',
-      } = req.body || {};
-
-      const cleanMsg = String(messageText || '').trim();
-      const cleanDev = String(deviceHash || '').trim();
-      if (!cleanMsg) return reply.status(400).send({ error: 'Mensagem vazia' });
-      if (!cleanDev) return reply.status(403).send({ error: 'Apenas assinantes VIP podem enviar mensagem.' });
-
-      const creatorRes = await pool.query(
-        `SELECT id FROM creator_accounts WHERE slug = $1 LIMIT 1`,
-        [String(req.params.slug || '').trim().toLowerCase()]
-      );
-      const creator = creatorRes.rows[0];
-      if (!creator) return reply.status(404).send({ error: 'Criadora não encontrada' });
-
-      const subRes = await pool.query(
-        `SELECT id, buyer_identifier
-         FROM vip_subscriptions
-         WHERE creator_id = $1
-           AND status = 'active'
-           AND device_hash = $2
-           AND (expires_at IS NULL OR expires_at > NOW())
-         ORDER BY id DESC
-         LIMIT 1`,
-        [creator.id, cleanDev]
-      ).catch(() => ({ rows: [] }));
-
-      const activeSub = subRes.rows[0];
-      if (!activeSub) {
-        return reply.status(403).send({
-          error: 'Apenas assinantes VIP ativos neste aparelho podem enviar mensagens.'
-        });
-      }
-
-      const fanCode = buildFanCode(cleanDev);
-      const finalContact = String(subscriberContact || activeSub.buyer_identifier || fanCode).trim();
-      const finalName = `${String(subscriberName).trim() || 'Assinante VIP'} (${fanCode})`;
-
-      const inserted = await pool.query(
-        `INSERT INTO vip_subscriber_messages (creator_id, subscriber_contact, subscriber_name, message_text)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at`,
-        [creator.id, finalContact, finalName, cleanMsg]
-      );
-      return reply.send({ ok: true, fanCode, message: inserted.rows[0] });
-    } catch {
-      return reply.status(500).send({ error: 'Erro ao enviar mensagem VIP' });
-    }
-  });
-
-  app.get('/api/portal/creator/vip-messages', async (req, reply) => {
-    try {
-      const auth = req.headers.authorization || '';
-      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
-      const creatorId = extractCreatorIdFromToken(token);
-      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
-
-      const res = await pool.query(
-        `SELECT id, subscriber_contact, subscriber_name, message_text, creator_reply, is_read, created_at, replied_at
-         FROM vip_subscriber_messages
-         WHERE creator_id = $1
-         ORDER BY created_at DESC
-         LIMIT 80`,
-        [creatorId]
-      );
-      return reply.send({ ok: true, messages: res.rows });
-    } catch {
-      return reply.status(500).send({ error: 'Erro ao carregar mensagens VIP' });
-    }
-  });
-
-  app.post('/api/portal/creator/vip-messages/:id/reply', async (req, reply) => {
-    try {
-      const auth = req.headers.authorization || '';
-      const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
-      const creatorId = extractCreatorIdFromToken(token);
-      if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida' });
-
-      const replyText = String((req.body && req.body.replyText) || '').trim();
-      await pool.query(
-        `UPDATE vip_subscriber_messages
-         SET is_read = TRUE,
-             creator_reply = COALESCE(NULLIF($3, ''), creator_reply),
-             replied_at = CASE WHEN $3 <> '' THEN NOW() ELSE replied_at END
-         WHERE id = $1 AND creator_id = $2`,
-        [Number(req.params.id), creatorId, replyText]
-      );
-      return reply.send({ ok: true });
-    } catch {
-      return reply.status(500).send({ error: 'Erro ao responder mensagem' });
     }
   });
 
