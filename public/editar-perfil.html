@@ -742,7 +742,7 @@
       cursor: pointer;
     }
 
-    /* Gallery Dropzone & Grid */
+    /* Gallery Dropzone, Trimmer & Grid */
     .dropzone {
       border: 1.5px dashed rgba(255, 255, 255, 0.15);
       border-radius: var(--radius-md);
@@ -758,6 +758,59 @@
     }
     .dropzone-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
     .dropzone-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .trimmer-box {
+      display: none;
+      margin-top: 14px;
+      background: var(--bg-input);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+    .trimmer-box.open { display: block; }
+    .trimmer-video {
+      width: 100%;
+      max-height: 260px;
+      border-radius: var(--radius-sm);
+      background: #000;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .trimmer-slider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .trimmer-slider {
+      width: 100%;
+      accent-color: var(--accent);
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .trimmer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trim-confirm-card {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+    .trim-confirm-card.open { display: block; }
+    .trim-confirm-question {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
 
     .media-grid {
       display: grid;
@@ -1045,10 +1098,10 @@
             </div>
           </div>
           <div class="field">
-            <label for="vipMonthlyPrice">Clube VIP (Mensal)</label>
+            <label for="vipMonthlyPrice">Clube VIP / mês</label>
             <div class="currency-box">
               <span class="currency-prefix">R$</span>
-              <input type="number" step="5" id="vipMonthlyPrice" placeholder="49.90" />
+              <input type="number" step="0.01" id="vipMonthlyPrice" placeholder="49.90" />
             </div>
           </div>
         </div>
@@ -1215,21 +1268,56 @@
       </div>
     </section>
 
-    <!-- Bloco 7: Galeria de Mídia -->
+    <!-- Bloco 7: Galeria de Mídia + Corte no Início com Confirmação -->
     <section class="panel">
       <div class="panel-body">
         <div class="panel-header">
           <div>
             <h2 class="panel-title">Galeria de Fotos e Vídeos</h2>
-            <p class="panel-desc">Gerencie as mídias públicas exibidas na vitrine e no seu perfil.</p>
+            <p class="panel-desc">Envie fotos ou vídeos. Para vídeos, você pode cortar o início e confirmar antes de subir.</p>
           </div>
         </div>
 
         <div class="dropzone" onclick="document.getElementById('galleryFilesInput').click()">
           <div class="dropzone-title">+ Adicionar fotos ou vídeos</div>
-          <div class="dropzone-sub">Clique para selecionar vários arquivos do seu dispositivo</div>
-          <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadGaleria(this.files)" />
+          <div class="dropzone-sub">Clique para selecionar fotos ou um vídeo para cortar o início antes de subir</div>
+          <input type="file" id="galleryFilesInput" accept="image/*,video/*" multiple style="display:none" onchange="onGalleryFilesPicked(this.files); this.value='';" />
         </div>
+
+        <!-- Editor de Corte do Início do Vídeo -->
+        <div id="videoTrimmerBox" class="trimmer-box">
+          <div class="trimmer-slider-row">
+            <span>✂️ Cortar início do vídeo</span>
+            <span id="trimStartLabel" style="color:#fda4af;">Início: 0.0s</span>
+          </div>
+          <video id="trimSourceVideo" class="trimmer-video" controls playsinline></video>
+          <input type="range" id="trimStartSlider" class="trimmer-slider" min="0" max="10" step="0.5" value="0" oninput="onTrimSliderChange(this.value)" />
+          <div class="trimmer-actions">
+            <button type="button" class="btn-secondary" id="btnApplyTrim" onclick="gerarPreviaCorteVideo()">
+              ✂️ Cortar e Pré-visualizar
+            </button>
+            <button type="button" class="btn-secondary" id="btnUploadOriginalVideo" onclick="subirVideoAtual(false)">
+              ⬆️ Subir Sem Cortar
+            </button>
+            <button type="button" class="btn-secondary" onclick="cancelarEditorVideo()">
+              Cancelar
+            </button>
+          </div>
+
+          <div id="trimConfirmCard" class="trim-confirm-card">
+            <div class="trim-confirm-question">Quer subir este vídeo cortado?</div>
+            <video id="trimResultVideo" class="trimmer-video" controls playsinline></video>
+            <div class="trimmer-actions">
+              <button type="button" class="btn-primary" id="btnConfirmUploadTrimmed" onclick="subirVideoAtual(true)">
+                ✅ Sim, subir este vídeo
+              </button>
+              <button type="button" class="btn-secondary" onclick="document.getElementById('trimConfirmCard').classList.remove('open')">
+                ✂️ Ajustar corte
+              </button>
+            </div>
+          </div>
+        </div>
+
         <p id="gallery-status" style="font-size: 12px; color: var(--success); font-weight: 600; margin-top: 10px;"></p>
         <div class="media-grid" id="galleryGrid"></div>
       </div>
@@ -1285,6 +1373,13 @@
     let creatorSlug = '';
     let leftAt = 0;
 
+    // Estado do corte de vídeo no início
+    let pendingRawVideoFile = null;
+    let trimmedVideoFile = null;
+    let trimSourceObjectUrl = '';
+    let trimResultObjectUrl = '';
+    let isTrimmingBusy = false;
+
     // Estado da Verificação por Vídeo Ao Vivo (Tela Cheia ao Abrir Câmera)
     let verifyToken = sessionStorage.getItem('creator_verify_token') || localStorage.getItem('creator_verify_token') || '';
     let verifyChallengeCode = '';
@@ -1304,6 +1399,251 @@
 
     function escapeHtml(str) {
       return String(str || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    function isVideoFile(file) {
+      return Boolean(file && (String(file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi)$/i.test(file.name)));
+    }
+
+    function limparUrlsEditorVideo() {
+      if (trimSourceObjectUrl) {
+        URL.revokeObjectURL(trimSourceObjectUrl);
+        trimSourceObjectUrl = '';
+      }
+      if (trimResultObjectUrl) {
+        URL.revokeObjectURL(trimResultObjectUrl);
+        trimResultObjectUrl = '';
+      }
+    }
+
+    function cancelarEditorVideo() {
+      limparUrlsEditorVideo();
+      pendingRawVideoFile = null;
+      trimmedVideoFile = null;
+      const box = document.getElementById('videoTrimmerBox');
+      const confirmCard = document.getElementById('trimConfirmCard');
+      const srcVid = document.getElementById('trimSourceVideo');
+      const resVid = document.getElementById('trimResultVideo');
+      if (srcVid) { srcVid.pause(); srcVid.src = ''; }
+      if (resVid) { resVid.pause(); resVid.src = ''; }
+      if (confirmCard) confirmCard.classList.remove('open');
+      if (box) box.classList.remove('open');
+    }
+
+    function abrirEditorCorteVideo(file) {
+      cancelarEditorVideo();
+      pendingRawVideoFile = file;
+      trimSourceObjectUrl = URL.createObjectURL(file);
+
+      const box = document.getElementById('videoTrimmerBox');
+      const srcVid = document.getElementById('trimSourceVideo');
+      const slider = document.getElementById('trimStartSlider');
+      const label = document.getElementById('trimStartLabel');
+
+      slider.value = '0';
+      slider.max = '10';
+      label.textContent = 'Início: 0.0s';
+      srcVid.src = trimSourceObjectUrl;
+      srcVid.onloadedmetadata = () => {
+        const dur = Number(srcVid.duration || 0);
+        if (dur > 0.5) {
+          const maxCut = Math.max(0.5, Number((dur - 0.5).toFixed(1)));
+          slider.max = String(maxCut);
+        }
+      };
+
+      box.classList.add('open');
+    }
+
+    function onTrimSliderChange(val) {
+      const cutSec = Math.max(0, Number(val) || 0);
+      document.getElementById('trimStartLabel').textContent = `Início: ${cutSec.toFixed(1)}s`;
+      document.getElementById('trimConfirmCard').classList.remove('open');
+      trimmedVideoFile = null;
+
+      const srcVid = document.getElementById('trimSourceVideo');
+      if (srcVid && !Number.isNaN(cutSec)) {
+        srcVid.currentTime = cutSec;
+      }
+    }
+
+    async function gerarPreviaCorteVideo() {
+      if (!pendingRawVideoFile || isTrimmingBusy) return;
+      const cutSec = Math.max(0, Number(document.getElementById('trimStartSlider').value) || 0);
+      const statusEl = document.getElementById('gallery-status');
+      const btnApply = document.getElementById('btnApplyTrim');
+
+      if (cutSec <= 0) {
+        trimmedVideoFile = pendingRawVideoFile;
+        if (trimResultObjectUrl) URL.revokeObjectURL(trimResultObjectUrl);
+        trimResultObjectUrl = URL.createObjectURL(trimmedVideoFile);
+        document.getElementById('trimResultVideo').src = trimResultObjectUrl;
+        document.getElementById('trimConfirmCard').classList.add('open');
+        return;
+      }
+
+      isTrimmingBusy = true;
+      btnApply.disabled = true;
+      statusEl.innerText = `✂️ Cortando primeiros ${cutSec.toFixed(1)}s do vídeo...`;
+
+      try {
+        const resultFile = await new Promise((resolve, reject) => {
+          const vid = document.createElement('video');
+          vid.muted = true;
+          vid.playsInline = true;
+          vid.preload = 'auto';
+          const tempUrl = URL.createObjectURL(pendingRawVideoFile);
+          vid.src = tempUrl;
+
+          vid.onerror = () => {
+            URL.revokeObjectURL(tempUrl);
+            reject(new Error('Não foi possível ler o vídeo para cortar.'));
+          };
+
+          vid.onloadedmetadata = () => {
+            const dur = Number(vid.duration || 0);
+            if (dur > 0 && cutSec >= dur) {
+              URL.revokeObjectURL(tempUrl);
+              reject(new Error('O corte inicial é maior que a duração do vídeo.'));
+              return;
+            }
+            vid.currentTime = cutSec;
+          };
+
+          vid.onseeked = () => {
+            try {
+              const w = vid.videoWidth || 720;
+              const h = vid.videoHeight || 1280;
+              const canvas = document.createElement('canvas');
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+
+              const stream = canvas.captureStream(30);
+              const mimeCandidates = [
+                'video/webm;codecs=vp8',
+                'video/webm',
+                'video/mp4'
+              ];
+              const chosenMime = mimeCandidates.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+              if (!chosenMime) {
+                URL.revokeObjectURL(tempUrl);
+                resolve(pendingRawVideoFile);
+                return;
+              }
+
+              const recorder = new MediaRecorder(stream, { mimeType: chosenMime });
+              const chunks = [];
+              recorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) chunks.push(e.data);
+              };
+
+              recorder.onstop = () => {
+                URL.revokeObjectURL(tempUrl);
+                const ext = chosenMime.includes('mp4') ? 'mp4' : 'webm';
+                const blob = new Blob(chunks, { type: chosenMime.split(';')[0] });
+                if (blob.size > 0) {
+                  const baseName = pendingRawVideoFile.name.replace(/\.[^.]+$/, '');
+                  resolve(new File([blob], `${baseName}_cortado.${ext}`, { type: blob.type }));
+                } else {
+                  resolve(pendingRawVideoFile);
+                }
+              };
+
+              recorder.start(200);
+              vid.play().catch(() => {
+                if (recorder.state !== 'inactive') recorder.stop();
+              });
+
+              const draw = () => {
+                if (vid.paused || vid.ended) {
+                  if (recorder.state !== 'inactive') recorder.stop();
+                  return;
+                }
+                ctx.drawImage(vid, 0, 0, w, h);
+                requestAnimationFrame(draw);
+              };
+              draw();
+            } catch (err) {
+              URL.revokeObjectURL(tempUrl);
+              reject(err);
+            }
+          };
+        });
+
+        trimmedVideoFile = resultFile;
+        if (trimResultObjectUrl) URL.revokeObjectURL(trimResultObjectUrl);
+        trimResultObjectUrl = URL.createObjectURL(trimmedVideoFile);
+        document.getElementById('trimResultVideo').src = trimResultObjectUrl;
+        document.getElementById('trimConfirmCard').classList.add('open');
+        statusEl.innerText = 'Prévia cortada pronta! Confirme abaixo se quer subir este vídeo.';
+      } catch (err) {
+        alert(err?.message || 'Erro ao cortar o início do vídeo.');
+        statusEl.innerText = '';
+      } finally {
+        isTrimmingBusy = false;
+        btnApply.disabled = false;
+      }
+    }
+
+    async function subirVideoAtual(useTrimmed) {
+      const fileToSend = useTrimmed ? trimmedVideoFile : pendingRawVideoFile;
+      if (!fileToSend) return;
+
+      const status = document.getElementById('gallery-status');
+      status.innerText = 'Enviando vídeo...';
+
+      try {
+        const base64Data = await fileToBase64(fileToSend);
+        const upRes = await fetch('/api/creator/upload-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            fileName: fileToSend.name,
+            contentType: fileToSend.type || 'video/mp4',
+            visibility: 'public',
+            base64Data,
+          }),
+        }).then(r => r.json());
+
+        if (!upRes.ok) {
+          alert(upRes.error || 'Erro ao enviar vídeo');
+          status.innerText = '';
+          return;
+        }
+
+        await fetch('/api/creator/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            mediaType: upRes.mediaType || 'video',
+            visibility: 'public',
+            r2Key: upRes.r2Key,
+            publicUrl: upRes.publicUrl,
+          }),
+        });
+
+        cancelarEditorVideo();
+        status.innerText = 'Vídeo enviado com sucesso';
+        carregarGaleria();
+      } catch (err) {
+        alert('Erro ao enviar vídeo: ' + (err?.message || 'Erro de rede'));
+        status.innerText = '';
+      }
+    }
+
+    async function onGalleryFilesPicked(files) {
+      if (!files || !files.length) return;
+      const list = Array.from(files);
+      const firstVideo = list.find(isVideoFile);
+      const nonVideos = list.filter(f => !isVideoFile(f));
+
+      if (nonVideos.length) {
+        await uploadGaleria(nonVideos);
+      }
+      if (firstVideo) {
+        abrirEditorCorteVideo(firstVideo);
+      }
     }
 
     function setVerifyFeedback(msg, isOk = true) {
