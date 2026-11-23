@@ -392,7 +392,8 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
                 COALESCE(price, 19.90) AS price,
                 COALESCE(allow_subscription, TRUE) AS allow_subscription,
                 COALESCE(likes, 0) AS likes,
-                created_at
+                created_at,
+                (COALESCE(created_at, NOW()) >= NOW() - INTERVAL '24 hours') AS can_delete
          FROM vip_posts
          WHERE creator_id = $1
          ORDER BY id DESC`,
@@ -423,7 +424,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       const res = await pool.query(
         `INSERT INTO vip_posts (creator_id, media_type, caption, preview_url, media_url, price, allow_subscription)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
+         RETURNING *, TRUE AS can_delete`,
         [req.creator.id, type, sanitizePlainText(body.caption, 400) || null, cleanPreview, cleanMediaUrl, cleanPrice, allowSub]
       );
 
@@ -436,8 +437,42 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
 
   app.delete('/api/portal/vip/posts/:id', { preHandler: requireCreatorAuth }, async (req, reply) => {
     const postId = Number(req.params.id);
-    await pool.query(`DELETE FROM vip_posts WHERE id = $1 AND creator_id = $2`, [postId, req.creator.id]);
-    return reply.send({ ok: true });
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return reply.status(400).send({ ok: false, error: 'ID de publicação inválido.' });
+    }
+
+    try {
+      const checkRes = await pool.query(
+        `SELECT id,
+                (COALESCE(created_at, NOW()) >= NOW() - INTERVAL '24 hours') AS can_delete
+         FROM vip_posts
+         WHERE id = $1 AND creator_id = $2
+         LIMIT 1`,
+        [postId, req.creator.id]
+      );
+
+      const post = checkRes.rows[0];
+      if (!post) {
+        return reply.status(404).send({ ok: false, error: 'Publicação não encontrada na sua conta.' });
+      }
+
+      if (!post.can_delete) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'O prazo de 24 horas para excluir esta publicação já encerrou.',
+        });
+      }
+
+      await pool.query(
+        `DELETE FROM vip_posts WHERE id = $1 AND creator_id = $2`,
+        [postId, req.creator.id]
+      );
+
+      return reply.send({ ok: true, deletedId: postId });
+    } catch (err) {
+      app.log.error(err, '[VIP] Erro ao excluir publicação');
+      return reply.status(500).send({ ok: false, error: 'Erro ao excluir publicação.' });
+    }
   });
 
   const handleGetCreatorVipMessages = async (req, reply) => {
