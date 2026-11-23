@@ -385,6 +385,11 @@ export function registerPortalRoutes(app) {
   `).catch(() => {});
 
   pool.query(`
+    ALTER TABLE creator_accounts
+      ADD COLUMN IF NOT EXISTS profile_type VARCHAR(30) DEFAULT 'conteudo';
+  `).catch(() => {});
+
+  pool.query(`
     CREATE TABLE IF NOT EXISTS ai_email_campaigns (
       id SERIAL PRIMARY KEY,
       creator_id INTEGER,
@@ -851,6 +856,18 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
   app.get('/galeria-assinantes', serveGaleriaAssinantes);
   app.get('/galeria-assinantes/*', serveGaleriaAssinantes);
 
+  app.get('/vip/:slug', async (req, reply) => {
+    const candidates = ['clube-vip.html', 'meu-vip.html', 'galeria-assinantes.html'];
+    for (const fname of candidates) {
+      const filePath = path.join(process.cwd(), 'public', fname);
+      if (fs.existsSync(filePath)) {
+        const html = fs.readFileSync(filePath, 'utf-8');
+        return reply.type('text/html; charset=utf-8').send(html);
+      }
+    }
+    return reply.status(404).send({ error: 'Página VIP não encontrada.' });
+  });
+
   if (!app.__vipFeedRoutesRegistered) {
     app.__vipFeedRoutesRegistered = true;
     registerVipFeedRoutes(app, requireCreatorAuth);
@@ -861,10 +878,11 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
 
   app.post('/api/portal/register', async (req, reply) => {
     try {
-      const { email, password, stageName, city, state, country, whatsapp, bio } = req.body || {};
+      const { email, password, stageName, city, state, country, whatsapp, bio, profileType, isEscort } = req.body || {};
       if (!email || !password || !stageName || !city || !state) {
         return reply.status(400).send({ error: 'Preencha todos os campos obrigatórios.' });
       }
+      const resolvedType = profileType === 'acompanhante' || isEscort === true ? 'acompanhante' : 'conteudo';
       const creator = await registerCreator({
         email,
         password,
@@ -875,8 +893,12 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         whatsapp,
         bio: sanitizeText(bio, 1500),
       });
+      await pool.query(
+        `UPDATE creator_accounts SET profile_type = $1 WHERE id = $2`,
+        [resolvedType, creator.id]
+      ).catch(() => {});
       const token = signSessionToken(creator.id);
-      return reply.send({ ok: true, token, creator });
+      return reply.send({ ok: true, token, creator: { ...creator, profile_type: resolvedType } });
     } catch (err) {
       if (String(err.message).includes('unique')) {
         return reply.status(409).send({ error: 'Este e-mail já está cadastrado.' });
@@ -929,6 +951,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       ok: true,
       creator: {
         ...req.creator,
+        profile_type: req.creator.profile_type || 'conteudo',
         vip_balance: vipSummary.balance,
       },
       vipBalance: vipSummary.balance,
@@ -984,6 +1007,15 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         return reply.status(400).send({ error: 'Nome artístico inválido.' });
       }
       body.stage_name = cleanName;
+    }
+
+    if (body.profile_type !== undefined) {
+      body.profile_type = body.profile_type === 'acompanhante' ? 'acompanhante' : 'conteudo';
+      await pool.query(
+        `UPDATE creator_accounts SET profile_type = $1 WHERE id = $2`,
+        [body.profile_type, req.creator.id]
+      ).catch(() => {});
+      delete body.profile_type;
     }
 
     if (body.bio !== undefined) body.bio = sanitizeText(body.bio, 1500);

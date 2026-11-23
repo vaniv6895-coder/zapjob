@@ -337,6 +337,11 @@
       </div>
 
       <div id="reg-form" style="display:none">
+        <label>Tipo de Conta</label>
+        <select id="r-type">
+          <option value="conteudo">Apenas Conteúdo (VIP / Galeria — sem vídeo de corpo inteiro)</option>
+          <option value="acompanhante">Acompanhante (requer vídeo com número e corpo inteiro)</option>
+        </select>
         <label>Nome Artístico</label>
         <input id="r-name" placeholder="Ex: Larissa VIP" />
         <label>E-mail</label>
@@ -441,8 +446,8 @@
             <button type="button" class="btn" style="flex:1;" onclick="window.location.href='/biometria-facial?mode=register'">
               📷 Recadastrar Biometria Facial
             </button>
-            <button type="button" class="btn btn-green" style="flex:1;" onclick="openLivenessModal()">
-              🎥 Prova de Vida Facial
+            <button type="button" id="btn-liveness-escort" class="btn btn-green" style="flex:1;display:none;" onclick="openLivenessModal()">
+              🎥 Prova de Vida (Acompanhante)
             </button>
           </div>
         </div>
@@ -584,7 +589,8 @@
         const meRes = await fetch('/api/portal/me', { headers: { Authorization: 'Bearer ' + authToken } });
         const meData = meRes.ok ? await meRes.json() : null;
         const c = meData?.creator || creatorObj;
-        if (c && !String(c.verification_video_url || '').trim()) {
+        const isEscort = c?.profile_type === 'acompanhante';
+        if (c && isEscort && !String(c.verification_video_url || '').trim()) {
           const vTok = c.verification_token || ('creator_' + c.id);
           sessionStorage.setItem('creator_verify_token', vTok);
           localStorage.setItem('creator_verify_token', vTok);
@@ -655,10 +661,13 @@
     }
 
     async function doRegister() {
+      const profileType = document.getElementById('r-type')?.value || 'conteudo';
       const res = await fetch('/api/portal/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profileType,
+          isEscort: profileType === 'acompanhante',
           stageName: document.getElementById('r-name').value,
           email: document.getElementById('r-email').value,
           password: document.getElementById('r-pass').value,
@@ -688,7 +697,11 @@
       if (!res.ok) return resetSessionToLogin();
       const { creator, stats, plans } = await res.json();
 
-      if (creator && !String(creator.verification_video_url || '').trim()) {
+      const isEscort = creator?.profile_type === 'acompanhante';
+      const livenessBtn = document.getElementById('btn-liveness-escort');
+      if (livenessBtn) livenessBtn.style.display = isEscort ? 'block' : 'none';
+
+      if (creator && isEscort && !String(creator.verification_video_url || '').trim()) {
         const vTok = creator.verification_token || ('creator_' + creator.id);
         sessionStorage.setItem('creator_verify_token', vTok);
         localStorage.setItem('creator_verify_token', vTok);
