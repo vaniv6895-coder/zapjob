@@ -18,6 +18,33 @@ function normalizeComparable(val) {
     .toLowerCase();
 }
 
+async function resolveCreatorBySlugFallback(rawSlug) {
+  const cleanSlug = String(rawSlug || '').trim();
+  if (!cleanSlug) return null;
+
+  const direct = await getCreatorBySlug(cleanSlug).catch(() => null);
+  if (direct) return direct;
+
+  try {
+    const byLower = await pool.query(
+      `SELECT * FROM creator_accounts WHERE LOWER(slug) = LOWER($1) LIMIT 1`,
+      [cleanSlug]
+    );
+    if (byLower.rows[0]) return byLower.rows[0];
+
+    const withoutSuffix = cleanSlug.replace(/-\d+$/, '');
+    if (withoutSuffix && withoutSuffix !== cleanSlug) {
+      const byPrefix = await pool.query(
+        `SELECT * FROM creator_accounts WHERE LOWER(slug) = LOWER($1) OR LOWER(slug) LIKE LOWER($2) ORDER BY id DESC LIMIT 1`,
+        [withoutSuffix, `${withoutSuffix}-%`]
+      );
+      if (byPrefix.rows[0]) return byPrefix.rows[0];
+    }
+  } catch {}
+
+  return null;
+}
+
 async function isImpersonatingCreator(nameOrEmail) {
   const clean = normalizeComparable(nameOrEmail);
   if (!clean) return false;
@@ -118,8 +145,13 @@ export async function ensureVipTables() {
       subscriber_name VARCHAR(80) NOT NULL,
       device_hash VARCHAR(128),
       message_text TEXT NOT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      creator_reply TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE vip_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE vip_messages ADD COLUMN IF NOT EXISTS creator_reply TEXT;
 
     CREATE TABLE IF NOT EXISTS vip_fans (
       id SERIAL PRIMARY KEY,
@@ -272,7 +304,7 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   });
 
   app.get('/api/vip/profile/:slug', async (req, reply) => {
-    const creator = await getCreatorBySlug(req.params.slug);
+    const creator = await resolveCreatorBySlugFallback(req.params.slug);
     if (!creator) return reply.status(404).send({ error: 'Perfil VIP não encontrado.' });
 
     const [postsRes, mediaList] = await Promise.all([
@@ -350,20 +382,55 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     return reply.send({ ok: true });
   });
 
-  app.get('/api/portal/vip/messages', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const { rows } = await pool.query(
-      `SELECT id, subscriber_name, message_text, created_at
-       FROM vip_messages
-       WHERE creator_id = $1
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      [req.creator.id]
-    );
-    return reply.send({ ok: true, messages: rows });
+  const handleGetCreatorVipMessages = async (req, reply) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, subscriber_name, message_text,
+                COALESCE(is_read, FALSE) AS is_read,
+                creator_reply, created_at
+         FROM vip_messages
+         WHERE creator_id = $1
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        [req.creator.id]
+      );
+      return reply.send({ ok: true, messages: rows });
+    } catch (err) {
+      app.log.error(err, '[VIP] Erro ao listar mensagens da criadora');
+      return reply.status(500).send({ ok: false, error: 'Erro ao carregar mensagens.' });
+    }
+  };
+
+  app.get('/api/portal/vip/messages', { preHandler: requireCreatorAuth }, handleGetCreatorVipMessages);
+  app.get('/api/portal/creator/vip-messages', { preHandler: requireCreatorAuth }, handleGetCreatorVipMessages);
+
+  app.post('/api/portal/creator/vip-messages/:id/reply', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const msgId = Number(req.params.id);
+    const replyText = sanitizePlainText(req.body?.replyText, 600);
+    if (!Number.isInteger(msgId) || msgId <= 0) {
+      return reply.status(400).send({ ok: false, error: 'Mensagem inválida.' });
+    }
+
+    try {
+      const res = await pool.query(
+        `UPDATE vip_messages
+         SET creator_reply = $1, is_read = TRUE
+         WHERE id = $2 AND creator_id = $3
+         RETURNING id, subscriber_name, message_text, is_read, creator_reply, created_at`,
+        [replyText || null, msgId, req.creator.id]
+      );
+      if (!res.rows[0]) {
+        return reply.status(404).send({ ok: false, error: 'Mensagem não encontrada.' });
+      }
+      return reply.send({ ok: true, message: res.rows[0] });
+    } catch (err) {
+      app.log.error(err, '[VIP] Erro ao responder mensagem');
+      return reply.status(500).send({ ok: false, error: 'Erro ao salvar resposta.' });
+    }
   });
 
   app.post('/api/portal/vip/:slug/messages', async (req, reply) => {
-    const creator = await getCreatorBySlug(req.params.slug);
+    const creator = await resolveCreatorBySlugFallback(req.params.slug);
     if (!creator) return reply.status(404).send({ error: 'Clube VIP não encontrado.' });
 
     const { subscriberName, messageText, deviceHash } = req.body || {};
@@ -404,9 +471,9 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
       'Assinante VIP';
 
     const ins = await pool.query(
-      `INSERT INTO vip_messages (creator_id, subscriber_name, device_hash, message_text)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, subscriber_name, message_text, created_at`,
+      `INSERT INTO vip_messages (creator_id, subscriber_name, device_hash, message_text, is_read)
+       VALUES ($1, $2, $3, $4, FALSE)
+       RETURNING id, subscriber_name, message_text, is_read, creator_reply, created_at`,
       [creator.id, safeName, cleanDev, cleanText]
     );
 
