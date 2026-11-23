@@ -840,6 +840,17 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  const serveGaleriaAssinantes = async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'galeria-assinantes.html');
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({ error: 'Arquivo public/galeria-assinantes.html não encontrado.' });
+    }
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  };
+  app.get('/galeria-assinantes', serveGaleriaAssinantes);
+  app.get('/galeria-assinantes/*', serveGaleriaAssinantes);
+
   if (!app.__vipFeedRoutesRegistered) {
     app.__vipFeedRoutesRegistered = true;
     registerVipFeedRoutes(app, requireCreatorAuth);
