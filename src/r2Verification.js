@@ -5,57 +5,57 @@ function cleanEnv(val) {
   return String(val || '').replace(/[\r\n]+/g, '').trim();
 }
 
-const rawEndpoint = cleanEnv(process.env.R2_ENDPOINT || process.env.R2_VIP_ENDPOINT);
-const rawAccountId = cleanEnv(process.env.R2_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID);
+function pickCredentials() {
+  const vipKey = cleanEnv(process.env.R2_VIP_KEY_ID);
+  const vipSecret = cleanEnv(process.env.R2_VIP_SECRET);
+  const vipBucket = cleanEnv(process.env.R2_VIP_BUCKET);
+  const vipEndpoint = cleanEnv(process.env.R2_VIP_ENDPOINT);
+  const vipPublicUrl = cleanEnv(process.env.R2_VIP_URL);
 
-const accessKeyId = cleanEnv(
-  process.env.R2_ACCESS_KEY_ID ||
-  process.env.R2_VIP_KEY_ID ||
-  process.env.S3_ACCESS_KEY
-);
-
-const secretAccessKey = cleanEnv(
-  process.env.R2_SECRET_ACCESS_KEY ||
-  process.env.R2_VIP_SECRET
-);
-
-const bucketName = cleanEnv(
-  process.env.R2_BUCKET_NAME ||
-  process.env.R2_VIP_BUCKET ||
-  process.env.S3_BUCKET
-);
-
-const publicBaseUrl = cleanEnv(
-  process.env.R2_PUBLIC_URL ||
-  process.env.R2_VIP_URL
-).replace(/\/+$/, '');
-
-function resolveEndpointUrl() {
-  if (rawEndpoint) {
-    return rawEndpoint.startsWith('http') ? rawEndpoint.replace(/\/+$/, '') : `https://${rawEndpoint.replace(/\/+$/, '')}`;
+  if (vipKey && vipSecret && vipBucket && vipEndpoint) {
+    return {
+      accessKeyId: vipKey,
+      secretAccessKey: vipSecret,
+      bucketName: vipBucket,
+      rawEndpoint: vipEndpoint,
+      publicBaseUrl: vipPublicUrl,
+    };
   }
-  if (rawAccountId) {
-    return `https://${rawAccountId}.r2.cloudflarestorage.com`;
-  }
-  return '';
+
+  return {
+    accessKeyId: cleanEnv(process.env.R2_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY),
+    secretAccessKey: cleanEnv(process.env.R2_SECRET_ACCESS_KEY),
+    bucketName: cleanEnv(process.env.R2_BUCKET_NAME || process.env.S3_BUCKET),
+    rawEndpoint: cleanEnv(process.env.R2_ENDPOINT),
+    publicBaseUrl: cleanEnv(process.env.R2_PUBLIC_URL),
+  };
 }
 
-const endpointUrl = resolveEndpointUrl();
+const creds = pickCredentials();
+const publicBaseUrl = creds.publicBaseUrl.replace(/\/+$/, '');
+
+function resolveEndpointUrl(ep) {
+  if (!ep) return '';
+  const clean = ep.replace(/\/+$/, '');
+  return clean.startsWith('http') ? clean : `https://${clean}`;
+}
+
+const endpointUrl = resolveEndpointUrl(creds.rawEndpoint);
 
 const s3Client =
-  endpointUrl && accessKeyId && secretAccessKey
+  endpointUrl && creds.accessKeyId && creds.secretAccessKey
     ? new S3Client({
         region: 'auto',
         endpoint: endpointUrl,
         credentials: {
-          accessKeyId,
-          secretAccessKey,
+          accessKeyId: creds.accessKeyId,
+          secretAccessKey: creds.secretAccessKey,
         },
       })
     : null;
 
 export async function uploadVerificationVideoToR2(buffer, mimeType, token, hashHex) {
-  if (!s3Client || !bucketName) {
+  if (!s3Client || !creds.bucketName) {
     throw new Error('Credenciais do R2 incompletas nas variáveis de ambiente.');
   }
 
@@ -66,7 +66,7 @@ export async function uploadVerificationVideoToR2(buffer, mimeType, token, hashH
 
   await s3Client.send(
     new PutObjectCommand({
-      Bucket: bucketName,
+      Bucket: creds.bucketName,
       Key: key,
       Body: buffer,
       ContentType: cleanEnv(mimeType) || `video/${ext}`,
@@ -75,7 +75,7 @@ export async function uploadVerificationVideoToR2(buffer, mimeType, token, hashH
 
   const url = publicBaseUrl
     ? `${publicBaseUrl}/${key}`
-    : `${endpointUrl}/${bucketName}/${key}`;
+    : `${endpointUrl}/${creds.bucketName}/${key}`;
 
   return { key, url };
 }

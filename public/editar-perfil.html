@@ -558,6 +558,7 @@
       border-radius: var(--radius-sm);
       background: #000;
       object-fit: cover;
+      transform: scaleX(1);
       display: block;
     }
 
@@ -581,6 +582,7 @@
       width: 100vw;
       height: 100dvh;
       object-fit: cover;
+      transform: scaleX(1);
       z-index: 1;
     }
     .full-cam-top {
@@ -1434,6 +1436,7 @@
         preview.src = '';
         preview.muted = true;
         preview.controls = false;
+        preview.style.transform = 'scaleX(1)';
         verifyRecordedBlob = null;
         document.getElementById('btnRecordVerify').textContent = '⏺️ Gravar Vídeo';
         document.getElementById('btnSendVerify').disabled = true;
@@ -1474,6 +1477,7 @@
           preview.src = URL.createObjectURL(verifyRecordedBlob);
           preview.muted = false;
           preview.controls = true;
+          preview.style.transform = 'scaleX(1)';
           preview.play();
           btnRec.textContent = '⏺️ Gravar de Novo';
           document.getElementById('btnSendVerify').disabled = false;
