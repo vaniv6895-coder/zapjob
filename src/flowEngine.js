@@ -8,9 +8,7 @@ import { listR2MediaCatalog } from './storage.js';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function cleanMediaUrl(url = '') {
-  return String(url || '')
-    .trim()
-    .replace(/(\.mp4|\.mov|\.avi|\.m4v|\.webm|\.jpg|\.jpeg|\.png|\.webp)(\1)+(?=$|\?)/i, '$1');
+  return String(url || '').trim();
 }
 
 function detectMediaKind(url, declaredKind) {
@@ -129,18 +127,17 @@ function isLanguageMatch(nodeLang, clientLang) {
   return false;
 }
 
-// Busca os vídeos/fotos configurados nos blocos do visual_flow
 function pickFlowMedia(flow, sentUrlsSet, clientLang, { preferPhoto = false, allowRepeatIfOnlyOne = false } = {}) {
   const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
   const allMediaNodes = [];
 
   for (const n of nodes) {
-    if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.trim().startsWith('http')) continue;
+    if (n.type !== 'media' || typeof n.text !== 'string') continue;
     const url = cleanMediaUrl(n.text);
-    if (!url) continue;
+    if (!url.startsWith('http')) continue;
 
     const kind = detectMediaKind(url, n.mediaKind);
-    if (kind === 'audio') continue; // Nunca misturar áudio aqui
+    if (kind === 'audio') continue;
 
     const lang = n.mediaLang || 'ALL';
     if (!isLanguageMatch(lang, clientLang)) continue;
@@ -150,20 +147,17 @@ function pickFlowMedia(flow, sentUrlsSet, clientLang, { preferPhoto = false, all
 
   if (allMediaNodes.length === 0) return null;
 
-  // Filtra pelo tipo desejado (vídeo por padrão, ou foto se pediu foto)
   const targetKind = preferPhoto ? 'image' : 'video';
   let typedPool = allMediaNodes.filter((m) => m.kind === targetKind);
   if (typedPool.length === 0) {
-    typedPool = allMediaNodes; // Se não tiver foto, usa o vídeo do fluxo (ou vice-versa)
+    typedPool = allMediaNodes;
   }
 
-  // Primeiro tenta um que ainda não foi enviado para este cliente
   const unsent = typedPool.filter((m) => !sentUrlsSet.has(m.url));
   if (unsent.length > 0) {
-    return unsent[unsent.length - 1]; // Pega o mais recente adicionado no fluxo
+    return unsent[unsent.length - 1];
   }
 
-  // Se o cliente pediu explicitamente ("manda", "cadê o vídeo") e só existe 1 mídia no fluxo, envia ela mesmo assim
   if (allowRepeatIfOnlyOne && typedPool.length > 0) {
     return typedPool[typedPool.length - 1];
   }
@@ -287,12 +281,34 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   let selectedMedia = null;
 
-  // 1. Se o cliente pediu ("manda", "cadê o vídeo", "prévia") OU já passou da 2ª mensagem sem áudio recente:
   if (explicitMediaAsk || (userMsgCount >= 2 && !sentAudioLastTurn)) {
     selectedMedia = pickFlowMedia(flow, sentUrls, clientLang, {
       preferPhoto: isPhotoRequest(userMessage),
-      allowRepeatIfOnlyOne: explicitMediaAsk,
+      allowRepeatIfOnlyOne: true,
     });
+
+    if (!selectedMedia && Array.isArray(flow?.nodes)) {
+      const anyMediaNode = [...flow.nodes]
+        .reverse()
+        .find((n) => {
+          if (n.type !== 'media' || typeof n.text !== 'string') return false;
+          const u = cleanMediaUrl(n.text);
+          if (!u.startsWith('http')) return false;
+          const k = detectMediaKind(u, n.mediaKind);
+          return k === 'video' || k === 'image';
+        });
+
+      if (anyMediaNode) {
+        const cleanU = cleanMediaUrl(anyMediaNode.text);
+        selectedMedia = {
+          url: cleanU,
+          kind: detectMediaKind(cleanU, anyMediaNode.mediaKind),
+          lang: anyMediaNode.mediaLang || 'ALL',
+        };
+      }
+    }
+
+    console.log('[FlowEngine] Debug mídia selecionada:', selectedMedia, '| total nós:', flow?.nodes?.length || 0);
   }
 
   if (rawAiReply) {
@@ -312,7 +328,6 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  // 2. Dispara o vídeo/foto do bloco do fluxo garantido
   if (selectedMedia && selectedMedia.url) {
     try {
       console.log(`[FlowEngine] Enviando ${selectedMedia.kind} do fluxo para ${userId}: ${selectedMedia.url}`);
@@ -322,7 +337,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
       await saveMessage(channel, userId, 'assistant', `[${selectedMedia.kind} enviado]`, selectedMedia.kind, selectedMedia.url);
       sentUrls.add(selectedMedia.url);
     } catch (mediaErr) {
-      console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr.message);
+      console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr?.data || mediaErr.message);
     }
   }
 }
