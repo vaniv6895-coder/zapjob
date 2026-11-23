@@ -558,7 +558,6 @@
       border-radius: var(--radius-sm);
       background: #000;
       object-fit: cover;
-      transform: scaleX(1);
       display: block;
     }
 
@@ -582,7 +581,7 @@
       width: 100vw;
       height: 100dvh;
       object-fit: cover;
-      transform: scaleX(1);
+      transform: scaleX(-1);
       z-index: 1;
     }
     .full-cam-top {
@@ -1295,6 +1294,8 @@
     let verifyRecorder = null;
     let verifyChunks = [];
     let verifyRecordedBlob = null;
+    let verifyCanvas = null;
+    let verifyRafId = null;
 
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
@@ -1409,10 +1410,19 @@
       document.getElementById('fullCamTimer').textContent = txt;
     }, 1000);
 
+    function stopCanvasLoop() {
+      if (verifyRafId) {
+        cancelAnimationFrame(verifyRafId);
+        verifyRafId = null;
+      }
+      verifyCanvas = null;
+    }
+
     function fecharCameraVerificacao() {
       if (verifyRecorder && verifyRecorder.state !== 'inactive') {
         try { verifyRecorder.stop(); } catch (_) {}
       }
+      stopCanvasLoop();
       if (verifyStream) {
         verifyStream.getTracks().forEach(t => t.stop());
         verifyStream = null;
@@ -1432,11 +1442,12 @@
 
       try {
         if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+        stopCanvasLoop();
         preview.srcObject = null;
         preview.src = '';
         preview.muted = true;
         preview.controls = false;
-        preview.style.transform = 'scaleX(1)';
+        preview.style.transform = 'scaleX(-1)';
         verifyRecordedBlob = null;
         document.getElementById('btnRecordVerify').textContent = '⏺️ Gravar Vídeo';
         document.getElementById('btnSendVerify').disabled = true;
@@ -1454,6 +1465,31 @@
       }
     }
 
+    function startMirroredCanvasStream(videoEl, audioStream) {
+      const w = videoEl.videoWidth || 720;
+      const h = videoEl.videoHeight || 1280;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      verifyCanvas = canvas;
+
+      const drawFrame = () => {
+        if (!verifyCanvas || videoEl.paused || videoEl.ended) return;
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        verifyRafId = requestAnimationFrame(drawFrame);
+      };
+      drawFrame();
+
+      const videoTrack = canvas.captureStream(30).getVideoTracks()[0];
+      const audioTracks = audioStream ? audioStream.getAudioTracks() : [];
+      return new MediaStream([videoTrack, ...audioTracks]);
+    }
+
     function toggleGravacaoVerificacao() {
       const btnRec = document.getElementById('btnRecordVerify');
       const preview = document.getElementById('verifyPreview');
@@ -1461,18 +1497,27 @@
       if (!verifyRecorder || verifyRecorder.state === 'inactive') {
         if (!verifyStream) return;
         verifyChunks = [];
+
+        const captureStream = startMirroredCanvasStream(preview, verifyStream);
         const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
           ? 'video/webm;codecs=vp8,opus'
-          : (MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '');
+          : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '');
 
-        verifyRecorder = mime ? new MediaRecorder(verifyStream, { mimeType: mime }) : new MediaRecorder(verifyStream);
+        verifyRecorder = mime
+          ? new MediaRecorder(captureStream, { mimeType: mime })
+          : new MediaRecorder(captureStream);
+
         verifyRecorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) verifyChunks.push(e.data);
         };
         verifyRecorder.onstop = () => {
+          stopCanvasLoop();
           const finalType = verifyRecorder.mimeType || 'video/webm';
           verifyRecordedBlob = new Blob(verifyChunks, { type: finalType });
-          if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+          if (verifyStream) {
+            verifyStream.getTracks().forEach(t => t.stop());
+            verifyStream = null;
+          }
           preview.srcObject = null;
           preview.src = URL.createObjectURL(verifyRecordedBlob);
           preview.muted = false;

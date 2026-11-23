@@ -14,6 +14,7 @@ export async function initPortalDB() {
       stage_name VARCHAR(100) NOT NULL,
       city VARCHAR(100) NOT NULL,
       state VARCHAR(10) NOT NULL,
+      country TEXT DEFAULT 'Brasil',
       whatsapp VARCHAR(30),
       hourly_rate NUMERIC(10, 2),
       bio TEXT,
@@ -31,6 +32,7 @@ export async function initPortalDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'Brasil';
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(10, 2);
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_monthly_price NUMERIC(10, 2) DEFAULT 49.90;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_anchor_price NUMERIC(10, 2);
@@ -85,7 +87,7 @@ export async function initPortalDB() {
       ON creator_reviews (creator_id, status, created_at DESC);
 
     CREATE INDEX IF NOT EXISTS idx_creators_home_ranking
-      ON creator_accounts (city, active, verified, tier, featured_until DESC, last_boost_at DESC);
+      ON creator_accounts (country, state, city, neighborhood, active, verified, tier, featured_until DESC, last_boost_at DESC);
 
     CREATE TABLE IF NOT EXISTS creator_media (
       id SERIAL PRIMARY KEY,
@@ -162,18 +164,36 @@ function makeSlug(name) {
   return `${base || 'perfil'}-${suffix}`;
 }
 
+function normalizeGeoText(val) {
+  return String(val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 // =========================================================================
 // 3. CADASTRO, LOGIN E ATUALIZAÇÃO DE PERFIL (ISOLADO POR CONTA)
 // =========================================================================
-export async function registerCreator({ email, password, stageName, city, state, whatsapp, bio, hourlyRate = null }) {
+export async function registerCreator({
+  email,
+  password,
+  stageName,
+  city,
+  state,
+  country = 'Brasil',
+  whatsapp,
+  bio,
+  hourlyRate = null,
+}) {
   const cleanEmail = String(email).trim().toLowerCase();
   const passwordHash = hashPassword(password);
   const slug = makeSlug(stageName);
 
   const res = await pool.query(
-    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, hourly_rate, verified, active)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, FALSE)
-     RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, verified, active, tier`,
+    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, country, whatsapp, bio, hourly_rate, verified, active)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, FALSE)
+     RETURNING id, email, slug, stage_name, neighborhood, city, state, country, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, verified, active, tier`,
     [
       cleanEmail,
       passwordHash,
@@ -181,6 +201,7 @@ export async function registerCreator({ email, password, stageName, city, state,
       String(stageName).trim(),
       String(city).trim(),
       String(state).trim().toUpperCase(),
+      String(country || 'Brasil').trim() || 'Brasil',
       whatsapp ? String(whatsapp).replace(/\D/g, '') : null,
       bio ? String(bio).trim() : null,
       hourlyRate !== null && hourlyRate !== '' ? Number(hourlyRate) : null,
@@ -204,7 +225,7 @@ export async function authenticateCreator(email, password) {
 
 export async function getCreatorById(creatorId) {
   const res = await pool.query(
-    `SELECT id, email, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
+    `SELECT id, email, slug, stage_name, age, specialty_tag, neighborhood, city, state, country, has_location,
             whatsapp, fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
             payment_methods, custom_rates, vip_monthly_price, vip_anchor_price, schedule_start, schedule_end,
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
@@ -219,7 +240,7 @@ export async function getCreatorById(creatorId) {
 
 export async function getCreatorBySlug(slug) {
   const res = await pool.query(
-    `SELECT id, slug, stage_name, age, specialty_tag, neighborhood, city, state, has_location,
+    `SELECT id, slug, stage_name, age, specialty_tag, neighborhood, city, state, country, has_location,
             whatsapp, fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
             payment_methods, custom_rates, vip_monthly_price, vip_anchor_price, schedule_start, schedule_end,
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
@@ -242,6 +263,7 @@ export async function updateCreatorProfile(creatorId, fields) {
     'neighborhood',
     'city',
     'state',
+    'country',
     'has_location',
     'whatsapp',
     'fifteen_min_rate',
@@ -343,44 +365,51 @@ export async function deleteCreatorMedia(creatorId, mediaId) {
 }
 
 // =========================================================================
-// 5. RANKING DA PRIMEIRA PÁGINA E DESTAQUES PAGOS VIA PIX
+// 5. RANKING REGIONAL EM CASCATA (BAIRRO -> CIDADE -> ESTADO -> PAÍS)
 // =========================================================================
-export async function getHomeRanking({ city = null, state = null, limit = 60 } = {}) {
-  const conditions = [
-    'active = TRUE',
-    'verified = TRUE',
-    `COALESCE(TRIM(verification_video_url), '') <> ''`,
-  ];
-  const params = [];
-
-  if (city) {
-    params.push(String(city).trim());
-    conditions.push(`LOWER(city) = LOWER($${params.length})`);
-  }
-  if (state) {
-    params.push(String(state).trim());
-    conditions.push(`LOWER(state) = LOWER($${params.length})`);
-  }
-
-  params.push(Number(limit) || 60);
+export async function getHomeRanking({
+  neighborhood = null,
+  city = null,
+  state = null,
+  country = 'Brasil',
+  limit = 80,
+} = {}) {
+  const cleanNeighborhood = normalizeGeoText(neighborhood);
+  const cleanCity = normalizeGeoText(city);
+  const cleanState = normalizeGeoText(state);
+  const cleanCountry = normalizeGeoText(country || 'Brasil') || 'brasil';
 
   const res = await pool.query(
-    `SELECT id, slug, stage_name, specialty_tag, neighborhood, city, state, whatsapp,
-            fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate, bio, avatar_url, cover_url,
-            subscription_price, vip_monthly_price, vip_anchor_price, tier, featured_until, last_boost_at,
-            (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured
+    `SELECT
+       id, slug, stage_name, specialty_tag, neighborhood, city, state, country, whatsapp,
+       fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
+       bio, avatar_url, cover_url, subscription_price, vip_monthly_price, vip_anchor_price,
+       tier, featured_until, last_boost_at,
+       (featured_until IS NOT NULL AND featured_until > NOW()) AS is_featured,
+       CASE
+         WHEN $1 <> '' AND LOWER(TRANSLATE(COALESCE(neighborhood, ''), 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuucAAAAAEEEEIIIIOOOOOUUUC')) = $1 THEN 1
+         WHEN $2 <> '' AND LOWER(TRANSLATE(COALESCE(city, ''), 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuucAAAAAEEEEIIIIOOOOOUUUC')) = $2 THEN 2
+         WHEN $3 <> '' AND LOWER(TRANSLATE(COALESCE(state, ''), 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuucAAAAAEEEEIIIIOOOOOUUUC')) = $3 THEN 3
+         WHEN $4 <> '' AND LOWER(TRANSLATE(COALESCE(country, 'brasil'), 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuucAAAAAEEEEIIIIOOOOOUUUC')) = $4 THEN 4
+         ELSE 5
+       END AS geo_rank
      FROM creator_accounts
-     WHERE ${conditions.join(' AND ')}
+     WHERE active = TRUE
+       AND verified = TRUE
+       AND COALESCE(TRIM(verification_video_url), '') <> ''
      ORDER BY
+       geo_rank ASC,
        (CASE
          WHEN featured_until IS NOT NULL AND featured_until > NOW() AND tier = 'diamond' THEN 1
          WHEN featured_until IS NOT NULL AND featured_until > NOW() AND tier = 'vip' THEN 2
-         ELSE 3
+         WHEN featured_until IS NOT NULL AND featured_until > NOW() THEN 3
+         ELSE 4
        END) ASC,
-       last_boost_at DESC,
+       featured_until DESC NULLS LAST,
+       last_boost_at DESC NULLS LAST,
        created_at DESC
-     LIMIT $${params.length}`,
-    params
+     LIMIT $5`,
+    [cleanNeighborhood, cleanCity, cleanState, cleanCountry, Number(limit) || 80]
   );
 
   return res.rows;
@@ -422,8 +451,11 @@ export async function approveHighlightOrder(orderId, mpPaymentId = null) {
       );
     } else {
       const planMap = {
+        top_7d: { tier: 'vip', days: 7 },
         vip_7d: { tier: 'vip', days: 7 },
+        top_15d: { tier: 'diamond', days: 15 },
         diamond_7d: { tier: 'diamond', days: 7 },
+        diamante_30d: { tier: 'diamond', days: 30 },
         diamond_30d: { tier: 'diamond', days: 30 },
       };
       const cfg = planMap[order.plan_code] || { tier: 'vip', days: 7 };
@@ -539,7 +571,7 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
   const cleanEmail = String(email).trim().toLowerCase();
 
   const existing = await pool.query(
-    `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
+    `SELECT id, email, slug, stage_name, city, state, country, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
             verification_video_url, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE email = $1
@@ -556,10 +588,10 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
 
   const created = await pool.query(
     `INSERT INTO creator_accounts (
-      email, password_hash, slug, stage_name, city, state, avatar_url, cover_url, verified, active
+      email, password_hash, slug, stage_name, city, state, country, avatar_url, cover_url, verified, active
     )
-    VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', $5, $5, FALSE, FALSE)
-    RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
+    VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', 'Brasil', $5, $5, FALSE, FALSE)
+    RETURNING id, email, slug, stage_name, city, state, country, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
               verification_video_url, verified, active, tier, featured_until, last_boost_at`,
     [cleanEmail, randomPass, slug, String(name || 'Modelo VIP').trim(), picture || null]
   );

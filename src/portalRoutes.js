@@ -20,6 +20,7 @@ import {
   trackProfileEvent,
   getCreatorStats30d,
   findOrCreateGoogleCreator,
+  approveHighlightOrder,
 } from './portalDb.js';
 import { registerPortalProfileRoute } from './portalProfilePage.js';
 import { registerPortalMediaRoutes } from './portalMediaRoutes.js';
@@ -31,6 +32,156 @@ const HIGHLIGHT_PLANS = [
   { code: 'diamond_7d', name: 'Topo Diamante (7 Dias)', badge: '1ª LINHA 💎', price: 119.9, desc: 'Fixada no topo absoluto da vitrine por 7 dias.' },
   { code: 'diamond_30d', name: 'Topo Diamante (30 Dias)', badge: 'MÁXIMO ALCANCE 👑', price: 349.9, desc: '30 dias na 1ª linha da página inicial.' },
 ];
+
+const BRAND_NAME = process.env.SITE_BRAND_NAME || 'Garota VIP';
+
+const COUNTRY_CONFIG = {
+  br: { name: 'Brasil', lang: 'pt-BR', localeGroup: 'pt' },
+  pt: { name: 'Portugal', lang: 'pt-PT', localeGroup: 'pt' },
+  us: { name: 'United States', lang: 'en-US', localeGroup: 'en' },
+  uk: { name: 'United Kingdom', lang: 'en-GB', localeGroup: 'en' },
+  gb: { name: 'United Kingdom', lang: 'en-GB', localeGroup: 'en' },
+  ca: { name: 'Canada', lang: 'en-CA', localeGroup: 'en' },
+  ch: { name: 'Switzerland', lang: 'en-CH', localeGroup: 'en' },
+  de: { name: 'Germany', lang: 'en-DE', localeGroup: 'en' },
+  fr: { name: 'France', lang: 'en-FR', localeGroup: 'en' },
+  es: { name: 'España', lang: 'es-ES', localeGroup: 'es' },
+  mx: { name: 'México', lang: 'es-MX', localeGroup: 'es' },
+  ar: { name: 'Argentina', lang: 'es-AR', localeGroup: 'es' },
+  co: { name: 'Colombia', lang: 'es-CO', localeGroup: 'es' },
+  cl: { name: 'Chile', lang: 'es-CL', localeGroup: 'es' },
+};
+
+const COUNTRY_NAME_TO_CODE = {
+  brasil: 'br',
+  brazil: 'br',
+  portugal: 'pt',
+  'united states': 'us',
+  usa: 'us',
+  'united kingdom': 'uk',
+  uk: 'uk',
+  switzerland: 'ch',
+  germany: 'de',
+  france: 'fr',
+  canada: 'ca',
+  espana: 'es',
+  spain: 'es',
+  mexico: 'mx',
+  argentina: 'ar',
+  colombia: 'co',
+  chile: 'cl',
+};
+
+function resolveSeoLocale(countryParam) {
+  const code = String(countryParam || 'br').trim().toLowerCase();
+  return COUNTRY_CONFIG[code] || { name: countryParam || 'Global', lang: 'en', localeGroup: 'en' };
+}
+
+function slugifySeo(val) {
+  return String(val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function unslugifyLabel(slugVal) {
+  return String(slugVal || '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (l) => l.toUpperCase())
+    .trim();
+}
+
+function escapeXml(str) {
+  return String(str || '').replace(/[<>&'"]/g, (c) => ({
+    '<': '&lt;',
+    '>': '&gt;',
+    '&': '&amp;',
+    "'": '&apos;',
+    '"': '&quot;',
+  }[c]));
+}
+
+function sanitizeText(val, maxLen = 500) {
+  if (val === undefined || val === null) return undefined;
+  return String(val)
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .slice(0, maxLen);
+}
+
+function buildMultilingualSeo({ countryCode, cityLabel, hoodLabel, count }) {
+  const cfg = resolveSeoLocale(countryCode);
+  const local = hoodLabel && cityLabel
+    ? `${hoodLabel}, ${cityLabel}`
+    : (cityLabel || cfg.name);
+
+  if (cfg.localeGroup === 'es') {
+    return {
+      ...cfg,
+      local,
+      headingPrefix: 'Escorts y Modelos VIP en',
+      title: `Escorts VIP en ${local} — Fotos y Videos Verificados | ${BRAND_NAME}`,
+      description: `Encuentra ${count || 'las mejores'} escorts y modelos VIP verificadas en ${local}. Contacto directo por WhatsApp, fotos reales y Club VIP exclusivo.`,
+    };
+  }
+
+  if (cfg.localeGroup === 'en') {
+    return {
+      ...cfg,
+      local,
+      headingPrefix: 'VIP Escorts & Models in',
+      title: `VIP Escorts in ${local} — Verified Photos & Exclusive Club | ${BRAND_NAME}`,
+      description: `Discover ${count || 'top'} verified VIP escorts and independent models in ${local}. Direct contact, real photos, and exclusive VIP content.`,
+    };
+  }
+
+  return {
+    ...cfg,
+    local,
+    headingPrefix: 'Acompanhantes e Modelos em',
+    title: `Acompanhantes em ${local} — Fotos e Vídeos Verificados | ${BRAND_NAME}`,
+    description: `Encontre ${count || 'diversas'} modelos e acompanhantes verificadas em ${local}. Contato direto no WhatsApp, fotos reais e Clube VIP.`,
+  };
+}
+
+function getPaxumBaseUrl() {
+  const isSandbox = String(process.env.PAXUM_SANDBOX || '').toLowerCase() === 'true';
+  return isSandbox
+    ? 'https://sandbox.paxum.com/payment/phrame.php'
+    : 'https://www.paxum.com/payment/phrame.php';
+}
+
+function buildPaxumCheckoutUrl({ amount, currency = 'USD', itemName, reference, returnUrl, cancelUrl, notifyUrl }) {
+  const businessEmail = String(process.env.PAXUM_BUSINESS_EMAIL || '').trim();
+  const sharedSecret = String(process.env.PAXUM_SHARED_SECRET || '').trim();
+  if (!businessEmail || !sharedSecret) return null;
+
+  const cleanAmount = Number(amount).toFixed(2);
+  const cleanCurrency = ['USD', 'EUR', 'GBP'].includes(String(currency).toUpperCase())
+    ? String(currency).toUpperCase()
+    : 'USD';
+
+  const rawSig = `${businessEmail}${cleanAmount}${cleanCurrency}${reference}${sharedSecret}`;
+  const signature = crypto.createHash('sha256').update(rawSig).digest('hex');
+
+  const params = new URLSearchParams({
+    view: 'payment',
+    business_email: businessEmail,
+    amount: cleanAmount,
+    currency: cleanCurrency,
+    item_name: String(itemName || 'VIP Access').slice(0, 120),
+    button_type_id: '1',
+    variables: `custom=${reference}`,
+    return: returnUrl,
+    cancel_return: cancelUrl,
+    notify_url: notifyUrl,
+    key: signature,
+  });
+
+  return `${getPaxumBaseUrl()}?${params.toString()}`;
+}
 
 function getAdminSecret() {
   return String(process.env.PANEL_PASSWORD || '').trim();
@@ -57,7 +208,7 @@ function verifyAdminToken(token) {
   const parts = String(token).split('.');
   if (parts.length !== 3 || parts[0] !== 'admin') return false;
   const ts = Number(parts[1]);
-  const maxAgeMs = 12 * 60 * 60 * 1000; // Expira após 12 horas
+  const maxAgeMs = 12 * 60 * 60 * 1000;
   if (!Number.isFinite(ts) || Date.now() - ts > maxAgeMs) return false;
   const expected = crypto.createHmac('sha256', secret).update(`admin.${parts[1]}`).digest('hex');
   return safeEqual(parts[2], expected);
@@ -73,7 +224,6 @@ function isAdminAuthorized(req) {
     if (verifyAdminToken(token)) return true;
   }
 
-  // Fallback opcional para compatibilidade interna
   if (req.query?.pwd && safeEqual(req.query.pwd, secret)) {
     return true;
   }
@@ -83,7 +233,7 @@ function isAdminAuthorized(req) {
 
 function signSessionToken(creatorId) {
   const secret = process.env.PANEL_PASSWORD || 'portal_secret_2026';
-  const payload = `${creatorId}.${Date.now()}`;
+  const payload = `creator.${creatorId}.${Date.now()}`;
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   return `${payload}.${sig}`;
 }
@@ -91,23 +241,30 @@ function signSessionToken(creatorId) {
 function verifySessionToken(token) {
   if (!token) return null;
   const parts = String(token).split('.');
-  if (parts.length !== 3) return null;
-  const [creatorId, ts, sig] = parts;
-  const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // Expira após 7 dias
-  if (Date.now() - Number(ts) > maxAgeMs) return null;
+  if (parts.length !== 4 || parts[0] !== 'creator') return null;
+
+  const [, creatorId, ts, sig] = parts;
+  const idNum = Number(creatorId);
+  const tsNum = Number(ts);
+  const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+
+  if (!Number.isInteger(idNum) || idNum <= 0) return null;
+  if (!Number.isFinite(tsNum) || Date.now() - tsNum > maxAgeMs) return null;
+
   const secret = process.env.PANEL_PASSWORD || 'portal_secret_2026';
-  const expected = crypto.createHmac('sha256', secret).update(`${creatorId}.${ts}`).digest('hex');
-  if (sig !== expected) return null;
-  return Number(creatorId);
+  const expected = crypto.createHmac('sha256', secret).update(`creator.${creatorId}.${ts}`).digest('hex');
+  if (!safeEqual(sig, expected)) return null;
+  return idNum;
 }
 
 async function requireCreatorAuth(req, reply) {
   const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : req.query.token;
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   const creatorId = verifySessionToken(token);
-  if (!creatorId) return reply.status(401).send({ error: 'Sessão inválida ou expirada.' });
+  if (!creatorId) return reply.status(401).send({ error: 'Acesso restrito a contas de modelo autenticadas.' });
+
   const creator = await getCreatorById(creatorId);
-  if (!creator) return reply.status(401).send({ error: 'Conta não encontrada.' });
+  if (!creator) return reply.status(401).send({ error: 'Conta de modelo não encontrada.' });
   req.creator = creator;
 }
 
@@ -120,7 +277,7 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
     'https://api.mercadopago.com/v1/payments',
     {
       transaction_amount: Number(amount),
-      description: `Garota VIP - ${planName}`,
+      description: `${BRAND_NAME} - ${planName}`,
       payment_method_id: 'pix',
       external_reference: `portal:${orderId}`,
       notification_url: `${webhookBase}/webhook/mercadopago`,
@@ -140,15 +297,90 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
   return { paymentId: res.data.id, qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64 || null };
 }
 
+async function getCreatorVipBalanceAndSales(creatorId) {
+  const [subsRes, ppvRes, salesRes] = await Promise.all([
+    pool.query(
+      `SELECT COALESCE(SUM(price), 0)::numeric AS total_subs, COUNT(*)::int AS count_subs
+       FROM vip_subscriptions
+       WHERE creator_id = $1 AND paid = TRUE`,
+      [creatorId]
+    ).catch(() => ({ rows: [{ total_subs: 0, count_subs: 0 }] })),
+    pool.query(
+      `SELECT COALESCE(SUM(u.price), 0)::numeric AS total_ppv, COUNT(*)::int AS count_ppv
+       FROM ppv_unlocks u
+       JOIN vip_posts p ON p.id = u.post_id
+       WHERE p.creator_id = $1 AND u.paid = TRUE`,
+      [creatorId]
+    ).catch(() => ({ rows: [{ total_ppv: 0, count_ppv: 0 }] })),
+    pool.query(
+      `SELECT
+         s.id,
+         s.buyer_identifier,
+         COALESCE(NULLIF(TRIM(s.fan_nickname), ''), NULLIF(TRIM(f.nickname), ''), NULLIF(TRIM(f.full_name), ''), s.buyer_identifier, 'Assinante VIP') AS fan_nickname,
+         COALESCE(NULLIF(TRIM(s.fan_code), ''), f.fan_code) AS fan_code,
+         COALESCE(NULLIF(TRIM(s.item_title), ''), 'Assinatura Mensal VIP (30 dias)') AS item_title,
+         'Assinatura' AS sale_type,
+         s.price,
+         s.created_at
+       FROM vip_subscriptions s
+       LEFT JOIN vip_fans f ON f.device_hash = s.device_hash
+       WHERE s.creator_id = $1 AND s.paid = TRUE
+       UNION ALL
+       SELECT
+         u.id,
+         u.buyer_identifier,
+         COALESCE(NULLIF(TRIM(u.fan_nickname), ''), NULLIF(TRIM(f.nickname), ''), NULLIF(TRIM(f.full_name), ''), u.buyer_identifier, 'Cliente VIP') AS fan_nickname,
+         COALESCE(NULLIF(TRIM(u.fan_code), ''), f.fan_code) AS fan_code,
+         COALESCE(NULLIF(TRIM(u.item_title), ''), NULLIF(TRIM(p.caption), ''), 'Conteúdo Avulso VIP #' || u.post_id) AS item_title,
+         'Avulso (PPV)' AS sale_type,
+         u.price,
+         u.created_at
+       FROM ppv_unlocks u
+       JOIN vip_posts p ON p.id = u.post_id
+       LEFT JOIN vip_fans f ON f.device_hash = u.device_hash
+       WHERE p.creator_id = $1 AND u.paid = TRUE
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [creatorId]
+    ).catch(() => ({ rows: [] })),
+  ]);
+
+  const totalSubs = Number(subsRes.rows[0]?.total_subs || 0);
+  const totalPpv = Number(ppvRes.rows[0]?.total_ppv || 0);
+  const balance = Number((totalSubs + totalPpv).toFixed(2));
+
+  const sales = salesRes.rows.map((r) => {
+    const nick = String(r.fan_nickname || 'Cliente VIP').trim();
+    const code = r.fan_code ? String(r.fan_code).trim() : '';
+    return {
+      id: r.id,
+      buyer_identifier: code ? `${nick} • ${code}` : (r.buyer_identifier || nick),
+      fan_nickname: nick,
+      fan_code: code || null,
+      item_title: String(r.item_title || r.sale_type).trim(),
+      sale_type: r.sale_type,
+      price: Number(r.price || 0),
+      created_at: r.created_at,
+    };
+  });
+
+  return {
+    balance,
+    totalSubs,
+    countSubs: Number(subsRes.rows[0]?.count_subs || 0),
+    totalPpv,
+    countPpv: Number(ppvRes.rows[0]?.count_ppv || 0),
+    sales,
+  };
+}
+
 export function registerPortalRoutes(app) {
-  // Garante colunas opcionais de link nos Stories
   pool.query(`
     ALTER TABLE creator_media
       ADD COLUMN IF NOT EXISTS link_url TEXT,
       ADD COLUMN IF NOT EXISTS link_label VARCHAR(80);
   `).catch(() => {});
 
-  // Tabela de log de disparos de e-mail por IA
   pool.query(`
     CREATE TABLE IF NOT EXISTS ai_email_campaigns (
       id SERIAL PRIMARY KEY,
@@ -164,7 +396,6 @@ export function registerPortalRoutes(app) {
     );
   `).catch(() => {});
 
-  // Proteção centralizada para TODAS as rotas /api/portal/admin/* (exceto /login)
   app.addHook('onRequest', async (req, reply) => {
     const urlPath = req.url.split('?')[0];
     if (urlPath.startsWith('/api/portal/admin/') && urlPath !== '/api/portal/admin/login') {
@@ -174,13 +405,11 @@ export function registerPortalRoutes(app) {
       if (!isAdminAuthorized(req)) {
         return reply.status(401).send({ error: 'Não autorizado.' });
       }
-      // Injeta pwd internamente para compatibilidade com rotas de visitaid.js
       if (!req.query) req.query = {};
       req.query.pwd = getAdminSecret();
     }
   });
 
-  // Login seguro do Command Center Admin (via POST no corpo JSON, sem expor senha na URL)
   app.post('/api/portal/admin/login', async (req, reply) => {
     const secret = getAdminSecret();
     if (!secret) {
@@ -194,24 +423,193 @@ export function registerPortalRoutes(app) {
     return reply.send({ ok: true, token });
   });
 
-  // Ativa telemetria, analytics, trends e o painel admin
   registerTelemetryRoutes(app, pool);
 
-  // Rota para o Command Center Admin (/admin-dashboard)
+  // Rotas SEO multilíngues, robots.txt e sitemap.xml
+  app.get('/vitrine/:country/:citySlug/:hoodSlug?', async (req, reply) => {
+    const countryCode = String(req.params.country || 'br').trim().toLowerCase();
+    const citySlug = slugifySeo(req.params.citySlug);
+    const hoodSlug = req.params.hoodSlug ? slugifySeo(req.params.hoodSlug) : '';
+
+    const cityLabel = unslugifyLabel(citySlug);
+    const hoodLabel = hoodSlug ? unslugifyLabel(hoodSlug) : '';
+    const countryCfg = resolveSeoLocale(countryCode);
+
+    const profiles = await getHomeRanking({
+      neighborhood: hoodLabel || null,
+      city: cityLabel || null,
+      country: countryCfg.name,
+      limit: 80,
+    });
+
+    const seo = buildMultilingualSeo({
+      countryCode,
+      cityLabel,
+      hoodLabel,
+      count: profiles.length,
+    });
+
+    const canonicalPath = hoodSlug
+      ? `/vitrine/${countryCode}/${citySlug}/${hoodSlug}`
+      : `/vitrine/${countryCode}/${citySlug}`;
+    const baseUrl = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: seo.title,
+      description: seo.description,
+      inLanguage: seo.lang,
+      url: `${baseUrl}${canonicalPath}`,
+      numberOfItems: profiles.length,
+      itemListElement: profiles.slice(0, 20).map((p, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        url: `${baseUrl}/acompanhante/${p.slug}`,
+        name: p.stage_name,
+      })),
+    };
+
+    const initialGeoPayload = {
+      country: countryCode,
+      countryName: countryCfg.name,
+      lang: seo.lang,
+      localeGroup: seo.localeGroup,
+      citySlug,
+      cityLabel,
+      neighborhoodSlug: hoodSlug,
+      hoodLabel,
+    };
+
+    let html = fs.readFileSync(path.join(process.cwd(), 'public', 'vitrine.html'), 'utf-8');
+    html = html.replace(/<html lang="[^"]*">/i, `<html lang="${seo.lang}">`);
+    html = html.replace(/<title>.*?<\/title>/i, `<title>${seo.title}</title>`);
+    html = html.replace(
+      /<h1 class="section-h1">.*?<\/h1>/i,
+      `<h1 class="section-h1">${seo.headingPrefix} <span id="city-title">${seo.local}</span></h1>`
+    );
+    html = html.replace(
+      '</head>',
+      `  <meta name="description" content="${seo.description}" />
+  <link rel="canonical" href="${baseUrl}${canonicalPath}" />
+  <meta property="og:title" content="${seo.title}" />
+  <meta property="og:description" content="${seo.description}" />
+  <meta property="og:locale" content="${seo.lang.replace('-', '_')}" />
+  <script>window.__INITIAL_GEO_SEO__ = ${JSON.stringify(initialGeoPayload)};</script>
+  <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+</head>`
+    );
+
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
+  app.get('/robots.txt', async (req, reply) => {
+    const baseUrl = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+    const txt = [
+      'User-agent: *',
+      'Allow: /',
+      'Allow: /vitrine',
+      'Allow: /acompanhante/',
+      'Allow: /vip/',
+      'Disallow: /admin-dashboard',
+      'Disallow: /admin-ai-gmail',
+      'Disallow: /minha-conta',
+      'Disallow: /painel-fa',
+      'Disallow: /api/',
+      '',
+      `Sitemap: ${baseUrl}/sitemap.xml`,
+    ].join('\n');
+
+    return reply.type('text/plain; charset=utf-8').send(txt);
+  });
+
+  app.get('/sitemap.xml', async (req, reply) => {
+    const baseUrl = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { rows } = await pool.query(`
+      SELECT slug, city, neighborhood, COALESCE(country, 'Brasil') AS country, COALESCE(last_boost_at, created_at, NOW()) AS updated_at
+      FROM creator_accounts
+      WHERE active = TRUE
+        AND verified = TRUE
+        AND COALESCE(TRIM(verification_video_url), '') <> ''
+      ORDER BY updated_at DESC
+    `);
+
+    const urls = [
+      { loc: `${baseUrl}/vitrine`, lastmod: today, changefreq: 'hourly', priority: '1.0' },
+      { loc: `${baseUrl}/reels`, lastmod: today, changefreq: 'daily', priority: '0.8' },
+    ];
+
+    const seenCities = new Set();
+    const seenHoods = new Set();
+
+    for (const r of rows) {
+      const cSlug = slugifySeo(r.city);
+      const hSlug = slugifySeo(r.neighborhood);
+      const rawCountry = slugifySeo(r.country).replace(/-/g, ' ');
+      const cCode = COUNTRY_NAME_TO_CODE[rawCountry] || (String(r.country || '').length === 2 ? String(r.country).toLowerCase() : 'br');
+      const lastmod = r.updated_at ? new Date(r.updated_at).toISOString().slice(0, 10) : today;
+
+      if (cSlug && !seenCities.has(`${cCode}/${cSlug}`)) {
+        seenCities.add(`${cCode}/${cSlug}`);
+        urls.push({
+          loc: `${baseUrl}/vitrine/${cCode}/${cSlug}`,
+          lastmod,
+          changefreq: 'daily',
+          priority: '0.9',
+        });
+      }
+
+      if (cSlug && hSlug && !seenHoods.has(`${cCode}/${cSlug}/${hSlug}`)) {
+        seenHoods.add(`${cCode}/${cSlug}/${hSlug}`);
+        urls.push({
+          loc: `${baseUrl}/vitrine/${cCode}/${cSlug}/${hSlug}`,
+          lastmod,
+          changefreq: 'daily',
+          priority: '0.85',
+        });
+      }
+
+      if (r.slug) {
+        urls.push({
+          loc: `${baseUrl}/acompanhante/${encodeURIComponent(r.slug)}`,
+          lastmod,
+          changefreq: 'weekly',
+          priority: '0.75',
+        });
+      }
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls
+  .map(
+    (u) => `  <url>
+    <loc>${escapeXml(u.loc)}</loc>
+    <lastmod>${u.lastmod}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`
+  )
+  .join('\n')}
+</urlset>`;
+
+    return reply.type('application/xml; charset=utf-8').send(xml);
+  });
+
   app.get('/admin-dashboard', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'admin-dashboard.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Página dedicada do Agente de IA — Disparos Gmail (/admin-ai-gmail)
   app.get('/admin-ai-gmail', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'admin-ai-gmail.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Lista destinatárias elegíveis + histórico recente de disparos (blindada contra diferenças de colunas)
   app.get('/api/portal/admin/ai-gmail/data', async (req, reply) => {
     let creators = [];
     let logs = [];
@@ -258,7 +656,6 @@ export function registerPortalRoutes(app) {
     });
   });
 
-  // Gera texto personalizado com Gemini (ou template inteligente) e envia via Gmail
   app.post('/api/portal/admin/ai-gmail/send', async (req, reply) => {
     const { creatorIds = [], campaignType = 'boost', customPrompt = '', dryRun = false } = req.body || {};
 
@@ -295,7 +692,7 @@ export function registerPortalRoutes(app) {
 
       if (geminiKey) {
         try {
-          const prompt = `Você é o gerente de sucesso de criadoras da plataforma Garota VIP.
+          const prompt = `Você é o gerente de sucesso de criadoras da plataforma ${BRAND_NAME}.
 Escreva um e-mail curto, elegante, direto e persuasivo em português para ${creator.stage_name} (${creator.city}-${creator.state}), que teve ${creator.views_count} visualizações no perfil.
 Objetivo: ${objetivo}.
 ${customPrompt ? `Instrução extra do admin: ${customPrompt}` : ''}
@@ -316,7 +713,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
 
       return {
         subject: `${creator.stage_name}, seu perfil em ${creator.city} está recebendo buscas 🔥`,
-        body: `Oi ${creator.stage_name}, tudo bem?\n\nNotamos que visitantes em ${creator.city}-${creator.state} estão procurando perfis como o seu na vitrine do Garota VIP.\n\nAtive agora o Destaque VIP no seu painel para ficar na 1ª linha e multiplicar seus cliques no WhatsApp:\n${studioUrl}\n\nQualquer dúvida, responda este e-mail!\nEquipe Garota VIP`,
+        body: `Oi ${creator.stage_name}, tudo bem?\n\nNotamos que visitantes em ${creator.city}-${creator.state} estão procurando perfis como o seu na vitrine do ${BRAND_NAME}.\n\nAtive agora o Destaque VIP no seu painel para ficar na 1ª linha e multiplicar seus cliques no WhatsApp:\n${studioUrl}\n\nQualquer dúvida, responda este e-mail!\nEquipe ${BRAND_NAME}`,
       };
     }
 
@@ -336,7 +733,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       const copy = await gerarCopyIA(c);
       try {
         await transporter.sendMail({
-          from: `"Garota VIP" <${gmailUser}>`,
+          from: `"${BRAND_NAME}" <${gmailUser}>`,
           to: c.email,
           subject: copy.subject,
           text: copy.body,
@@ -361,7 +758,6 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.send({ ok: true, results });
   });
 
-  // Rota explícita para a página de fluxo (/index.html), com fallback seguro se não existir
   app.get('/index.html', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'index.html');
     if (!fs.existsSync(filePath)) {
@@ -373,7 +769,6 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Resumo de cadastros: Assinantes vs Modelos vs Acompanhantes
   app.get('/api/portal/admin/registrations-summary', async (req, reply) => {
     let subscribersCount = 0;
     let modelsCount = 0;
@@ -424,14 +819,12 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     });
   });
 
-  // Rota para publicar Story com sticker de link
   app.get('/publicar-story', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'publicar-story.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Rota para a página separada de edição de perfil
   app.get('/minha-conta/editar', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'editar-perfil.html');
     const html = fs.readFileSync(filePath, 'utf-8');
@@ -451,11 +844,20 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
 
   app.post('/api/portal/register', async (req, reply) => {
     try {
-      const { email, password, stageName, city, state, whatsapp, bio } = req.body || {};
+      const { email, password, stageName, city, state, country, whatsapp, bio } = req.body || {};
       if (!email || !password || !stageName || !city || !state) {
         return reply.status(400).send({ error: 'Preencha todos os campos obrigatórios.' });
       }
-      const creator = await registerCreator({ email, password, stageName, city, state, whatsapp, bio });
+      const creator = await registerCreator({
+        email,
+        password,
+        stageName: sanitizeText(stageName, 60),
+        city: sanitizeText(city, 80),
+        state: sanitizeText(state, 10)?.toUpperCase(),
+        country: sanitizeText(country || 'Brasil', 60),
+        whatsapp,
+        bio: sanitizeText(bio, 1500),
+      });
       const token = signSessionToken(creator.id);
       return reply.send({ ok: true, token, creator });
     } catch (err) {
@@ -502,26 +904,83 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
   });
 
   app.get('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const stats = await getCreatorStats30d(req.creator.id);
-    return reply.send({ ok: true, creator: req.creator, stats, plans: HIGHLIGHT_PLANS });
+    const [stats, vipSummary] = await Promise.all([
+      getCreatorStats30d(req.creator.id),
+      getCreatorVipBalanceAndSales(req.creator.id),
+    ]);
+    return reply.send({
+      ok: true,
+      creator: {
+        ...req.creator,
+        vip_balance: vipSummary.balance,
+      },
+      vipBalance: vipSummary.balance,
+      vipSales: vipSummary.sales,
+      vipTotals: {
+        totalAll: vipSummary.balance,
+        totalSubs: vipSummary.totalSubs,
+        countSubs: vipSummary.countSubs,
+        totalPpv: vipSummary.totalPpv,
+        countPpv: vipSummary.countPpv,
+      },
+      stats,
+      plans: HIGHLIGHT_PLANS,
+      paxumEnabled: Boolean(process.env.PAXUM_BUSINESS_EMAIL && process.env.PAXUM_SHARED_SECRET),
+    });
+  });
+
+  app.get('/api/portal/me/sales', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const vipSummary = await getCreatorVipBalanceAndSales(req.creator.id);
+    return reply.send({
+      ok: true,
+      balance: vipSummary.balance,
+      vipBalance: vipSummary.balance,
+      sales: vipSummary.sales,
+      recentBuyers: vipSummary.sales,
+      totals: {
+        totalAll: vipSummary.balance,
+        totalSubs: vipSummary.totalSubs,
+        countSubs: vipSummary.countSubs,
+        totalPpv: vipSummary.totalPpv,
+        countPpv: vipSummary.countPpv,
+      },
+    });
   });
 
   app.put('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const body = req.body || {};
-    const nextVideoUrl = body.verification_video_url !== undefined
-      ? String(body.verification_video_url || '').trim()
-      : String(req.creator?.verification_video_url || '').trim();
+    const body = { ...(req.body || {}) };
 
-    if ((body.active === true || body.verified === true) && !nextVideoUrl) {
-      return reply.status(400).send({
-        error: 'Sem a verificação por vídeo o perfil não é aprovado e não vai para o ar.',
-      });
+    // Bloqueia qualquer tentativa de alterar dono da conta, credenciais ou status administrativo
+    delete body.id;
+    delete body.creatorId;
+    delete body.creator_id;
+    delete body.verified;
+    delete body.active;
+    delete body.tier;
+    delete body.featured_until;
+    delete body.email;
+    delete body.password_hash;
+
+    if (body.stage_name !== undefined) {
+      const cleanName = sanitizeText(body.stage_name, 60);
+      if (!cleanName || cleanName.length < 2) {
+        return reply.status(400).send({ error: 'Nome artístico inválido.' });
+      }
+      body.stage_name = cleanName;
     }
+
+    if (body.bio !== undefined) body.bio = sanitizeText(body.bio, 1500);
+    if (body.specialty_tag !== undefined) body.specialty_tag = sanitizeText(body.specialty_tag, 80);
+    if (body.neighborhood !== undefined) body.neighborhood = sanitizeText(body.neighborhood, 80);
+    if (body.city !== undefined) body.city = sanitizeText(body.city, 80);
+    if (body.state !== undefined) body.state = sanitizeText(body.state, 10)?.toUpperCase();
+    if (body.country !== undefined) body.country = sanitizeText(body.country, 60);
 
     const updated = await updateCreatorProfile(req.creator.id, body);
     return reply.send({ ok: true, creator: updated });
   });
 
+  // 1. Impulso via Pix (Mercado Pago)
   app.post('/api/portal/highlight-pix', { preHandler: requireCreatorAuth }, async (req, reply) => {
     const { planCode } = req.body || {};
     const plan = HIGHLIGHT_PLANS.find((p) => p.code === planCode);
@@ -537,7 +996,135 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     if (!pix) return reply.status(500).send({ error: 'Falha ao gerar Pix no Mercado Pago.' });
 
     await pool.query(`UPDATE highlight_orders SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), order.id]);
-    return reply.send({ ok: true, orderId: order.id, plan, qrCode: pix.qrCode, qrCodeBase64: pix.qrCode_base64 });
+    return reply.send({
+      ok: true,
+      orderId: order.id,
+      plan,
+      qrCode: pix.qrCode,
+      qrCodeBase64: pix.qrCodeBase64,
+    });
+  });
+
+  // 2. Impulso Internacional via Paxum
+  app.post('/api/portal/highlight-paxum', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const { planCode, currency = 'USD' } = req.body || {};
+    const plan = HIGHLIGHT_PLANS.find((p) => p.code === planCode);
+    if (!plan) return reply.status(400).send({ error: 'Plano inválido.' });
+
+    const businessEmail = String(process.env.PAXUM_BUSINESS_EMAIL || '').trim();
+    const sharedSecret = String(process.env.PAXUM_SHARED_SECRET || '').trim();
+    if (!businessEmail || !sharedSecret) {
+      return reply.status(503).send({
+        error: 'Pagamento via Paxum ainda não ativado. Configure PAXUM_BUSINESS_EMAIL e PAXUM_SHARED_SECRET no Railway.',
+      });
+    }
+
+    const order = await createHighlightOrder({
+      creatorId: req.creator.id,
+      planCode: plan.code,
+      amount: plan.price,
+    });
+
+    const baseUrl = (process.env.PUBLIC_URL || 'https://zapjob-production.up.railway.app').replace(/\/$/, '');
+    const cleanCurrency = ['USD', 'EUR'].includes(String(currency).toUpperCase())
+      ? String(currency).toUpperCase()
+      : 'USD';
+
+    const usdRate = Number(process.env.USD_BRL_RATE || 5.5) || 5.5;
+    const eurRate = Number(process.env.EUR_BRL_RATE || 6.0) || 6.0;
+    const convertedAmount = cleanCurrency === 'EUR'
+      ? Math.max(2, plan.price / eurRate)
+      : Math.max(2, plan.price / usdRate);
+
+    const checkoutUrl = buildPaxumCheckoutUrl({
+      amount: convertedAmount,
+      currency: cleanCurrency,
+      itemName: `${BRAND_NAME} - ${plan.name}`,
+      reference: `portal:${order.id}`,
+      returnUrl: `${baseUrl}/impulsionar?paid=1&orderId=${order.id}&gateway=paxum`,
+      cancelUrl: `${baseUrl}/impulsionar?canceled=1`,
+      notifyUrl: `${baseUrl}/webhook/paxum`,
+    });
+
+    return reply.send({
+      ok: true,
+      orderId: order.id,
+      checkoutUrl,
+      currency: cleanCurrency,
+      amountCharged: convertedAmount.toFixed(2),
+    });
+  });
+
+  // 3. Webhook IPN Paxum (Confirmação automática de Destaques + Assinaturas/Avulsos VIP)
+  app.post('/webhook/paxum', async (req, reply) => {
+    const sharedSecret = String(process.env.PAXUM_SHARED_SECRET || '').trim();
+    const payload = req.body || {};
+
+    const incomingSig = String(
+      req.headers['x-signature'] || payload.signature || payload.key || ''
+    ).trim();
+
+    if (sharedSecret && incomingSig && req.rawBody) {
+      const expectedHmac = crypto
+        .createHmac('sha256', sharedSecret)
+        .update(req.rawBody)
+        .digest('hex');
+
+      if (!safeEqual(incomingSig.toLowerCase(), expectedHmac.toLowerCase())) {
+        app.log.warn('[Paxum Webhook] Assinatura IPN inválida.');
+        return reply.status(400).send({ error: 'Assinatura Paxum inválida.' });
+      }
+    }
+
+    try {
+      const status = String(payload.transaction_status || payload.status || '').toLowerCase();
+      const txId = String(payload.transaction_id || payload.id || `paxum_${Date.now()}`);
+
+      let customRef = String(payload.custom || '').trim();
+      if (!customRef && payload.variables) {
+        const match = String(payload.variables).match(/custom=([^&]+)/);
+        if (match) customRef = decodeURIComponent(match[1]);
+      }
+
+      if (!['done', 'completed', 'approved', 'paid'].includes(status)) {
+        return reply.status(200).send({ received: true, ignored: true });
+      }
+
+      if (customRef.startsWith('portal:')) {
+        const orderId = Number(customRef.split(':')[1]);
+        if (orderId > 0) {
+          await approveHighlightOrder(orderId, txId);
+          app.log.info(`[Paxum Webhook] Destaque #${orderId} aprovado (${txId})`);
+        }
+      }
+
+      if (customRef.startsWith('vip_sub:')) {
+        const subId = Number(customRef.split(':')[1]);
+        if (subId > 0) {
+          await pool.query(
+            `UPDATE vip_subscriptions SET paid = TRUE, mp_payment_id = $2 WHERE id = $1`,
+            [subId, txId]
+          );
+          app.log.info(`[Paxum Webhook] Assinatura VIP #${subId} ativada (${txId})`);
+        }
+      }
+
+      if (customRef.startsWith('vip_ppv:')) {
+        const unlockId = Number(customRef.split(':')[1]);
+        if (unlockId > 0) {
+          await pool.query(
+            `UPDATE ppv_unlocks SET paid = TRUE, mp_payment_id = $2 WHERE id = $1`,
+            [unlockId, txId]
+          );
+          app.log.info(`[Paxum Webhook] Conteúdo VIP #${unlockId} liberado (${txId})`);
+        }
+      }
+
+      return reply.status(200).send({ received: true });
+    } catch (err) {
+      app.log.error(err, '[Paxum Webhook] Erro ao processar IPN');
+      return reply.status(200).send({ received: true });
+    }
   });
 
   app.get('/r/wa/:slug', async (req, reply) => {
@@ -547,16 +1134,27 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     }
     await trackProfileEvent(creator.id, 'whatsapp_click');
     const cleanPhone = String(creator.whatsapp).replace(/\D/g, '').replace(/^55/, '');
-    const msg = encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no Garota VIP!`);
+    const msg = encodeURIComponent(`Oi ${creator.stage_name}, vi teu perfil no ${BRAND_NAME}!`);
     return reply.redirect(`https://wa.me/55${cleanPhone}?text=${msg}`);
   });
 
-  // =======================================================================
-  // PÁGINA 1: VITRINE SEPARADA (/vitrine) + FILTROS (/filtros) + API
-  // =======================================================================
   app.get('/api/portal/vitrine-data', async (req, reply) => {
-    const city = req.query.city ? String(req.query.city).trim() : null;
-    let profiles = await getHomeRanking({ city, limit: 80 });
+    const neighborhood = req.query.neighborhood
+      ? String(req.query.neighborhood).trim()
+      : (req.headers['x-visitor-neighborhood'] ? String(req.headers['x-visitor-neighborhood']).trim() : null);
+    const city = req.query.city
+      ? String(req.query.city).trim()
+      : (req.headers['cf-ipcity'] ? String(req.headers['cf-ipcity']).trim() : null);
+    const state = req.query.state
+      ? String(req.query.state).trim()
+      : (req.headers['cf-region-code'] || req.headers['cf-region']
+          ? String(req.headers['cf-region-code'] || req.headers['cf-region']).trim()
+          : null);
+    const country = req.query.country
+      ? String(req.query.country).trim()
+      : (req.headers['cf-ipcountry'] ? String(req.headers['cf-ipcountry']).trim() : 'Brasil');
+
+    let profiles = await getHomeRanking({ neighborhood, city, state, country, limit: 80 });
 
     const [mediaCountsRes, recentVideosRes, recentStoriesRes, extraAttrsRes] = await Promise.all([
       pool.query(`
@@ -568,7 +1166,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         GROUP BY creator_id
       `),
       pool.query(`
-        SELECT m.id, m.creator_id, m.public_url, m.caption, c.stage_name, c.slug, c.city, c.state, c.avatar_url, c.cover_url
+        SELECT m.id, m.creator_id, m.public_url, m.caption, c.stage_name, c.slug, c.neighborhood, c.city, c.state, c.country, c.avatar_url, c.cover_url
         FROM creator_media m
         JOIN creator_accounts c ON c.id = m.creator_id
         WHERE m.media_type = 'video'
@@ -625,6 +1223,8 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       return {
         name: s.stage_name,
         city: `${s.city}-${s.state}`,
+        neighborhood: s.neighborhood || '',
+        country: s.country || 'Brasil',
         slug: s.slug,
         avatar: s.avatar_url || s.cover_url || 'https://placehold.co/400x400/111827/ec4899?text=VIP',
         mediaUrl: (!isVid && stMedia?.public_url) || s.cover_url || s.avatar_url || 'https://placehold.co/400x600/111827/ec4899?text=VIP',
@@ -658,7 +1258,18 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     ];
 
     const reels = recentVideosRes.rows.length > 0 ? recentVideosRes.rows : demoReels;
-    return reply.send({ ok: true, profiles, stories, reels });
+    return reply.send({
+      ok: true,
+      regionContext: {
+        neighborhood: neighborhood || null,
+        city: city || null,
+        state: state || null,
+        country: country || 'Brasil',
+      },
+      profiles,
+      stories,
+      reels,
+    });
   });
 
   app.get('/vitrine', async (req, reply) => {
@@ -679,19 +1290,16 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Entrega o Client ID do Google para o frontend separado
   app.get('/api/portal/auth-config', async (req, reply) => {
     return reply.send({ googleClientId: process.env.GOOGLE_CLIENT_ID || '' });
   });
 
-  // Página separada de Login/Cadastro (Google) e Creator Studio
   app.get('/minha-conta', async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'minha-conta.html');
     const html = fs.readFileSync(filePath, 'utf-8');
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  // Carregar e salvar parâmetros do fluxo e paywall no Command Center Admin
   app.get('/api/portal/admin/bot-settings', async (req, reply) => {
     try {
       const settings = await getBotSettings();
@@ -737,8 +1345,8 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     for (const d of demos) {
       const slug = d.name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 999);
       await pool.query(
-        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url, verification_video_url, verified, active, tier, featured_until)
-         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, $8, TRUE, TRUE, $9, NOW() + INTERVAL '30 days')`,
+        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, country, whatsapp, hourly_rate, bio, avatar_url, cover_url, verification_video_url, verified, active, tier, featured_until)
+         VALUES ($1, 'demo:hash', $2, $3, $4, $5, 'Brasil', '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, $8, TRUE, TRUE, $9, NOW() + INTERVAL '30 days')`,
         [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.rate, d.img, 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4', d.tier]
       );
     }

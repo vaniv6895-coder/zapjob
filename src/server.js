@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
+import { Readable } from 'stream';
 import fs from 'fs';
 import crypto from 'crypto';
 import { registerPortalRoutes } from './portalRoutes.js';
@@ -32,6 +33,23 @@ dotenv.config();
 
 const MAX_VERIFICATION_ATTEMPTS = 5;
 const app = Fastify({ logger: true });
+
+// Captura o corpo bruto (rawBody) apenas para rotas de webhook com assinatura (ex.: Stripe)
+// sem interferir no stream de uploads multipart
+app.addHook('preParsing', async (request, reply, payload) => {
+  const urlPath = String(request.url || '').split('?')[0];
+  if (urlPath !== '/webhook/stripe') {
+    return payload;
+  }
+
+  const chunks = [];
+  for await (const chunk of payload) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const rawBuf = Buffer.concat(chunks);
+  request.rawBody = rawBuf;
+  return Readable.from(rawBuf);
+});
 
 // =========================================================================
 // BUFFER E ESCUTA ATIVA DE 3 SEGUNDOS (Agrupador de mensagens por cliente)

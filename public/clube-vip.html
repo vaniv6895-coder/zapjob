@@ -216,6 +216,22 @@
     }
     .sub-btn:hover { transform: translateY(-1px); opacity: 0.96; }
 
+    /* Banner de confirmação de pagamento na tela */
+    .payment-confirmed-banner {
+      display: none;
+      margin: 0 14px 16px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1.5px solid rgba(16, 185, 129, 0.65);
+      color: #6ee7b7;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2);
+    }
+    .payment-confirmed-banner.show { display: block; }
+
     /* Caixa de Mensagem Exclusiva de Assinantes */
     .msg-box-card {
       background: #0f1523;
@@ -322,7 +338,7 @@
       font-weight: 600;
     }
 
-    /* Modais Checkout (Pix & Internacional/Cripto) */
+    /* Modal Checkout Pix */
     .pix-modal {
       position: fixed;
       inset: 0;
@@ -357,16 +373,19 @@
       color: #cbd5e1;
       text-align: center;
     }
-    .crypto-pill {
-      display: inline-block;
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      color: #34d399;
-      font-size: 11px;
+    .pix-status-signal {
+      margin-top: 12px;
+      font-size: 12.5px;
       font-weight: 800;
-      padding: 4px 11px;
-      border-radius: 99px;
-      margin-bottom: 10px;
+      color: #f472b6;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: rgba(236, 72, 153, 0.12);
+    }
+    .pix-status-signal.confirmed {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(16, 185, 129, 0.45);
     }
   </style>
 </head>
@@ -428,6 +447,10 @@
       </section>
     </div>
 
+    <div id="paymentConfirmedBanner" class="payment-confirmed-banner">
+      ✅ Pagamento confirmado! Seu acesso VIP foi liberado na tela.
+    </div>
+
     <!-- Chat Exclusivo de Assinantes VIP -->
     <section class="msg-box-card" id="vip-chat-section">
       <strong style="display:block;font-size:13.5px;color:#fff;margin-bottom:4px;">💬 Chat Exclusivo de Assinantes</strong>
@@ -469,39 +492,11 @@
       <button onclick="copiarPix()" style="width:100%;padding:13px;border:none;border-radius:12px;background:#10b981;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">
         📋 Copiar Código Pix
       </button>
-      <div style="margin-top:12px;font-size:12px;font-weight:700;color:#f472b6;">
-        ⏳ Liberando conteúdo automaticamente assim que pagar...
+      <div id="pixStatusSignal" class="pix-status-signal">
+        ⏳ Aguardando pagamento... Liberando assim que confirmar.
       </div>
       <button onclick="fecharPixModal()" style="margin-top:12px;background:transparent;border:none;color:#94a3b8;font-size:12px;cursor:pointer;">
         Cancelar
-      </button>
-    </div>
-  </div>
-
-  <!-- Modal Checkout Internacional / Crypto USDC Solana (USD, EUR, GBP, CHF) -->
-  <div id="intl-modal" class="pix-modal">
-    <div class="pix-box">
-      <span class="crypto-pill">🌐 DISCRETE GLOBAL CHECKOUT • SOLANA USDC</span>
-      <h3 id="intl-modal-title" style="margin:0 0 6px;font-size:17px;font-weight:800;">International VIP Access</h3>
-      <p id="intl-amount-summary" style="font-size:13px;color:#34d399;font-weight:800;margin-bottom:6px;"></p>
-      <p style="font-size:11.5px;color:#cbd5e1;line-height:1.45;margin-bottom:10px;">
-        Send the exact amount in <strong>USDC (Solana Network)</strong> to the wallet address below:
-      </p>
-
-      <input id="crypto-wallet-text" class="pix-code-input" readonly />
-
-      <button type="button" onclick="copiarCarteiraCrypto()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;margin-bottom:8px;">
-        📋 Copy USDC (Solana) Address
-      </button>
-
-      <button type="button" id="btnConfirmCryptoSent" onclick="notificarTransferenciaCrypto()" style="width:100%;padding:11px;border:1px solid rgba(236,72,153,0.5);border-radius:12px;background:rgba(236,72,153,0.16);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer;">
-        ✅ I Sent the Transfer (Activate VIP)
-      </button>
-
-      <p id="intl-feedback" style="font-size:11.5px;color:#fbbf24;font-weight:700;margin-top:10px;min-height:16px;"></p>
-
-      <button type="button" onclick="fecharIntlModal()" style="margin-top:10px;background:transparent;border:none;color:#94a3b8;font-size:12px;cursor:pointer;">
-        Close
       </button>
     </div>
   </div>
@@ -516,7 +511,6 @@
     let selectedPlan = { key: 'm1', label: '1 Mês', de: 48.99, por: 25.99 };
     let isVipSubscriber = false;
     let activeCurrency = localStorage.getItem('vip_selected_currency') || 'BRL';
-    let lastCryptoOrder = null;
 
     const CURRENCY_META = {
       BRL: { code: 'BRL', symbol: 'R$', rateFromBrl: 1 },
@@ -535,6 +529,20 @@
     };
 
     const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || 'demo');
+
+    function showConfirmedBanner(msg = '✅ Pagamento confirmado! Seu acesso VIP foi liberado na tela.') {
+      const banner = document.getElementById('paymentConfirmedBanner');
+      if (!banner) return;
+      banner.innerText = msg;
+      banner.classList.add('show');
+    }
+
+    function setPixSignalConfirmed(msg = '✅ Pagamento confirmado! Liberando agora...') {
+      const sig = document.getElementById('pixStatusSignal');
+      if (!sig) return;
+      sig.className = 'pix-status-signal confirmed';
+      sig.innerText = msg;
+    }
 
     function formatMoney(v, currCode = activeCurrency) {
       const meta = CURRENCY_META[currCode] || CURRENCY_META.BRL;
@@ -561,6 +569,19 @@
       } catch {
         return null;
       }
+    }
+
+    function getFanBuyerPayload() {
+      const fan = getSavedFanProfile();
+      const nick = String(fan?.nickname || fan?.full_name || '').trim();
+      const code = String(fan?.fan_code || '').trim();
+      const email = String(fan?.contact_identifier || '').trim();
+      const display = nick && code ? `${nick} (${code})` : (nick || code || email || 'Cliente VIP');
+      return {
+        buyerIdentifier: display,
+        fanCode: code || null,
+        fanNickname: nick || 'Cliente VIP',
+      };
     }
 
     function getFanEmailOrRedirect() {
@@ -612,7 +633,7 @@
     function atualizarSeloMetodoPagamento() {
       const badge = document.getElementById('pay-method-badge');
       if (!badge) return;
-      badge.innerText = activeCurrency === 'BRL' ? '⚡ Pix Instantâneo' : '🌐 USDC (Solana)';
+      badge.innerText = activeCurrency === 'BRL' ? '⚡ Pix Instantâneo' : `💳 Card (${activeCurrency})`;
     }
 
     function trocarMoedaVip(newCurr) {
@@ -626,6 +647,35 @@
       }
     }
 
+    async function confirmarRetornoStripeVipSeHouver(deviceHash) {
+      const params = new URLSearchParams(window.location.search);
+      const paid = params.get('stripe_paid');
+      const sessionId = params.get('session_id');
+      const vipType = params.get('vipType');
+      const subId = params.get('subId');
+      const unlockId = params.get('unlockId');
+
+      if (paid === '1' && sessionId) {
+        try {
+          const qs = new URLSearchParams({
+            session_id: sessionId,
+            ...(vipType ? { vipType } : {}),
+            ...(subId ? { subId } : {}),
+            ...(unlockId ? { unlockId } : {}),
+          });
+          const res = await fetch('/api/vip/stripe-confirm?' + qs.toString());
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.paid) {
+            showConfirmedBanner('✅ Pagamento internacional confirmado! Seu acesso VIP foi liberado.');
+            if (deviceHash && CREATOR_ID > 0) {
+              await verificarAssinaturaAtiva(deviceHash);
+            }
+          }
+        } catch {}
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       atualizarEstadoChatVip(false);
       preencherApelidoChatVip();
@@ -635,6 +685,7 @@
         const hash = await window.getDeviceHash();
         document.getElementById('dev-badge').innerText = 'ID: ' + hash.slice(0, 6).toUpperCase();
         if (CREATOR_ID > 0) await verificarAssinaturaAtiva(hash);
+        await confirmarRetornoStripeVipSeHouver(hash);
       }
     });
 
@@ -885,6 +936,12 @@
       document.getElementById('pix-device-note').innerText = 'Vinculado exclusivamente a este aparelho (ID: ' + data.boundDevice + ')';
       document.getElementById('pix-copy-text').value = data.qrCode;
 
+      const sig = document.getElementById('pixStatusSignal');
+      if (sig) {
+        sig.className = 'pix-status-signal';
+        sig.innerText = '⏳ Aguardando pagamento... Liberando assim que confirmar.';
+      }
+
       const qrImg = document.getElementById('pix-qr-img');
       if (data.qrCodeBase64) {
         qrImg.src = 'data:image/png;base64,' + data.qrCodeBase64;
@@ -895,62 +952,32 @@
       document.getElementById('pix-modal').classList.add('open');
     }
 
-    function abrirModalIntlCrypto(data, title) {
-      lastCryptoOrder = data;
-      document.getElementById('intl-modal-title').innerText = title;
-      document.getElementById('intl-amount-summary').innerText =
-        `${formatMoney(data.originalAmount, data.currency)} → ${Number(data.usdcAmount).toFixed(2)} USDC (Solana)`;
-      document.getElementById('crypto-wallet-text').value = data.walletAddress || '';
-      document.getElementById('intl-feedback').innerText = '';
-      document.getElementById('intl-modal').classList.add('open');
-    }
-
-    function fecharIntlModal() {
-      document.getElementById('intl-modal').classList.remove('open');
-    }
-
-    function copiarCarteiraCrypto() {
-      const inp = document.getElementById('crypto-wallet-text');
-      if (!inp || !inp.value) return;
-      inp.select();
-      navigator.clipboard?.writeText(inp.value);
-      const fb = document.getElementById('intl-feedback');
-      if (fb) {
-        fb.style.color = '#34d399';
-        fb.innerText = '✅ Solana USDC wallet address copied!';
-      }
-    }
-
-    function notificarTransferenciaCrypto() {
-      const fb = document.getElementById('intl-feedback');
-      if (fb) {
-        fb.style.color = '#34d399';
-        fb.innerText = `Order #${lastCryptoOrder?.orderId || ''} recorded! Your VIP access unlocks as soon as the Solana transaction confirms.`;
-      }
-    }
-
-    async function iniciarCheckoutInternacional({ postId = 0, amount, title }) {
+    async function iniciarCheckoutInternacional({ mode = 'sub', postId = 0, amount }) {
       const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
-
+      const fanPayload = getFanBuyerPayload();
       const deviceHash = await window.getDeviceHash();
-      const res = await fetch('/api/vip/crypto-intent', {
+
+      const res = await fetch('/api/vip/stripe-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode,
           creatorId: CREATOR_ID,
           postId,
-          buyerIdentifier: buyer,
+          price: amount,
+          buyerIdentifier: fanPayload.buyerIdentifier,
+          fanCode: fanPayload.fanCode,
+          fanNickname: fanPayload.fanNickname,
           deviceHash,
-          planKey: selectedPlan.key,
-          amount,
-          currency: activeCurrency,
-          network: 'SOLANA-USDC',
+          currency: activeCurrency.toLowerCase(),
         })
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) return alert(data.error || 'Error creating international checkout.');
-      abrirModalIntlCrypto(data, title);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.checkoutUrl) {
+        return alert(data.error || 'Não foi possível iniciar o pagamento internacional.');
+      }
+      window.location.href = data.checkoutUrl;
     }
 
     async function assinarPlanoSelecionado() {
@@ -961,15 +988,16 @@
 
       if (activeCurrency !== 'BRL') {
         await iniciarCheckoutInternacional({
+          mode: 'sub',
           postId: 0,
           amount: selectedPlan.por,
-          title: `VIP Pass — ${selectedPlan.label}`
         });
         return;
       }
 
       const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
+      const fanPayload = getFanBuyerPayload();
 
       const deviceHash = await window.getDeviceHash();
       const res = await fetch('/api/vip/subscribe-intent', {
@@ -977,7 +1005,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId: CREATOR_ID,
-          buyerIdentifier: buyer,
+          buyerIdentifier: fanPayload.buyerIdentifier,
+          fanCode: fanPayload.fanCode,
+          fanNickname: fanPayload.fanNickname,
           deviceHash,
           planKey: selectedPlan.key,
           amount: selectedPlan.por,
@@ -994,8 +1024,12 @@
         const st = await fetch('/api/vip/sub-status/' + data.subId).then(r => r.json());
         if (st.paid) {
           clearInterval(statusPoll);
-          document.getElementById('pix-modal').classList.remove('open');
-          await verificarAssinaturaAtiva(deviceHash);
+          setPixSignalConfirmed('✅ Pagamento confirmado! Liberando seu acesso VIP...');
+          showConfirmedBanner('✅ Pagamento Pix confirmado! Seu passe VIP foi liberado.');
+          setTimeout(async () => {
+            document.getElementById('pix-modal').classList.remove('open');
+            await verificarAssinaturaAtiva(deviceHash);
+          }, 900);
         }
       }, 3000);
     }
@@ -1008,15 +1042,16 @@
 
       if (activeCurrency !== 'BRL') {
         await iniciarCheckoutInternacional({
+          mode: 'ppv',
           postId,
           amount: price,
-          title: 'Unlock Exclusive Content (1x)'
         });
         return;
       }
 
       const buyer = getFanEmailOrRedirect();
       if (!buyer) return;
+      const fanPayload = getFanBuyerPayload();
 
       const btn = document.getElementById('ppv-btn-' + postId);
       const oldText = btn.innerText;
@@ -1028,7 +1063,15 @@
         const res = await fetch('/api/vip/unlock-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId, price, buyerIdentifier: buyer, deviceHash, currency: 'BRL' })
+          body: JSON.stringify({
+            postId,
+            price,
+            buyerIdentifier: fanPayload.buyerIdentifier,
+            fanCode: fanPayload.fanCode,
+            fanNickname: fanPayload.fanNickname,
+            deviceHash,
+            currency: 'BRL'
+          })
         });
         const data = await res.json();
 
@@ -1044,10 +1087,14 @@
           const st = await fetch('/api/vip/unlock-status/' + data.unlockId).then(r => r.json());
           if (st.paid) {
             clearInterval(statusPoll);
-            document.getElementById('pix-modal').classList.remove('open');
+            setPixSignalConfirmed('✅ Pagamento confirmado! Conteúdo liberado.');
+            showConfirmedBanner('✅ Pagamento Pix confirmado! Conteúdo avulso liberado.');
             btn.style.background = '#10b981';
             btn.innerText = '🔥 Abrir Conteúdo Liberado Agora';
             btn.onclick = () => window.openSingleViewPost(postId, data.unlockId);
+            setTimeout(() => {
+              document.getElementById('pix-modal').classList.remove('open');
+            }, 900);
           }
         }, 3000);
       } catch (e) {

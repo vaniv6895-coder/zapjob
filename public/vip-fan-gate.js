@@ -1,4 +1,44 @@
 (function () {
+  let reservedCreatorNamesSet = new Set();
+
+  function normalizeCandidate(val) {
+    return String(val || '')
+      .replace(/<[^>]*>/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  async function loadReservedCreatorNames() {
+    try {
+      const res = await fetch('/api/vip/reserved-names');
+      const data = await res.json().catch(() => ({}));
+      const list = Array.isArray(data.reserved) ? data.reserved : [];
+      const nextSet = new Set();
+
+      for (const item of list) {
+        const cleanName = normalizeCandidate(item?.stage_name);
+        const cleanSlug = normalizeCandidate(String(item?.slug || '').replace(/-/g, ' '));
+        if (cleanName) nextSet.add(cleanName);
+        if (cleanSlug) nextSet.add(cleanSlug);
+      }
+
+      reservedCreatorNamesSet = nextSet;
+    } catch {}
+  }
+
+  async function isCreatorNameReserved(nameOrContact) {
+    const clean = normalizeCandidate(nameOrContact);
+    if (!clean) return false;
+    if (!reservedCreatorNamesSet.size) {
+      await loadReservedCreatorNames();
+    }
+    return reservedCreatorNamesSet.has(clean);
+  }
+
+  loadReservedCreatorNames();
+
   function getSavedFan() {
     try {
       const raw = localStorage.getItem('vip_fan_profile');
@@ -163,6 +203,7 @@
             <input type="text" id="fgNicknameInput" required placeholder="Ex: João, Rei VIP, Marcos..." />
             <button type="submit" id="fgSaveNickBtn" class="fan-gate-btn">Salvar e Continuar →</button>
           </form>
+          <p id="fgNickError" style="font-size:12px;color:#fb7185;margin-top:8px;font-weight:600;"></p>
         </div>
       </div>
     `;
@@ -176,6 +217,8 @@
     document.getElementById('fanGateStepNickname').style.display = 'block';
     document.getElementById('fgCreatedCode').innerText = fan.fan_code || 'FAN-VIP';
     const nickInput = document.getElementById('fgNicknameInput');
+    const nickErr = document.getElementById('fgNickError');
+    if (nickErr) nickErr.innerText = '';
     nickInput.value = fan.nickname || fan.full_name || '';
     modal.classList.add('open');
 
@@ -183,8 +226,18 @@
 
     document.getElementById('fanNicknameForm').onsubmit = async (e) => {
       e.preventDefault();
-      const nick = nickInput.value.trim();
-      if (!nick) return;
+      if (nickErr) nickErr.innerText = '';
+      const nick = nickInput.value.replace(/<[^>]*>/g, '').trim().slice(0, 60);
+      if (!nick || nick.length < 2) {
+        if (nickErr) nickErr.innerText = 'Digite um apelido com pelo menos 2 caracteres.';
+        return;
+      }
+
+      if (await isCreatorNameReserved(nick)) {
+        if (nickErr) nickErr.innerText = 'Este nome pertence a uma modelo e não pode ser usado por assinantes.';
+        return;
+      }
+
       const btn = document.getElementById('fgSaveNickBtn');
       btn.disabled = true;
 
@@ -194,16 +247,20 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fanCode: fan.fan_code, nickname: nick }),
         });
-        const data = await res.json();
-        const updatedFan = (res.ok && data.fan) ? data.fan : { ...fan, nickname: nick, full_name: nick };
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.ok === false) {
+          if (nickErr) nickErr.innerText = data.error || 'Apelido não permitido.';
+          btn.disabled = false;
+          return;
+        }
+
+        const updatedFan = data.fan ? data.fan : { ...fan, nickname: nick, full_name: nick };
         saveFan(updatedFan);
         modal.classList.remove('open');
         if (typeof onDone === 'function') onDone(updatedFan);
       } catch {
-        const updatedFan = { ...fan, nickname: nick, full_name: nick };
-        saveFan(updatedFan);
-        modal.classList.remove('open');
-        if (typeof onDone === 'function') onDone(updatedFan);
+        if (nickErr) nickErr.innerText = 'Erro de conexão ao salvar apelido. Tente novamente.';
       } finally {
         btn.disabled = false;
       }
@@ -256,6 +313,15 @@
     form.onsubmit = async (e) => {
       e.preventDefault();
       errEl.innerText = '';
+
+      const contactVal = contactInp.value.replace(/<[^>]*>/g, '').trim();
+      const derivedName = contactVal.split('@')[0] || 'Assinante VIP';
+
+      if (!isLogin && (await isCreatorNameReserved(contactVal) || await isCreatorNameReserved(derivedName))) {
+        errEl.innerText = 'Este nome ou contato pertence a uma modelo e não pode ser usado no cadastro de fã.';
+        return;
+      }
+
       submitBtn.disabled = true;
 
       let deviceHash = '';
@@ -266,10 +332,9 @@
         deviceHash = localStorage.getItem('vip_device_hash') || '';
       }
 
-      const contactVal = contactInp.value.trim();
       const endpoint = isLogin ? '/api/vip/fan-login' : '/api/vip/fan-register';
       const payload = {
-        fullName: contactVal.split('@')[0] || 'Assinante VIP',
+        fullName: derivedName,
         contact: contactVal,
         password: passInp.value.trim(),
         deviceHash,
@@ -281,7 +346,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
           errEl.innerText = data.error || 'Verifique os dados informados.';
           submitBtn.disabled = false;

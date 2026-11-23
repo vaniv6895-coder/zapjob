@@ -761,7 +761,8 @@
     const initGeo = window.__INITIAL_GEO_SEO__ || null;
     const urlParams = new URLSearchParams(location.search);
 
-    let currentCountry = initGeo?.country || urlParams.get('country') || 'br';
+    let currentCountry = initGeo?.country || urlParams.get('country') || 'Brasil';
+    let currentState = initGeo?.state || urlParams.get('state') || '';
     let currentCity = initGeo?.cityLabel || urlParams.get('city') || '';
     let currentCitySlug = initGeo?.citySlug || '';
     let currentNeighborhood = initGeo?.hoodLabel || urlParams.get('neighborhood') || '';
@@ -845,7 +846,8 @@
         return;
       }
       const cSlug = currentCitySlug || slugifyClient(currentCity);
-      const cityBaseHref = `/vitrine/${currentCountry}/${cSlug}`;
+      const countryCode = currentCountry.toLowerCase() === 'brasil' ? 'br' : currentCountry;
+      const cityBaseHref = `/vitrine/${countryCode}/${cSlug}`;
       const chips = [
         `<a href="${cityBaseHref}" class="hood-link ${!currentNeighborhoodSlug ? 'active' : ''}">Toda ${currentCity || cSlug}</a>`,
         ...neighborhoods.map(n => {
@@ -860,11 +862,13 @@
     async function carregarVitrine() {
       const displayPlace = currentNeighborhood && currentCity
         ? `${currentNeighborhood}, ${currentCity}`
-        : (currentNeighborhood || currentCity || 'Todo o Brasil');
+        : (currentNeighborhood || currentCity || currentState || currentCountry || 'Todo o Brasil');
 
       document.getElementById('city-title').innerText = displayPlace;
-      if (currentCity && !document.getElementById('city-input').value) {
-        document.getElementById('city-input').value = displayPlace;
+      if ((currentNeighborhood || currentCity) && !document.getElementById('city-input').value) {
+        document.getElementById('city-input').value = currentNeighborhood && currentCity
+          ? `${currentNeighborhood}, ${currentCity}`
+          : (currentNeighborhood || currentCity);
       }
 
       if (activeMedia) {
@@ -873,10 +877,16 @@
         if (pillEl) pillEl.classList.add('active');
       }
 
+      const qs = new URLSearchParams();
+      if (currentNeighborhood) qs.set('neighborhood', currentNeighborhood);
+      if (currentCity) qs.set('city', currentCity);
+      if (currentState) qs.set('state', currentState);
+      if (currentCountry) qs.set('country', currentCountry);
+
       const citySlugParam = currentCitySlug || slugifyClient(currentCity);
       const hoodSlugParam = currentNeighborhoodSlug || slugifyClient(currentNeighborhood);
 
-      const baseUrl = '/api/portal/vitrine-data' + (currentCity ? '?city=' + encodeURIComponent(currentCity) : '');
+      const baseUrl = '/api/portal/vitrine-data' + (qs.toString() ? '?' + qs.toString() : '');
       const geoUrl = citySlugParam
         ? `/api/vitrine/geo?country=${encodeURIComponent(currentCountry)}&city=${encodeURIComponent(citySlugParam)}&neighborhood=${encodeURIComponent(hoodSlugParam)}`
         : '';
@@ -896,6 +906,10 @@
         for (const item of geoData.items) {
           const full = bySlug.get(item.slug);
           ranked.push(full ? { ...full, is_boosted: item.is_boosted, geo_priority: item.geo_priority } : item);
+        }
+        // Mantém perfis adicionais do estado/país ao final para a vitrine nunca ficar vazia
+        for (const p of profiles) {
+          if (!ranked.some(r => r.slug === p.slug)) ranked.push(p);
         }
         profiles = ranked;
       }
@@ -1054,11 +1068,13 @@
       currentNeighborhood = '';
       currentNeighborhoodSlug = '';
       currentCitySlug = '';
+      currentState = '';
 
       if (rawQuery.includes(',')) {
         const parts = rawQuery.split(',').map(s => s.trim()).filter(Boolean);
         currentNeighborhood = parts[0] || '';
         currentCity = parts[1] || '';
+        currentState = parts[2] || '';
       } else {
         currentCity = rawQuery;
       }

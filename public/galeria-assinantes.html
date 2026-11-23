@@ -114,7 +114,7 @@
     <!-- Resumo Financeiro + Compradores Recentes -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="glass-card rounded-2xl p-4">
-        <div class="text-xs text-zinc-400">Saldo Total Acumulado</div>
+        <div class="text-xs text-zinc-400">Saldo na Conta</div>
         <div class="text-2xl font-extrabold text-emerald-400 mt-1" id="totalAll">R$ 0,00</div>
         <div class="text-[11px] text-zinc-500 mt-1">Assinaturas + Vendas Avulsas (PPV)</div>
       </div>
@@ -155,7 +155,7 @@
       <div class="flex items-center justify-between mb-3">
         <div>
           <h3 class="text-sm sm:text-base font-bold text-white">🧾 Clientes que Compraram (Assinaturas & Avulsos)</h3>
-          <p class="text-xs text-zinc-400">Identificação dos clientes aprovados automaticamente via Pix.</p>
+          <p class="text-xs text-zinc-400">Nome do cliente, ID do fã, o que foi comprado e o valor aprovado via Pix.</p>
         </div>
         <button onclick="loadAllData()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200">
           ↻ Atualizar
@@ -165,7 +165,8 @@
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-zinc-800 text-[11px] uppercase text-zinc-400">
-              <th class="py-2.5 pr-3">Cliente</th>
+              <th class="py-2.5 pr-3">Cliente & ID</th>
+              <th class="py-2.5 px-3">O que Comprou</th>
               <th class="py-2.5 px-3">Tipo</th>
               <th class="py-2.5 px-3">Valor</th>
               <th class="py-2.5 pl-3 text-right">Data</th>
@@ -173,7 +174,7 @@
           </thead>
           <tbody id="buyersTableBody" class="divide-y divide-zinc-800/70 text-xs">
             <tr>
-              <td colspan="4" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td>
+              <td colspan="5" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td>
             </tr>
           </tbody>
         </table>
@@ -181,7 +182,7 @@
     </section>
   </main>
 
- <script>
+  <script>
     const token =
       sessionStorage.getItem('portal_token') ||
       localStorage.getItem('portal_token') ||
@@ -193,6 +194,16 @@
     let allPosts = [];
     let currentFilter = 'subs';
     let isUploading = false;
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
 
     function formatBRL(val) {
       return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -228,11 +239,9 @@
       barEl.style.width = `${safePct}%`;
     }
 
-    // Otimização inteligente 100% LOCAL no navegador (privacidade total, sem servidores externos)
-    // Reduz vídeos pesados (>25MB) para 1080p mantendo nitidez e áudio original
     async function otimizarVideoLocalmente(file, onProgress) {
       const sizeMb = file.size / (1024 * 1024);
-      if (sizeMb <= 25) return file; // Vídeos leves já sobem direto sem perda
+      if (sizeMb <= 25) return file;
 
       return new Promise((resolve) => {
         const video = document.createElement('video');
@@ -248,7 +257,6 @@
             const origW = video.videoWidth || 1080;
             const origH = video.videoHeight || 1920;
 
-            // Mantém até 1080p no maior lado (preserva 100% da nitidez em celular)
             const maxSide = 1080;
             const scale = Math.max(origW, origH) > maxSide ? maxSide / Math.max(origW, origH) : 1;
             const targetW = Math.round((origW * scale) / 2) * 2;
@@ -260,7 +268,6 @@
             const ctx = canvas.getContext('2d');
 
             const canvasStream = canvas.captureStream(30);
-            // Captura faixa de áudio original se disponível
             const videoStream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
             if (videoStream) {
               videoStream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
@@ -279,7 +286,6 @@
               return resolve(file);
             }
 
-            // Bitrate inteligente: 4.5 Mbps em 1080p garante imagem cristalina sem estourar tamanho
             const recorder = new MediaRecorder(canvasStream, {
               mimeType: chosenMime,
               videoBitsPerSecond: 4_500_000,
@@ -295,7 +301,6 @@
               URL.revokeObjectURL(srcUrl);
               const outExt = chosenMime.includes('mp4') ? 'mp4' : 'webm';
               const optimizedBlob = new Blob(chunks, { type: chosenMime.split(';')[0] });
-              // Só usa a versão renderizada se realmente ficou menor
               if (optimizedBlob.size > 0 && optimizedBlob.size < file.size) {
                 const newName = file.name.replace(/\.[^.]+$/, '') + '.' + outExt;
                 resolve(new File([optimizedBlob], newName, { type: optimizedBlob.type }));
@@ -304,7 +309,7 @@
               }
             };
 
-            video.muted = true; // evita eco nos alto-falantes durante a renderização
+            video.muted = true;
             await video.play();
             recorder.start(250);
 
@@ -336,7 +341,7 @@
     function uploadFileToPresignedUrl(uploadUrl, file, onProgress) {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('PUT', url = uploadUrl, true);
+        xhr.open('PUT', uploadUrl, true);
 
         xhr.upload.onprogress = (e) => {
           if (typeof onProgress === 'function' && e.lengthComputable && e.total > 0) {
@@ -392,7 +397,6 @@
         let fileToUpload = rawFile;
         const origMb = (rawFile.size / (1024 * 1024)).toFixed(1);
 
-        // Otimiza localmente no navegador se for vídeo pesado (>25MB)
         if (isVideo && rawFile.size > 25 * 1024 * 1024) {
           setProgress(true, `🔒 Otimizando vídeo localmente (${origMb} MB → 1080p HD)...`, 5, false);
           fileToUpload = await otimizarVideoLocalmente(rawFile, (pct) => {
@@ -403,7 +407,6 @@
         const finalMb = (fileToUpload.size / (1024 * 1024)).toFixed(1);
         setProgress(true, `Preparando envio seguro (${finalMb} MB)...`, 5, false);
 
-        // 1. Pede URL assinada para envio direto ao R2
         const signRes = await fetch('/api/creator/upload-url', {
           method: 'POST',
           headers: authHeaders(),
@@ -419,7 +422,6 @@
           throw new Error(signData.error || 'Não foi possível gerar URL de upload');
         }
 
-        // 2. Faz PUT direto para o bucket R2 com progresso real
         const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, fileToUpload, (pct) => {
           setProgress(
             true,
@@ -435,7 +437,6 @@
 
         setProgress(true, 'Salvando na galeria exclusiva...', 99, false);
 
-        // 3. Registra o post na galeria VIP (envia camelCase e snake_case para compatibilidade total)
         const mediaTypeFinal = isVideo ? 'video' : 'image';
         const postPayload = {
           mediaType: mediaTypeFinal,
@@ -536,7 +537,7 @@
                 </div>
               </div>
               <div class="p-3.5 space-y-1.5">
-                <p class="text-xs text-zinc-200 line-clamp-2">${post.caption || '<span class="text-zinc-500 italic">Sem legenda</span>'}</p>
+                <p class="text-xs text-zinc-200 line-clamp-2">${escapeHtml(post.caption) || '<span class="text-zinc-500 italic">Sem legenda</span>'}</p>
                 <div class="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
                   <span>Avulso: <strong class="text-emerald-400">${formatBRL(post.price)}</strong></span>
                   <span>${created}</span>
@@ -597,37 +598,52 @@
           document.getElementById('monthlyPriceLabel').textContent =
             formatBRL(meData.creator.vip_monthly_price || 49.90) + '/mês';
           document.getElementById('publicLinkBox').innerHTML =
-            `Página pública: <a href="/vip/${meData.creator.slug}" target="_blank" class="text-pink-400 underline">/vip/${meData.creator.slug}</a>`;
+            `Página pública: <a href="/vip/${encodeURIComponent(meData.creator.slug)}" target="_blank" class="text-pink-400 underline">/vip/${escapeHtml(meData.creator.slug)}</a>`;
         }
 
         allPosts = postsData.posts || [];
         renderGallery();
 
-        if (earnData.ok) {
-          document.getElementById('totalAll').textContent = formatBRL(earnData.totalAll);
-          document.getElementById('totalSubs').textContent = formatBRL(earnData.totalSubs);
-          document.getElementById('countSubs').textContent = earnData.countSubs || 0;
-          document.getElementById('totalPpv').textContent = formatBRL(earnData.totalPpv);
-          document.getElementById('countPpv').textContent = earnData.countPpv || 0;
+        const totalBalance =
+          earnData && earnData.totalAll !== undefined
+            ? earnData.totalAll
+            : (meData.vipBalance ?? meData.creator?.vip_balance ?? 0);
 
-          const tbody = document.getElementById('buyersTableBody');
-          const buyers = earnData.recentBuyers || [];
-          if (!buyers.length) {
-            tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td></tr>`;
-          } else {
-            tbody.innerHTML = buyers.map(b => `
+        document.getElementById('totalAll').textContent = formatBRL(totalBalance);
+        document.getElementById('totalSubs').textContent = formatBRL(earnData?.totalSubs ?? 0);
+        document.getElementById('countSubs').textContent = earnData?.countSubs || 0;
+        document.getElementById('totalPpv').textContent = formatBRL(earnData?.totalPpv ?? 0);
+        document.getElementById('countPpv').textContent = earnData?.countPpv || 0;
+
+        const tbody = document.getElementById('buyersTableBody');
+        const buyers = (earnData && (earnData.sales || earnData.recentBuyers)) || meData.vipSales || [];
+        if (!buyers.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td></tr>`;
+        } else {
+          tbody.innerHTML = buyers.map(b => {
+            const nick = b.fan_nickname || b.buyer_identifier || 'Cliente VIP';
+            const fanId = b.fan_code ? `<span class="block text-[11px] font-mono text-pink-300 mt-0.5">ID: ${escapeHtml(b.fan_code)}</span>` : '';
+            const itemTitle = b.item_title || b.caption || b.sale_type || 'Conteúdo VIP';
+            const isSub = b.sale_type === 'Assinatura';
+            return `
               <tr>
-                <td class="py-2.5 pr-3 font-semibold text-white">${b.buyer_identifier || 'Cliente VIP'}</td>
+                <td class="py-2.5 pr-3 font-semibold text-white">
+                  ${escapeHtml(nick)}
+                  ${fanId}
+                </td>
+                <td class="py-2.5 px-3 text-zinc-200 max-w-[220px]">
+                  <span class="line-clamp-2">${escapeHtml(itemTitle)}</span>
+                </td>
                 <td class="py-2.5 px-3">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold ${b.sale_type === 'Assinatura' ? 'bg-pink-500/20 text-pink-300' : 'bg-purple-500/20 text-purple-300'}">
-                    ${b.sale_type}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isSub ? 'bg-pink-500/20 text-pink-300' : 'bg-purple-500/20 text-purple-300'}">
+                    ${escapeHtml(b.sale_type || (isSub ? 'Assinatura' : 'Avulso (PPV)'))}
                   </span>
                 </td>
-                <td class="py-2.5 px-3 text-emerald-400 font-semibold">${formatBRL(b.price)}</td>
-                <td class="py-2.5 pl-3 text-right text-zinc-400">${new Date(b.created_at).toLocaleString('pt-BR')}</td>
+                <td class="py-2.5 px-3 text-emerald-400 font-semibold whitespace-nowrap">${formatBRL(b.price)}</td>
+                <td class="py-2.5 pl-3 text-right text-zinc-400 whitespace-nowrap">${b.created_at ? new Date(b.created_at).toLocaleString('pt-BR') : '-'}</td>
               </tr>
-            `).join('');
-          }
+            `;
+          }).join('');
         }
       } catch (err) {
         console.error('Erro ao carregar galeria exclusiva:', err);
@@ -636,6 +652,5 @@
 
     loadAllData();
   </script>
-  
 </body>
 </html>

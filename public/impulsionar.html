@@ -254,10 +254,8 @@
       <div class="nav-group">
         <select id="boostCurrencySelect" class="currency-select" onchange="trocarMoedaDestaque(this.value)" aria-label="Moeda">
           <option value="BRL">🇧🇷 BRL (Pix)</option>
-          <option value="USD">🇺🇸 USD</option>
-          <option value="EUR">🇪🇺 EUR</option>
-          <option value="GBP">🇬🇧 GBP</option>
-          <option value="CHF">🇨🇭 CHF</option>
+          <option value="USD">🇺🇸 USD (Paxum)</option>
+          <option value="EUR">🇪🇺 EUR (Paxum)</option>
         </select>
         <a href="/dasbormodelo" class="nav-link">Desempenho</a>
         <a href="/minha-conta/editar" class="nav-link">Editar Perfil</a>
@@ -292,11 +290,11 @@
 
       <div class="summary-line">
         <span style="color:var(--muted);">Plano selecionado</span>
-        <strong id="summaryPlanLabel">7 Dias Destaque</strong>
+        <strong id="summaryPlanLabel">Destaque VIP (7 Dias)</strong>
       </div>
       <div class="summary-line">
         <span style="color:var(--muted);">Valor total</span>
-        <strong id="summaryPlanAmount" style="color:var(--orange-bright);font-size:15px;">R$ 29,90</strong>
+        <strong id="summaryPlanAmount" style="color:var(--orange-bright);font-size:15px;">R$ 59,90</strong>
       </div>
       <div class="summary-line">
         <span style="color:var(--muted);">Forma de pagamento</span>
@@ -307,23 +305,14 @@
         Gerar Pix para Impulsionar
       </button>
 
-      <!-- Área Pix (Brasil - Padrão simples) -->
       <div id="pixArea" class="pix-box">
-        <strong style="font-size:14px;display:block;">Pix Copia e Cola</strong>
+        <strong style="font-size:14px;display:block;">Pix Copia e Cola / QR Code</strong>
         <p style="font-size:12px;color:var(--muted);margin-top:4px;">
-          Copie o código abaixo e pague no aplicativo do seu banco.
+          Escaneie o QR Code ou copie o código abaixo e pague no aplicativo do seu banco.
         </p>
-        <img id="pixQrImage" src="" alt="QR Code Pix" style="display:none;width:180px;height:180px;margin:12px auto 4px;border-radius:10px;background:#fff;padding:6px;" />
+        <img id="pixQrImage" src="" alt="QR Code Pix" style="display:none;width:180px;height:180px;margin:12px auto 6px;border-radius:10px;background:#fff;padding:6px;" />
         <input type="text" id="pixCodeInput" class="pix-code" readonly />
         <button type="button" class="btn-copy" onclick="copiarCodigoPix()">Copiar Código Pix</button>
-      </div>
-
-      <!-- Área Internacional (USDC Solana - apenas se trocar a moeda no seletor) -->
-      <div id="cryptoBoostArea" class="pix-box">
-        <strong style="font-size:14px;display:block;color:#34d399;">International Payment • USDC (Solana)</strong>
-        <p id="cryptoBoostSub" style="font-size:12px;color:var(--muted);margin-top:4px;"></p>
-        <input type="text" id="cryptoBoostWalletInput" class="pix-code" readonly />
-        <button type="button" class="btn-copy" onclick="copiarCarteiraBoost()">Copy Solana USDC Address</button>
       </div>
 
       <p id="checkoutFeedback" class="feedback-msg"></p>
@@ -336,33 +325,23 @@
       window.location.replace('/minha-conta');
     }
 
-    const CURRENCY_SYMBOLS = { BRL: 'R$ ', USD: '$', EUR: '€', GBP: '£', CHF: 'CHF ' };
+    const CURRENCY_SYMBOLS = { BRL: 'R$ ', USD: '$', EUR: '€' };
 
     const BOOST_PLANS_BY_CURRENCY = {
       BRL: [
-        { code: 'top_7d', badge: 'Rápido', label: '7 Dias Destaque', unit: '/ 7 dias', amount: 29.90, desc: 'Destaque na vitrine por uma semana com ativação rápida após confirmação do pagamento.' },
-        { code: 'top_15d', badge: 'Mais escolhido', label: '15 Dias Topo', unit: '/ 15 dias', amount: 49.90, desc: 'Presença contínua nas primeiras posições para manter o fluxo de contatos na sua região.' },
-        { code: 'diamante_30d', badge: 'Máximo alcance', label: '30 Dias Diamante', unit: '/ 30 dias', amount: 79.90, desc: 'Um mês inteiro de destaque máximo para consolidar visitas, contatos e Clube VIP.' },
+        { code: 'vip_7d', badge: 'Rápido', label: 'Destaque VIP (7 Dias)', unit: '/ 7 dias', amount: 59.90, desc: 'Destaque na vitrine por 7 dias com ativação automática após o Pix.' },
+        { code: 'diamond_7d', badge: 'Mais escolhido', label: 'Topo Diamante (7 Dias)', unit: '/ 7 dias', amount: 119.90, desc: 'Primeira linha da vitrine por 7 dias para aumentar cliques e contatos.' },
+        { code: 'diamond_30d', badge: 'Máximo alcance', label: 'Topo Diamante (30 Dias)', unit: '/ 30 dias', amount: 349.90, desc: '30 dias na 1ª linha para consolidar visitas, contatos e Clube VIP.' },
       ],
       USD: [
-        { code: 'top_7d', badge: 'Fast Boost', label: '7 Days Boost', unit: '/ 7 days', amount: 14.99, desc: 'Priority placement in your city showcase for 7 days.' },
-        { code: 'top_15d', badge: 'Most Popular', label: '15 Days Top', unit: '/ 15 days', amount: 29.99, desc: 'Continuous top visibility to maximize profile views and VIP subscribers.' },
-        { code: 'diamante_30d', badge: 'Max Reach', label: '30 Days Diamond', unit: '/ 30 days', amount: 49.99, desc: 'Full month of top spotlight placement across local and global listings.' },
+        { code: 'vip_7d', badge: 'Fast Boost', label: 'VIP Highlight (7 Days)', unit: '/ 7 days', amount: 10.90, desc: 'Priority placement in your city showcase for 7 days via Paxum.' },
+        { code: 'diamond_7d', badge: 'Most Popular', label: 'Diamond Top (7 Days)', unit: '/ 7 days', amount: 21.80, desc: 'Top-row visibility for 7 days to boost profile views and VIP fans.' },
+        { code: 'diamond_30d', badge: 'Max Reach', label: 'Diamond Top (30 Days)', unit: '/ 30 days', amount: 63.60, desc: 'Full 30 days on top row across local and international listings.' },
       ],
       EUR: [
-        { code: 'top_7d', badge: 'Fast Boost', label: '7 Days Boost', unit: '/ 7 days', amount: 13.99, desc: 'Priority placement in your city showcase for 7 days.' },
-        { code: 'top_15d', badge: 'Most Popular', label: '15 Days Top', unit: '/ 15 days', amount: 27.99, desc: 'Continuous top visibility to maximize profile views and VIP subscribers.' },
-        { code: 'diamante_30d', badge: 'Max Reach', label: '30 Days Diamond', unit: '/ 30 days', amount: 46.99, desc: 'Full month of top spotlight placement across local and global listings.' },
-      ],
-      GBP: [
-        { code: 'top_7d', badge: 'Fast Boost', label: '7 Days Boost', unit: '/ 7 days', amount: 11.99, desc: 'Priority placement in your city showcase for 7 days.' },
-        { code: 'top_15d', badge: 'Most Popular', label: '15 Days Top', unit: '/ 15 days', amount: 24.99, desc: 'Continuous top visibility to maximize profile views and VIP subscribers.' },
-        { code: 'diamante_30d', badge: 'Max Reach', label: '30 Days Diamond', unit: '/ 30 days', amount: 39.99, desc: 'Full month of top spotlight placement across local and global listings.' },
-      ],
-      CHF: [
-        { code: 'top_7d', badge: 'Fast Boost', label: '7 Days Boost', unit: '/ 7 days', amount: 13.90, desc: 'Priority placement in your city showcase for 7 days.' },
-        { code: 'top_15d', badge: 'Most Popular', label: '15 Days Top', unit: '/ 15 days', amount: 27.90, desc: 'Continuous top visibility to maximize profile views and VIP subscribers.' },
-        { code: 'diamante_30d', badge: 'Max Reach', label: '30 Days Diamond', unit: '/ 30 days', amount: 46.90, desc: 'Full month of top spotlight placement across local and global listings.' },
+        { code: 'vip_7d', badge: 'Fast Boost', label: 'VIP Highlight (7 Days)', unit: '/ 7 days', amount: 10.00, desc: 'Priority placement in your city showcase for 7 days via Paxum.' },
+        { code: 'diamond_7d', badge: 'Most Popular', label: 'Diamond Top (7 Days)', unit: '/ 7 days', amount: 20.00, desc: 'Top-row visibility for 7 days to boost profile views and VIP fans.' },
+        { code: 'diamond_30d', badge: 'Max Reach', label: 'Diamond Top (30 Days)', unit: '/ 30 days', amount: 58.30, desc: 'Full 30 days on top row across local and international listings.' },
       ],
     };
 
@@ -379,7 +358,7 @@
 
     function renderPlansGrid() {
       const plans = BOOST_PLANS_BY_CURRENCY[activeCurrency] || BOOST_PLANS_BY_CURRENCY.BRL;
-      const currentCode = selectedPlan?.code || 'top_7d';
+      const currentCode = selectedPlan?.code || 'vip_7d';
       selectedPlan = plans.find(p => p.code === currentCode) || plans[0];
 
       const grid = document.getElementById('plansGrid');
@@ -396,10 +375,12 @@
 
       document.getElementById('summaryPlanLabel').innerText = selectedPlan.label;
       document.getElementById('summaryPlanAmount').innerText = formatPrice(selectedPlan.amount);
-      document.getElementById('summaryPayMethod').innerText = activeCurrency === 'BRL' ? 'Pix' : 'USDC (Solana)';
+      document.getElementById('summaryPayMethod').innerText = activeCurrency === 'BRL'
+        ? 'Pix (Mercado Pago)'
+        : `Paxum (${activeCurrency})`;
       document.getElementById('btnGeneratePix').innerText = activeCurrency === 'BRL'
         ? 'Gerar Pix para Impulsionar'
-        : `Pagar ${formatPrice(selectedPlan.amount)} (Internacional)`;
+        : `Pagar ${formatPrice(selectedPlan.amount)} via Paxum`;
     }
 
     function selectPlanByCode(code) {
@@ -415,7 +396,6 @@
       activeCurrency = newCurr;
       localStorage.setItem('boost_selected_currency', newCurr);
       document.getElementById('pixArea').classList.remove('show');
-      document.getElementById('cryptoBoostArea').classList.remove('show');
       document.getElementById('checkoutFeedback').innerText = '';
       renderPlansGrid();
     }
@@ -428,12 +408,16 @@
       document.getElementById('checkoutFeedback').innerText = 'Código Pix copiado para a área de transferência.';
     }
 
-    function copiarCarteiraBoost() {
-      const inp = document.getElementById('cryptoBoostWalletInput');
-      if (!inp || !inp.value) return;
-      inp.select();
-      navigator.clipboard?.writeText(inp.value);
-      document.getElementById('checkoutFeedback').innerText = 'Endereço USDC (Solana) copiado!';
+    async function verificarRetornoPaxumSeHouver() {
+      const params = new URLSearchParams(window.location.search);
+      const paid = params.get('paid');
+      const gateway = params.get('gateway');
+      if (paid === '1' && gateway === 'paxum') {
+        const fb = document.getElementById('checkoutFeedback');
+        fb.innerText = 'Pagamento via Paxum recebido. Atualizando status do destaque...';
+        await carregarStatusCriadora();
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     }
 
     async function carregarStatusCriadora() {
@@ -474,15 +458,14 @@
       clearInterval(pollTimer);
 
       document.getElementById('pixArea').classList.remove('show');
-      document.getElementById('cryptoBoostArea').classList.remove('show');
 
       btn.disabled = true;
-      btn.innerText = activeCurrency === 'BRL' ? 'Gerando Pix...' : 'Gerando cobrança...';
+      btn.innerText = activeCurrency === 'BRL' ? 'Gerando Pix...' : 'Abrindo Paxum...';
       fb.innerText = '';
 
       if (activeCurrency !== 'BRL') {
         try {
-          const res = await fetch('/api/portal/creator/highlight-crypto-intent', {
+          const res = await fetch('/api/portal/highlight-paxum', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -490,32 +473,28 @@
             },
             body: JSON.stringify({
               planCode: selectedPlan.code,
-              amount: selectedPlan.amount,
-              currency: activeCurrency,
-              network: 'SOLANA-USDC'
+              currency: activeCurrency
             })
           });
           const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.ok) {
-            fb.innerText = data.error || 'Não foi possível gerar o pagamento internacional.';
-          } else {
-            document.getElementById('cryptoBoostArea').classList.add('show');
-            document.getElementById('cryptoBoostSub').innerText =
-              `Envie exatamente ${Number(data.usdcAmount).toFixed(2)} USDC (${formatPrice(data.originalAmount)}) pela rede Solana para ativar o destaque (Pedido #${data.orderId}):`;
-            document.getElementById('cryptoBoostWalletInput').value = data.walletAddress || '';
-            fb.innerText = 'Assim que a transferência confirmar, seu destaque será ativado.';
+          if (!res.ok || !data.checkoutUrl) {
+            fb.innerText = data.error || 'Não foi possível iniciar o pagamento via Paxum agora.';
+            btn.disabled = false;
+            renderPlansGrid();
+            return;
           }
+          window.location.href = data.checkoutUrl;
+          return;
         } catch {
-          fb.innerText = 'Erro de conexão ao gerar o pagamento.';
-        } finally {
+          fb.innerText = 'Erro de conexão ao iniciar o pagamento via Paxum.';
           btn.disabled = false;
           renderPlansGrid();
+          return;
         }
-        return;
       }
 
       try {
-        const res = await fetch('/api/portal/creator/highlight-order', {
+        const res = await fetch('/api/portal/highlight-pix', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -581,7 +560,7 @@
 
     document.getElementById('boostCurrencySelect').value = activeCurrency;
     renderPlansGrid();
-    carregarStatusCriadora();
+    carregarStatusCriadora().then(() => verificarRetornoPaxumSeHouver());
   </script>
 </body>
 </html>
