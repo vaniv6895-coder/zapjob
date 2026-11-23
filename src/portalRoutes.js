@@ -868,10 +868,29 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.status(404).send({ error: 'Página VIP não encontrada.' });
   });
 
-  if (!app.__vipFeedRoutesRegistered) {
-    app.__vipFeedRoutesRegistered = true;
-    registerVipFeedRoutes(app, requireCreatorAuth);
-  }
+  registerVipFeedRoutes(app, requireCreatorAuth);
+
+  app.get('/api/vip/earnings', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const vipSummary = await getCreatorVipBalanceAndSales(req.creator.id);
+    return reply.send({
+      ok: true,
+      totalAll: vipSummary.balance,
+      totalSubs: vipSummary.totalSubs,
+      countSubs: vipSummary.countSubs,
+      totalPpv: vipSummary.totalPpv,
+      countPpv: vipSummary.countPpv,
+      sales: vipSummary.sales,
+      recentBuyers: vipSummary.sales,
+      totals: {
+        totalAll: vipSummary.balance,
+        totalSubs: vipSummary.totalSubs,
+        countSubs: vipSummary.countSubs,
+        totalPpv: vipSummary.totalPpv,
+        countPpv: vipSummary.countPpv,
+      },
+    });
+  });
+  
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
   registerPortalSecurityRoutes(app, requireCreatorAuth, signSessionToken);
