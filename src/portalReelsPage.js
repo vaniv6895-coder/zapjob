@@ -4,7 +4,7 @@ export function registerPortalReelsRoute(app) {
   app.get('/reels', async (req, reply) => {
     const startSlug = req.query.modelo ? String(req.query.modelo) : null;
 
-    // Busca vídeos publicados pelas modelos ativas na tabela creator_accounts
+    // Busca vídeos publicados apenas por modelos ativas e verificadas com vídeo
     const { rows } = await pool.query(`
       SELECT 
         m.id AS media_id,
@@ -23,6 +23,8 @@ export function registerPortalReelsRoute(app) {
       WHERE m.media_type IN ('video', 'verification')
         AND m.visibility IN ('public', 'preview')
         AND c.active = TRUE
+        AND c.verified = TRUE
+        AND COALESCE(TRIM(c.verification_video_url), '') <> ''
       ORDER BY m.created_at DESC
       LIMIT 40
     `);

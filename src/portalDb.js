@@ -52,6 +52,37 @@ export async function initPortalDB() {
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS services_tags JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS audio_url TEXT;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS verification_video_url TEXT;
+    ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS verification_token VARCHAR(128);
+
+    CREATE TABLE IF NOT EXISTS model_verifications (
+      id SERIAL PRIMARY KEY,
+      token VARCHAR(128) UNIQUE NOT NULL,
+      challenge_code VARCHAR(16) NOT NULL,
+      expires_at BIGINT NOT NULL,
+      video_hash VARCHAR(64) UNIQUE,
+      video_url TEXT,
+      attempts_count INTEGER NOT NULL DEFAULT 0,
+      status VARCHAR(32) NOT NULL DEFAULT 'pending_challenge',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      verified_at TIMESTAMPTZ
+    );
+
+    ALTER TABLE model_verifications ADD COLUMN IF NOT EXISTS attempts_count INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX IF NOT EXISTS idx_model_verifications_hash ON model_verifications (video_hash);
+
+    CREATE TABLE IF NOT EXISTS creator_reviews (
+      id SERIAL PRIMARY KEY,
+      creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
+      author_name VARCHAR(100) NOT NULL,
+      stars INT NOT NULL DEFAULT 5,
+      title VARCHAR(160) NOT NULL,
+      comment TEXT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_creator_reviews_owner
+      ON creator_reviews (creator_id, status, created_at DESC);
 
     CREATE INDEX IF NOT EXISTS idx_creators_home_ranking
       ON creator_accounts (city, active, verified, tier, featured_until DESC, last_boost_at DESC);
@@ -95,7 +126,7 @@ export async function initPortalDB() {
     CREATE TABLE IF NOT EXISTS profile_events (
       id SERIAL PRIMARY KEY,
       creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
-      event_type VARCHAR(20) NOT NULL, -- 'view' ou 'whatsapp_click'
+      event_type VARCHAR(20) NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
 
@@ -140,8 +171,8 @@ export async function registerCreator({ email, password, stageName, city, state,
   const slug = makeSlug(stageName);
 
   const res = await pool.query(
-    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, hourly_rate)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, bio, hourly_rate, verified, active)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, FALSE)
      RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, verified, active, tier`,
     [
       cleanEmail,
@@ -177,7 +208,7 @@ export async function getCreatorById(creatorId) {
             whatsapp, fifteen_min_rate, half_hour_rate, hourly_rate, two_hours_rate, overnight_rate,
             payment_methods, custom_rates, vip_monthly_price, vip_anchor_price, schedule_start, schedule_end,
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
-            verification_video_url, subscription_price, verified, active, tier, featured_until,
+            verification_video_url, verification_token, subscription_price, verified, active, tier, featured_until,
             last_boost_at, created_at
      FROM creator_accounts
      WHERE id = $1`,
@@ -194,7 +225,10 @@ export async function getCreatorBySlug(slug) {
             height, weight, physical_tags, services_tags, bio, avatar_url, cover_url, audio_url,
             verification_video_url, subscription_price, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
-     WHERE slug = $1 AND active = TRUE AND verified = TRUE`,
+     WHERE slug = $1
+       AND active = TRUE
+       AND verified = TRUE
+       AND COALESCE(TRIM(verification_video_url), '') <> ''`,
     [String(slug).trim().toLowerCase()]
   );
   return res.rows[0] || null;
@@ -228,6 +262,7 @@ export async function updateCreatorProfile(creatorId, fields) {
     'cover_url',
     'audio_url',
     'verification_video_url',
+    'verification_token',
     'mp_access_token',
     'subscription_price',
     'vip_monthly_price',
@@ -311,7 +346,11 @@ export async function deleteCreatorMedia(creatorId, mediaId) {
 // 5. RANKING DA PRIMEIRA PÁGINA E DESTAQUES PAGOS VIA PIX
 // =========================================================================
 export async function getHomeRanking({ city = null, state = null, limit = 60 } = {}) {
-  const conditions = ['active = TRUE', 'verified = TRUE'];
+  const conditions = [
+    'active = TRUE',
+    'verified = TRUE',
+    `COALESCE(TRIM(verification_video_url), '') <> ''`,
+  ];
   const params = [];
 
   if (city) {
@@ -394,7 +433,7 @@ export async function approveHighlightOrder(orderId, mpPaymentId = null) {
          SET tier = $2,
              featured_until = GREATEST(COALESCE(featured_until, NOW()), NOW()) + ($3 || ' days')::INTERVAL,
              last_boost_at = NOW()
-         WHERE id = $1`,
+         WHERE id = $1 AND COALESCE(TRIM(verification_video_url), '') <> ''`,
         [order.creator_id, cfg.tier, String(cfg.days)]
       );
     }
@@ -439,13 +478,38 @@ export async function hasActiveCreatorSubscription(creatorId, subscriberContact)
 // 7. MODERAÇÃO ADMIN E MÉTRICAS DE PERFORMANCE (30 DIAS)
 // =========================================================================
 export async function setCreatorApproval(creatorId, { verified, active }) {
+  const current = await getCreatorById(creatorId);
+  if (!current) {
+    return { ok: false, error: 'Perfil não encontrado.' };
+  }
+
+  const hasVideo = Boolean(String(current.verification_video_url || '').trim());
+  const nextVerified = verified !== undefined ? Boolean(verified) : Boolean(current.verified);
+  const nextActive = active !== undefined ? Boolean(active) : Boolean(current.active);
+
+  if ((nextVerified || nextActive) && !hasVideo) {
+    await pool.query(
+      `UPDATE creator_accounts
+       SET verified = FALSE,
+           active = FALSE
+       WHERE id = $1`,
+      [Number(creatorId)]
+    );
+    return {
+      ok: false,
+      error: 'Sem verificação por vídeo o perfil não pode ser aprovado nem ir para o ar.',
+    };
+  }
+
   await pool.query(
     `UPDATE creator_accounts
-     SET verified = COALESCE($2, verified),
-         active = COALESCE($3, active)
+     SET verified = $2,
+         active = $3
      WHERE id = $1`,
-    [Number(creatorId), verified, active]
+    [Number(creatorId), nextVerified, nextActive]
   );
+
+  return { ok: true, verified: nextVerified, active: nextActive };
 }
 
 export async function trackProfileEvent(creatorId, eventType) {
@@ -476,7 +540,7 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
 
   const existing = await pool.query(
     `SELECT id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
-            verified, active, tier, featured_until, last_boost_at
+            verification_video_url, verified, active, tier, featured_until, last_boost_at
      FROM creator_accounts
      WHERE email = $1
      LIMIT 1`,
@@ -492,11 +556,11 @@ export async function findOrCreateGoogleCreator({ email, name, picture }) {
 
   const created = await pool.query(
     `INSERT INTO creator_accounts (
-      email, password_hash, slug, stage_name, city, state, avatar_url, cover_url
+      email, password_hash, slug, stage_name, city, state, avatar_url, cover_url, verified, active
     )
-    VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', $5, $5)
+    VALUES ($1, $2, $3, $4, 'Cuiabá', 'MT', $5, $5, FALSE, FALSE)
     RETURNING id, email, slug, stage_name, city, state, whatsapp, hourly_rate, vip_monthly_price, vip_anchor_price, bio, avatar_url, cover_url,
-              verified, active, tier, featured_until, last_boost_at`,
+              verification_video_url, verified, active, tier, featured_until, last_boost_at`,
     [cleanEmail, randomPass, slug, String(name || 'Modelo VIP').trim(), picture || null]
   );
 

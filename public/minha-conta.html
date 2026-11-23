@@ -51,86 +51,6 @@
     }
     .studio-toast.show { transform: translateX(-50%) translateY(0); }
 
-    /* Menu Hambúrguer & Drawer Lateral */
-    .hamburger-btn {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      width: 38px;
-      height: 38px;
-      border-radius: 11px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: 0.15s;
-    }
-    .hamburger-btn:hover { border-color: #334155; background: #172033; }
-    .drawer-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(5, 8, 15, 0.78);
-      backdrop-filter: blur(6px);
-      z-index: 9990;
-      display: none;
-    }
-    .drawer-backdrop.open { display: block; }
-    .side-drawer {
-      position: fixed;
-      top: 0;
-      left: -300px;
-      width: 285px;
-      height: 100dvh;
-      background: var(--bg-card);
-      border-right: 1px solid var(--border);
-      z-index: 9995;
-      padding: 20px 16px;
-      display: flex;
-      flex-direction: column;
-      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 16px 0 40px rgba(0, 0, 0, 0.7);
-    }
-    .side-drawer.open { left: 0; }
-    .drawer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
-    }
-    .drawer-label {
-      font-size: 10.5px;
-      font-weight: 800;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin: 10px 0 8px;
-    }
-    .drawer-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 11px 14px;
-      border-radius: 12px;
-      color: var(--text-main);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      transition: 0.15s;
-    }
-    .drawer-link:hover { border-color: var(--accent); color: #fff; }
-    .drawer-link.primary-cta {
-      background: linear-gradient(135deg, #ec4899, #8b5cf6);
-      border: none;
-      color: #fff;
-      justify-content: center;
-      box-shadow: 0 6px 18px rgba(236, 72, 153, 0.28);
-    }
-
     /* Top Bar */
     .top-nav {
       display: flex; justify-content: space-between; align-items: center;
@@ -365,27 +285,6 @@
 <body>
   <div id="studioToast" class="studio-toast"></div>
 
-  <!-- Menu Lateral Hambúrguer -->
-  <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer()"></div>
-  <aside id="sideDrawer" class="side-drawer">
-    <div class="drawer-header">
-      <div class="brand">💎 GAROTA VIP</div>
-      <button type="button" onclick="toggleDrawer()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
-    </div>
-
-    <a href="/vip-studio" class="drawer-link primary-cta">💎 VIP Studio</a>
-
-    <div class="drawer-label">Painel & Perfil</div>
-    <a href="/minha-conta/editar" class="drawer-link">✏️ Editar Perfil Completo</a>
-    <a href="/dasbormodelo" class="drawer-link">📊 Desempenho & Retenção</a>
-    <a id="drawer-vip-public-link" href="/vitrine" target="_blank" class="drawer-link">🔥 Ver Vitrine VIP Pública ↗</a>
-    <a id="drawer-profile-public-link" href="/vitrine" target="_blank" class="drawer-link">👤 Ver Perfil Público ↗</a>
-
-    <div class="drawer-label">Explorar Plataforma</div>
-    <a href="/vitrine" class="drawer-link">🌐 Ir para Vitrine</a>
-    <a href="/reels" class="drawer-link">▶ VIP Reels</a>
-  </aside>
-
   <div class="wrap">
 
     <!-- Tela de Bloqueio Biométrico (2º Fator após Gmail/Login) -->
@@ -401,11 +300,6 @@
 
     <div class="top-nav">
       <div class="top-nav-left">
-        <button type="button" class="hamburger-btn" onclick="toggleDrawer()" aria-label="Abrir menu de navegação">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
         <a href="/vitrine" class="brand">💎 GAROTA VIP <span class="brand-tag">Studio</span></a>
       </div>
       <button id="logout-btn" class="logout-btn" onclick="logout()" style="display:none">Sair</button>
@@ -683,9 +577,22 @@
       setUploadFeedback(statusId, `⏳ ${tipo} selecionada (${f.name}). Clique em Publicar para carregar.`, 2500);
     }
 
-    function toggleDrawer() {
-      document.getElementById('sideDrawer').classList.toggle('open');
-      document.getElementById('drawerBackdrop').classList.toggle('open');
+    async function redirectAfterAuth(authToken, creatorObj) {
+      sessionStorage.setItem('portal_token', authToken);
+      localStorage.setItem('portal_token', authToken);
+      try {
+        const meRes = await fetch('/api/portal/me', { headers: { Authorization: 'Bearer ' + authToken } });
+        const meData = meRes.ok ? await meRes.json() : null;
+        const c = meData?.creator || creatorObj;
+        if (c && !String(c.verification_video_url || '').trim()) {
+          const vTok = c.verification_token || ('creator_' + c.id);
+          sessionStorage.setItem('creator_verify_token', vTok);
+          localStorage.setItem('creator_verify_token', vTok);
+          window.location.href = '/verificar?token=' + encodeURIComponent(vTok) + '&next=' + encodeURIComponent('/minha-conta/editar');
+          return;
+        }
+      } catch (_) {}
+      window.location.href = '/minha-conta/editar';
     }
 
     async function initGoogleLogin() {
@@ -718,24 +625,7 @@
       if (!data.ok) return alert(data.error);
 
       token = data.token;
-      sessionStorage.setItem('portal_token', token);
-
-      if (!data.creator.whatsapp || !data.creator.hourly_rate) {
-        window.location.href = '/minha-conta/editar';
-        return;
-      }
-
-      if (localStorage.getItem('bio_enabled') !== '1') {
-        window.location.href = '/biometria-facial?mode=register';
-        return;
-      }
-
-      if (sessionStorage.getItem('bio_verified') !== '1') {
-        window.location.href = '/biometria-facial?mode=unlock';
-        return;
-      }
-
-      window.location.href = '/minha-conta/editar';
+      await redirectAfterAuth(token, data.creator);
     }
 
     function openStudioTab(tabName) {
@@ -761,19 +651,7 @@
       const data = await res.json();
       if (!data.ok) return alert(data.error);
       token = data.token;
-      sessionStorage.setItem('portal_token', token);
-
-      if (localStorage.getItem('bio_enabled') !== '1') {
-        window.location.href = '/biometria-facial?mode=register';
-        return;
-      }
-
-      if (sessionStorage.getItem('bio_verified') !== '1') {
-        window.location.href = '/biometria-facial?mode=unlock';
-        return;
-      }
-
-      window.location.href = '/minha-conta/editar';
+      await redirectAfterAuth(token, data.creator);
     }
 
     async function doRegister() {
@@ -793,12 +671,12 @@
       const data = await res.json();
       if (!data.ok) return alert(data.error);
       token = data.token;
-      sessionStorage.setItem('portal_token', token);
-      window.location.href = '/minha-conta/editar';
+      await redirectAfterAuth(token, data.creator);
     }
 
     function logout() {
       localStorage.removeItem('bio_enabled');
+      localStorage.removeItem('portal_token');
       sessionStorage.removeItem('portal_token');
       sessionStorage.removeItem('bio_verified');
       location.reload();
@@ -810,14 +688,20 @@
       if (!res.ok) return resetSessionToLogin();
       const { creator, stats, plans } = await res.json();
 
+      if (creator && !String(creator.verification_video_url || '').trim()) {
+        const vTok = creator.verification_token || ('creator_' + creator.id);
+        sessionStorage.setItem('creator_verify_token', vTok);
+        localStorage.setItem('creator_verify_token', vTok);
+        window.location.replace('/verificar?token=' + encodeURIComponent(vTok) + '&next=' + encodeURIComponent('/minha-conta/editar'));
+        return;
+      }
+
       currentStateUF = creator.state || 'MT';
 
       document.getElementById('auth-box').style.display = 'none';
       document.getElementById('dash-box').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block';
       document.getElementById('profile-link').href = '/acompanhante/' + creator.slug;
-      document.getElementById('drawer-vip-public-link').href = '/vip/' + creator.slug;
-      document.getElementById('drawer-profile-public-link').href = '/acompanhante/' + creator.slug;
       document.getElementById('status-badge').innerText = creator.verified
         ? '✅ Ativo | ' + creator.tier.toUpperCase()
         : '⏳ Aguardando aprovação';
@@ -1123,10 +1007,7 @@
 
       if (!verRes.ok) return alert(verRes.error || 'Falha na leitura biométrica.');
       token = verRes.token;
-      sessionStorage.setItem('portal_token', token);
-      localStorage.setItem('bio_enabled', '1');
-      sessionStorage.setItem('bio_verified', '1');
-      loadDashboard();
+      await redirectAfterAuth(token, verRes.creator);
     }
 
     let livenessStream = null;
@@ -1197,13 +1078,11 @@
     }
 
     let leftAt = 0;
-    let isBioLocked = false;
 
     function resetSessionToLogin() {
       token = '';
       sessionStorage.removeItem('portal_token');
       sessionStorage.removeItem('bio_verified');
-      isBioLocked = false;
       document.getElementById('bio-lock-screen').style.display = 'none';
       document.getElementById('dash-box').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none';
@@ -1248,12 +1127,7 @@
 
         if (!verRes.ok) return alert(verRes.error || 'Biometria não reconhecida.');
         token = verRes.token;
-        sessionStorage.setItem('portal_token', token);
-        localStorage.setItem('bio_enabled', '1');
-        sessionStorage.setItem('bio_verified', '1');
-        isBioLocked = false;
-        document.getElementById('bio-lock-screen').style.display = 'none';
-        loadDashboard();
+        await redirectAfterAuth(token, verRes.creator);
       } catch (e) {
         alert('Confirmação biométrica cancelada.');
       }

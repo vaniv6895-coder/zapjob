@@ -507,7 +507,18 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
   });
 
   app.put('/api/portal/me', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const updated = await updateCreatorProfile(req.creator.id, req.body || {});
+    const body = req.body || {};
+    const nextVideoUrl = body.verification_video_url !== undefined
+      ? String(body.verification_video_url || '').trim()
+      : String(req.creator?.verification_video_url || '').trim();
+
+    if ((body.active === true || body.verified === true) && !nextVideoUrl) {
+      return reply.status(400).send({
+        error: 'Sem a verificação por vídeo o perfil não é aprovado e não vai para o ar.',
+      });
+    }
+
+    const updated = await updateCreatorProfile(req.creator.id, body);
     return reply.send({ ok: true, creator: updated });
   });
 
@@ -563,6 +574,7 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         WHERE m.media_type = 'video'
           AND m.visibility IN ('public', 'preview')
           AND c.active = TRUE AND c.verified = TRUE
+          AND COALESCE(TRIM(c.verification_video_url), '') <> ''
         ORDER BY m.created_at DESC
         LIMIT 20
       `),
@@ -570,7 +582,10 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         SELECT DISTINCT ON (m.creator_id)
           m.id, m.creator_id, m.media_type, m.public_url, m.caption, m.link_url, m.link_label
         FROM creator_media m
+        JOIN creator_accounts c ON c.id = m.creator_id
         WHERE m.visibility = 'public'
+          AND c.active = TRUE AND c.verified = TRUE
+          AND COALESCE(TRIM(c.verification_video_url), '') <> ''
         ORDER BY m.creator_id, m.created_at DESC
       `).catch(() => ({ rows: [] })),
       pool.query(`
@@ -704,8 +719,11 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
 
   app.post('/api/portal/admin/approve', async (req, reply) => {
     const { creatorId, verified, active } = req.body || {};
-    await setCreatorApproval(creatorId, { verified, active });
-    return reply.send({ ok: true });
+    const result = await setCreatorApproval(creatorId, { verified, active });
+    if (!result.ok) {
+      return reply.status(400).send({ ok: false, error: result.error });
+    }
+    return reply.send({ ok: true, verified: result.verified, active: result.active });
   });
 
   app.post('/api/portal/admin/seed', async (req, reply) => {
@@ -719,9 +737,9 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     for (const d of demos) {
       const slug = d.name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 999);
       await pool.query(
-        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url, verified, active, tier, featured_until)
-         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, TRUE, TRUE, $8, NOW() + INTERVAL '30 days')`,
-        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.rate, d.img, d.tier]
+        `INSERT INTO creator_accounts (email, password_hash, slug, stage_name, city, state, whatsapp, hourly_rate, bio, avatar_url, cover_url, verification_video_url, verified, active, tier, featured_until)
+         VALUES ($1, 'demo:hash', $2, $3, $4, $5, '65999999999', $6, 'Atendimento VIP exclusivo e fotos verificadas.', $7, $7, $8, TRUE, TRUE, $9, NOW() + INTERVAL '30 days')`,
+        [`${slug}@demo.com`, slug, d.name, d.city, d.state, d.rate, d.img, 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4', d.tier]
       );
     }
     return reply.send({ ok: true });

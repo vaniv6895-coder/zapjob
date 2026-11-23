@@ -3,161 +3,202 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Verificação de Identidade • Vídeo Real</title>
+  <title>Verificação Obrigatória • Vídeo Ao Vivo</title>
   <style>
     :root {
-      --bg: #0b111a;
-      --card: #131c2e;
-      --border: #26344d;
-      --text: #f1f5f9;
-      --muted: #94a3b8;
-      --accent: #00a884;
+      --bg: #09090b;
+      --card: #121216;
+      --surface: #0d0d10;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --accent: #e11d48;
+      --success: #10b981;
       --danger: #ef4444;
       --amber: #f59e0b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body {
-      min-height: 100vh;
+    html, body {
+      width: 100%;
+      min-height: 100dvh;
       background: var(--bg);
       color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
     }
-    .box {
+    .page-fullscreen {
+      min-height: 100dvh;
       width: 100%;
-      max-width: 440px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 16px 28px;
+      max-width: 520px;
+      margin: 0 auto;
       gap: 14px;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
     }
-    h1 { font-size: 18px; font-weight: 700; }
+    .header {
+      text-align: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge-req {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #fda4af;
+      background: rgba(225, 29, 72, 0.16);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      padding: 4px 12px;
+      border-radius: 99px;
+      margin-bottom: 8px;
+    }
+    h1 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
     p.sub { font-size: 13px; color: var(--muted); line-height: 1.45; }
-    .challenge-card {
-      background: #0b1320;
+    p.sub strong { color: #fca5a5; }
+
+    .challenge-box {
+      background: var(--surface);
       border: 1.5px dashed var(--amber);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 14px;
       text-align: center;
     }
-    .challenge-label { font-size: 11px; text-transform: uppercase; color: var(--amber); font-weight: 700; letter-spacing: 0.5px; }
-    .code-big {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: 6px;
-      margin: 6px 0;
-      color: #fff;
-    }
+    .challenge-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--amber); letter-spacing: 0.05em; }
+    .code-big { font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #fff; margin: 6px 0; }
     .timer { font-size: 12px; color: var(--muted); }
-    video {
+
+    video.main-video {
       width: 100%;
-      max-height: 280px;
-      border-radius: 12px;
+      max-height: 36dvh;
+      border-radius: 14px;
       background: #000;
       border: 1px solid var(--border);
       object-fit: cover;
     }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button {
       width: 100%;
       border: none;
-      border-radius: 10px;
-      padding: 11px 12px;
-      font-size: 13px;
-      font-weight: 700;
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-size: 13.5px;
+      font-weight: 800;
       cursor: pointer;
       transition: 0.15s;
     }
-    .btn-cam { background: #1e293b; color: #fff; border: 1px solid var(--border); }
-    .btn-rec { background: var(--danger); color: #fff; }
-    .btn-send { background: var(--accent); color: #04241b; }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .status {
-      font-size: 12px;
-      padding: 10px 12px;
-      border-radius: 10px;
+    .btn-cam { background: #18181d; color: #fff; border: 1px solid var(--border); }
+    .btn-rec { background: var(--danger); color: #fff; }
+    .btn-send { background: var(--success); color: #04241b; letter-spacing: 0.02em; }
+    .btn-continue {
       display: none;
+      background: var(--accent);
+      color: #fff;
+      margin-top: 10px;
+    }
+    .attempts-info {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .feedback {
+      display: none;
+      padding: 11px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
       line-height: 1.4;
     }
-    .status.ok { display: block; background: rgba(0, 168, 132, 0.15); border: 1px solid var(--accent); color: #6ee7b7; }
-    .status.err { display: block; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; }
-    input.token-input {
-      width: 100%;
-      background: #0b1320;
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 13px;
-    }
-    .submitted-box {
+    .feedback.ok { display: block; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #6ee7b7; }
+    .feedback.err { display: block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
+
+    .saved-box {
       display: none;
-      padding: 12px;
-      border-radius: 12px;
-      background: #0b1320;
+      background: var(--card);
       border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
     }
-    .submitted-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
+    .saved-title { font-size: 12.5px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
+    .footer-note { text-align: center; font-size: 11.5px; color: #71717a; line-height: 1.4; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <div>
-      <h1>🎥 Verificação por Vídeo Ao Vivo</h1>
-      <p class="sub">Grave um vídeo curto falando em voz alta o código exibido abaixo para liberar sua verificação.</p>
+  <main class="page-fullscreen">
+    <div class="header">
+      <span class="badge-req">Etapa Obrigatória</span>
+      <h1>🎥 Aguardando Vídeo de Verificação</h1>
+      <p class="sub">
+        Sem esta verificação por vídeo ao vivo, seu perfil <strong>não é aprovado e não vai para o ar</strong>.
+        Grave falando o código em voz alta.
+      </p>
     </div>
 
-    <input type="text" id="verify-token" class="token-input" placeholder="Token/ID da verificação (se exigido)" />
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="challenge-box">
+        <div class="challenge-label">Fale este código no vídeo agora</div>
+        <div class="code-big" id="challenge-code">----</div>
+        <div class="timer" id="challenge-timer">Carregando código...</div>
+      </div>
 
-    <div class="challenge-card">
-      <div class="challenge-label">Fale este código no vídeo agora</div>
-      <div class="code-big" id="challenge-code">----</div>
-      <div class="timer" id="challenge-timer">Carregando desafio...</div>
+      <video id="preview" class="main-video" autoplay playsinline muted></video>
+
+      <div class="grid-2">
+        <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
+        <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
+      </div>
+
+      <button type="button" class="btn-send" id="btn-send" disabled>OBRIGATÓRIO • Enviar Vídeo de Verificação</button>
+      <div class="attempts-info" id="attempts-info">Envios utilizados: 0 de 5 (5 restantes)</div>
+
+      <div class="feedback" id="feedback-box"></div>
+
+      <div class="saved-box" id="saved-box">
+        <div class="saved-title" id="saved-title">✅ Vídeo de verificação na tela</div>
+        <video id="saved-video" class="main-video" style="max-height:28dvh;" controls playsinline></video>
+        <button type="button" class="btn-continue" id="btn-continue" onclick="irParaConta()">
+          Continuar para o Perfil →
+        </button>
+      </div>
     </div>
 
-    <video id="preview" autoplay playsinline muted></video>
-
-    <div class="row">
-      <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
-      <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
+    <div class="footer-note">
+      Você tem até 5 chances para refazer seu vídeo ao vivo caso mude algo no seu corpo ou visual depois.
     </div>
-
-    <button type="button" class="btn-send" id="btn-send" disabled>Enviar Vídeo de Verificação</button>
-
-    <div class="status" id="status-box"></div>
-
-    <div class="submitted-box" id="submitted-box">
-      <div class="submitted-label" id="submitted-label">✅ Vídeo de verificação na tela</div>
-      <video id="submitted-video" controls playsinline></video>
-    </div>
-  </div>
+  </main>
 
   <script>
+    const MAX_ATTEMPTS = 5;
     const params = new URLSearchParams(window.location.search);
-    const tokenInput = document.getElementById('verify-token');
-    if (params.get('token')) tokenInput.value = params.get('token');
+    const nextUrl = params.get('next') || '/minha-conta/editar';
+    let token = (
+      params.get('token') ||
+      sessionStorage.getItem('creator_verify_token') ||
+      localStorage.getItem('creator_verify_token') ||
+      ''
+    ).trim();
+
+    if (!token) {
+      token = 'ver_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+    sessionStorage.setItem('creator_verify_token', token);
+    localStorage.setItem('creator_verify_token', token);
 
     const codeEl = document.getElementById('challenge-code');
     const timerEl = document.getElementById('challenge-timer');
-    const videoEl = document.getElementById('preview');
-    const btnOpenCam = document.getElementById('btn-open-cam');
-    const btnRecord = document.getElementById('btn-record');
+    const previewEl = document.getElementById('preview');
+    const btnCam = document.getElementById('btn-open-cam');
+    const btnRec = document.getElementById('btn-record');
     const btnSend = document.getElementById('btn-send');
-    const statusBox = document.getElementById('status-box');
-    const submittedBox = document.getElementById('submitted-box');
-    const submittedVideo = document.getElementById('submitted-video');
-    const submittedLabel = document.getElementById('submitted-label');
+    const attemptsInfo = document.getElementById('attempts-info');
+    const feedbackBox = document.getElementById('feedback-box');
+    const savedBox = document.getElementById('saved-box');
+    const savedVideo = document.getElementById('saved-video');
+    const savedTitle = document.getElementById('saved-title');
+    const btnContinue = document.getElementById('btn-continue');
 
     let stream = null;
     let recorder = null;
@@ -165,39 +206,54 @@
     let recordedBlob = null;
     let challengeCode = '';
     let expiresAt = 0;
+    let attemptsUsed = 0;
 
-    function setStatus(msg, type = 'ok') {
-      statusBox.textContent = msg;
-      statusBox.className = `status ${type}`;
+    function setFeedback(msg, ok = true) {
+      feedbackBox.textContent = msg;
+      feedbackBox.className = `feedback ${ok ? 'ok' : 'err'}`;
     }
 
-    function showSavedVerificationVideo(videoUrl, status) {
-      if (!videoUrl) return;
-      submittedVideo.src = videoUrl;
-      submittedBox.style.display = 'block';
-      const statusMap = {
-        pending_review: '⏳ Vídeo enviado — aguardando revisão',
-        verified: '✅ Perfil verificado com este vídeo',
-        rejected: '❌ Vídeo recusado — grave um novo com o código atual',
-      };
-      submittedLabel.textContent = statusMap[status] || '✅ Vídeo de verificação enviado';
+    function updateAttemptsUI(used) {
+      attemptsUsed = Math.min(MAX_ATTEMPTS, Number(used || 0));
+      const left = Math.max(0, MAX_ATTEMPTS - attemptsUsed);
+      attemptsInfo.textContent = `Envios utilizados: ${attemptsUsed} de ${MAX_ATTEMPTS} (${left} restante${left === 1 ? '' : 's'})`;
+      if (left === 0) {
+        btnCam.disabled = true;
+        btnRec.disabled = true;
+        btnSend.disabled = true;
+      }
+    }
+
+    function showSavedVideo(url, status) {
+      if (!url) return;
+      savedVideo.src = url;
+      savedBox.style.display = 'block';
+      savedTitle.textContent = status === 'verified'
+        ? '✅ Verificação aprovada — perfil liberado para ir ao ar'
+        : '⏳ Vídeo enviado — aguardando aprovação para ir ao ar';
+      if (status === 'pending_review' || status === 'verified') {
+        btnContinue.style.display = 'block';
+      }
+    }
+
+    function irParaConta() {
+      window.location.href = nextUrl;
     }
 
     function genLocalCode() {
       challengeCode = String(Math.floor(1000 + Math.random() * 9000));
-      expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutos
+      expiresAt = Date.now() + 3 * 60 * 1000;
       codeEl.textContent = challengeCode;
     }
 
     async function loadChallenge() {
       try {
-        const q = tokenInput.value.trim() ? `?token=${encodeURIComponent(tokenInput.value.trim())}` : '';
-        const res = await fetch(`/api/verification/challenge${q}`);
+        const res = await fetch('/api/verification/challenge?token=' + encodeURIComponent(token));
         if (res.ok) {
           const data = await res.json();
           if (data.code) {
             challengeCode = String(data.code);
-            expiresAt = data.expiresAt || (Date.now() + 3 * 60 * 1000);
+            expiresAt = Number(data.expiresAt) || (Date.now() + 3 * 60 * 1000);
             codeEl.textContent = challengeCode;
             return;
           }
@@ -206,37 +262,40 @@
       genLocalCode();
     }
 
-    async function checkExistingVerification() {
-      const tok = tokenInput.value.trim();
-      if (!tok) return;
+    async function checkStatus() {
       try {
-        const res = await fetch(`/api/verification/status?token=${encodeURIComponent(tok)}`);
+        const res = await fetch('/api/verification/status?token=' + encodeURIComponent(token));
         if (!res.ok) return;
         const data = await res.json();
-        if (data.found && data.videoUrl) {
-          showSavedVerificationVideo(data.videoUrl, data.status);
+        if (data.found) {
+          updateAttemptsUI(data.attemptsCount || 0);
+          if (data.videoUrl) {
+            showSavedVideo(data.videoUrl, data.status);
+          }
         }
       } catch (_) {}
     }
 
     setInterval(() => {
       if (!expiresAt) return;
-      const leftSec = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      if (leftSec === 0) {
-        genLocalCode();
-        setStatus('O tempo do código expirou. Um novo código foi gerado.', 'err');
+      const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      if (left === 0) {
+        loadChallenge();
+        setFeedback('O tempo acabou. Um novo código foi gerado.', false);
       }
-      const min = String(Math.floor(leftSec / 60)).padStart(2, '0');
-      const sec = String(leftSec % 60).padStart(2, '0');
-      timerEl.textContent = `Expira em ${min}:${sec}`;
+      const m = String(Math.floor(left / 60)).padStart(2, '0');
+      const s = String(left % 60).padStart(2, '0');
+      timerEl.textContent = `Expira em ${m}:${s}`;
     }, 1000);
 
-    btnOpenCam.addEventListener('click', async () => {
+    btnCam.addEventListener('click', async () => {
+      if (attemptsUsed >= MAX_ATTEMPTS) return;
       try {
         if (stream) stream.getTracks().forEach(t => t.stop());
-        videoEl.srcObject = null;
-        videoEl.src = '';
-        videoEl.muted = true;
+        previewEl.srcObject = null;
+        previewEl.src = '';
+        previewEl.muted = true;
+        previewEl.controls = false;
         recordedBlob = null;
         btnSend.disabled = true;
 
@@ -244,42 +303,41 @@
           video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
           audio: true
         });
-        videoEl.srcObject = stream;
-        await videoEl.play();
-        btnRecord.disabled = false;
-        setStatus('Câmera pronta. Clique em Gravar Vídeo e fale o código em voz alta.', 'ok');
-      } catch (err) {
-        setStatus('Não foi possível acessar a câmera/microfone. Verifique as permissões do navegador.', 'err');
+        previewEl.srcObject = stream;
+        await previewEl.play();
+        btnRec.disabled = false;
+        setFeedback(`Câmera pronta. Grave e fale o código ${challengeCode} em voz alta.`, true);
+      } catch (_) {
+        setFeedback('Permita o acesso à câmera e ao microfone no navegador.', false);
       }
     });
 
-    btnRecord.addEventListener('click', () => {
+    btnRec.addEventListener('click', () => {
       if (!recorder || recorder.state === 'inactive') {
         if (!stream) return;
         chunks = [];
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
           ? 'video/webm;codecs=vp8,opus'
           : (MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '');
 
-        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         recorder.onstop = () => {
-          const finalType = recorder.mimeType || 'video/webm';
-          recordedBlob = new Blob(chunks, { type: finalType });
+          recordedBlob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
           if (stream) stream.getTracks().forEach(t => t.stop());
-          videoEl.srcObject = null;
-          videoEl.src = URL.createObjectURL(recordedBlob);
-          videoEl.muted = false;
-          videoEl.controls = true;
-          videoEl.play();
-          btnRecord.textContent = '⏺️ Gravar de Novo';
+          previewEl.srcObject = null;
+          previewEl.src = URL.createObjectURL(recordedBlob);
+          previewEl.muted = false;
+          previewEl.controls = true;
+          previewEl.play();
+          btnRec.textContent = '⏺️ Gravar de Novo';
           btnSend.disabled = false;
-          setStatus('Vídeo gravado! Confira se o código ficou claro e clique em Enviar.', 'ok');
+          setFeedback('Vídeo gravado! Confira e clique em OBRIGATÓRIO • Enviar Vídeo.', true);
         };
 
         recorder.start();
-        btnRecord.textContent = '⏹️ Parar Gravação';
-        setStatus(`Gravando... Fale o código ${challengeCode} com clareza!`, 'ok');
+        btnRec.textContent = '⏹️ Parar Gravação';
+        setFeedback(`Gravando... Fale o código ${challengeCode} com clareza!`, true);
       } else {
         recorder.stop();
       }
@@ -294,48 +352,56 @@
     btnSend.addEventListener('click', async () => {
       if (!recordedBlob) return;
       if (Date.now() > expiresAt) {
-        genLocalCode();
-        setStatus('O código havia expirado. Grave novamente com o novo código.', 'err');
+        loadChallenge();
+        setFeedback('O código expirou. Grave novamente com o novo código.', false);
         return;
       }
 
       btnSend.disabled = true;
-      setStatus('Validando e enviando vídeo...', 'ok');
+      setFeedback('Validando hash e enviando vídeo...', true);
 
       try {
         const fileHash = await sha256Hex(recordedBlob);
         const ext = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
-        const form = new FormData();
-        form.append('video', recordedBlob, `verificacao_${Date.now()}.${ext}`);
-        form.append('challengeCode', challengeCode);
-        form.append('expiresAt', String(expiresAt));
-        form.append('fileHash', fileHash);
-        form.append('token', tokenInput.value.trim());
+        const fd = new FormData();
+        fd.append('video', recordedBlob, `verificacao_${Date.now()}.${ext}`);
+        fd.append('challengeCode', challengeCode);
+        fd.append('expiresAt', String(expiresAt));
+        fd.append('fileHash', fileHash);
+        fd.append('token', token);
 
-        const res = await fetch('/api/verification/submit', {
-          method: 'POST',
-          body: form
-        });
-
+        const res = await fetch('/api/verification/submit', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setStatus(data.error || 'Falha na validação do vídeo.', 'err');
+          setFeedback(data.error || 'Falha na validação do vídeo.', false);
           btnSend.disabled = false;
           return;
         }
 
-        if (data.videoUrl) {
-          showSavedVerificationVideo(data.videoUrl, data.status);
+        updateAttemptsUI(data.attemptsCount || (attemptsUsed + 1));
+
+        const portalToken = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token');
+        if (portalToken && data.videoUrl) {
+          await fetch('/api/portal/me', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + portalToken },
+            body: JSON.stringify({
+              verification_token: token,
+              verification_video_url: data.videoUrl,
+            }),
+          }).catch(() => {});
         }
-        setStatus('Verificação enviada com sucesso! O vídeo já aparece abaixo na tela.', 'ok');
-      } catch (err) {
-        setStatus('Erro de rede ao enviar o vídeo.', 'err');
+
+        showSavedVideo(data.videoUrl, data.status);
+        setFeedback('Vídeo enviado! Ele já está aparecendo na sua tela.', true);
+      } catch (_) {
+        setFeedback('Erro de rede ao enviar o vídeo.', false);
         btnSend.disabled = false;
       }
     });
 
     loadChallenge();
-    checkExistingVerification();
+    checkStatus();
   </script>
 </body>
 </html>

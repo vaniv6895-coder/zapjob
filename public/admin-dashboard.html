@@ -471,6 +471,7 @@
       white-space: nowrap;
     }
     .btn-action-sm:hover { background: var(--lime-bright); }
+    .btn-action-sm:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-dark-sm {
       background: #232724;
       color: #fff;
@@ -567,6 +568,10 @@
       color: #090d0a;
       border-color: var(--lime);
     }
+    .approval-card.no-video {
+      border-color: rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.08);
+    }
     .approval-card.highlight .sub-txt { color: #1f291e; }
     .creator-email-txt {
       font-size: 11px;
@@ -575,6 +580,12 @@
       margin-top: 2px;
     }
     .approval-card.highlight .creator-email-txt { color: #064e3b; font-weight: 600; }
+    .no-video-warn {
+      font-size: 11px;
+      font-weight: 700;
+      color: #fca5a5;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -833,7 +844,7 @@
       </div>
 
       <div>
-        <div class="rail-title">🛡️ Modelos Cadastradas (Nome & Gmail)</div>
+        <div class="rail-title">🛡️ Modelos Cadastradas (Vídeo & Aprovação)</div>
         <div id="modelsApprovalList"></div>
       </div>
     </aside>
@@ -1119,21 +1130,33 @@
         return;
       }
 
-      box.innerHTML = list.map(c => `
-        <div class="approval-card ${!c.verified ? 'highlight' : ''}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-            <div style="min-width:0;">
-              <strong style="font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#${c.id} ${c.stage_name || 'Sem nome'}</strong>
-              <div class="creator-email-txt">✉️ ${c.email || 'Sem e-mail'}</div>
-              <span class="sub-txt" style="font-size:11px;color:var(--text-muted);display:block;margin-top:2px;">${c.city || '-'}-${c.state || '-'} • ${(c.tier || 'free').toUpperCase()}</span>
+      box.innerHTML = list.map(c => {
+        const hasVideo = Boolean(String(c.verification_video_url || '').trim());
+        const cardClass = !hasVideo
+          ? 'approval-card no-video'
+          : (!c.verified ? 'approval-card highlight' : 'approval-card');
+
+        const btnHtml = !hasVideo
+          ? `<button type="button" disabled class="btn-action-sm" title="Sem vídeo de verificação o perfil não é aprovado e não vai para o ar">🚫 Sem Vídeo</button>`
+          : `<button onclick="toggleApprove(${c.id}, ${!c.verified})" class="${c.verified ? 'btn-dark-sm' : 'btn-action-sm'}" style="${!c.verified ? 'background:#090d0a;color:#a3e635;' : ''}">${c.verified ? '✅ Ativa' : '⏳ Aprovar'}</button>`;
+
+        return `
+          <div class="${cardClass}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+              <div style="min-width:0;">
+                <strong style="font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">#${c.id} ${c.stage_name || 'Sem nome'}</strong>
+                <div class="creator-email-txt">✉️ ${c.email || 'Sem e-mail'}</div>
+                <span class="sub-txt" style="font-size:11px;color:var(--text-muted);display:block;margin-top:2px;">${c.city || '-'}-${c.state || '-'} • ${(c.tier || 'free').toUpperCase()}</span>
+              </div>
+              ${btnHtml}
             </div>
-            <button onclick="toggleApprove(${c.id}, ${!c.verified})" class="${c.verified ? 'btn-dark-sm' : 'btn-action-sm'}" style="${!c.verified ? 'background:#090d0a;color:#a3e635;' : ''}">
-              ${c.verified ? '✅ Ativa' : '⏳ Aprovar'}
-            </button>
+            ${!hasVideo
+              ? `<div class="no-video-warn">⚠ Sem vídeo de verificação: não aprova e não vai para o ar.</div>`
+              : `<a href="${c.verification_video_url}" target="_blank" style="display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:${!c.verified ? '#090d0a' : '#a3e635'};text-decoration:none;">🎥 Ver Vídeo de Verificação ↗</a>`
+            }
           </div>
-          ${c.verification_video_url ? `<a href="${c.verification_video_url}" target="_blank" style="display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:${!c.verified ? '#090d0a' : '#a3e635'};text-decoration:none;">🎥 Ver Vídeo Facial ↗</a>` : ''}
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function filtrarModelos() {
@@ -1147,11 +1170,15 @@
     }
 
     async function toggleApprove(id, status) {
-      await adminFetch('/api/portal/admin/approve', {
+      const res = await adminFetch('/api/portal/admin/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId: id, verified: status, active: status }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        alert(data.error || 'Sem verificação por vídeo o perfil não é aprovado e não vai para o ar.');
+      }
       carregarDashboard();
     }
 

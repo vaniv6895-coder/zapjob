@@ -993,8 +993,8 @@
       </div>
 
       <div class="reviews-promo-banner">
-        <h4>🔓 Avaliações Liberadas!</h4>
-        <p>Consulte os depoimentos verificados de clientes reais e contrate com muito mais segurança.</p>
+        <h4>🔓 Avaliações Verificadas e Aprovadas!</h4>
+        <p>Toda avaliação é enviada primeiro para {{STAGE_NAME}} e só aparece aqui após a aprovação dela.</p>
       </div>
 
       <div class="reviews-metrics-3">
@@ -1008,7 +1008,7 @@
         </div>
         <div class="rm-item">
           <strong>💬 100%</strong>
-          <span>avaliações respondidas</span>
+          <span>avaliações revisadas</span>
         </div>
       </div>
 
@@ -1055,16 +1055,17 @@
       </div>
 
       <div class="safe-reviews-box">
-        <strong>ℹ️ Avaliações seguras</strong>
-        <p>Temos um compromisso com a verdade: todas as avaliações são verificadas por nossa equipe. Compartilhe sua experiência autêntica com tranquilidade.</p>
+        <strong>ℹ️ Avaliações aprovadas pela acompanhante</strong>
+        <p>Os comentários enviados vão primeiro para a <strong>acompanhante</strong> e só entram no perfil após a aprovação dela.</p>
       </div>
 
       <button type="button" class="btn-write-review" onclick="toggleReviewForm()">
-        ✍️ Deixar uma avaliação gratuita
+        ✍️ Enviar avaliação para aprovação da acompanhante
       </button>
 
       <div id="write-review-box" class="write-review-box">
-        <strong style="display:block;font-size:14px;margin-bottom:10px;color:#263238;">Sua avaliação sobre {{STAGE_NAME}}</strong>
+        <strong style="display:block;font-size:14px;margin-bottom:6px;color:#263238;">Enviar avaliação para {{STAGE_NAME}}</strong>
+        <p style="font-size:12px;color:#5d7a89;margin-bottom:10px;">Seu comentário será enviado primeiro para {{STAGE_NAME}} e só aparecerá no perfil depois que ela aprovar.</p>
         <input type="text" id="rev-author" placeholder="Seu nome ou apelido (ex: Rafael Faria)" />
         <select id="rev-stars">
           <option value="5">★★★★★ (5.0 - Muito satisfeito)</option>
@@ -1074,7 +1075,7 @@
         <input type="text" id="rev-title" placeholder="Título curto (ex: Atendimento maravilhoso!)" />
         <textarea id="rev-comment" rows="3" placeholder="Conte como foi sua experiência..."></textarea>
         <button type="button" class="btn-write-review" style="margin-bottom:0;background:#389e47;" onclick="submitReview()">
-          Publicar Avaliação
+          Enviar para Aprovação da Acompanhante
         </button>
       </div>
 
@@ -1258,23 +1259,31 @@
       box.style.display = box.style.display === 'block' ? 'none' : 'block';
     }
 
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
     function renderCommentCard(rev) {
-      const initials = (rev.author || 'CL').slice(0, 2).toUpperCase();
+      const author = escapeHtml(rev.author_name || rev.author || 'Cliente');
+      const title = escapeHtml(rev.title || 'Atendimento excelente');
+      const comment = escapeHtml(rev.comment || '');
+      const stars = Math.min(5, Math.max(1, Number(rev.stars) || 5));
+      const initials = author.slice(0, 2).toUpperCase();
       return `
         <div class="comment-card">
           <div class="comment-user-row">
             <div class="comment-avatar">${initials}</div>
             <div>
-              <strong style="font-size:14px;color:#263238;display:block;">${rev.author}</strong>
+              <strong style="font-size:14px;color:#263238;display:block;">${author}</strong>
               <span style="font-size:11px;color:#5d7a89;display:block;">Cliente verificado</span>
-              <span class="super-badge">✅ Avaliação verificada</span>
+              <span class="super-badge">✅ Aprovado pela acompanhante</span>
             </div>
           </div>
           <div style="font-size:12px;font-weight:700;color:#263238;">
-            ${rev.stars} ★ Muito satisfeito • <span style="font-weight:500;color:#5d7a89;">agora mesmo</span>
+            ${stars} ★ Muito satisfeito
           </div>
-          <div class="comment-title">${rev.title}</div>
-          <div class="comment-text">${rev.comment}</div>
+          <div class="comment-title">${title}</div>
+          <div class="comment-text">${comment}</div>
           <div class="comment-footer-detail">
             <span>📷 Fotos reais:</span>
             <span style="color:#263238;">5 ★★★★★</span>
@@ -1283,41 +1292,51 @@
       `;
     }
 
-    function loadSavedReviews() {
-      const saved = JSON.parse(localStorage.getItem('reviews_' + profileSlug) || '[]');
-      if (saved.length > 0) {
-        const list = document.getElementById('comments-list');
-        list.insertAdjacentHTML('afterbegin', saved.map(renderCommentCard).join(''));
-        const total = baseReviewsCount + saved.length;
-        document.querySelectorAll('.rev-count-label').forEach(el => el.innerText = total);
-      }
+    async function loadApprovedReviews() {
+      try {
+        const res = await fetch('/api/portal/creators/' + encodeURIComponent(profileSlug) + '/reviews');
+        if (!res.ok) return;
+        const data = await res.json();
+        const approved = Array.isArray(data.reviews) ? data.reviews : [];
+        if (approved.length > 0) {
+          const list = document.getElementById('comments-list');
+          list.insertAdjacentHTML('afterbegin', approved.map(renderCommentCard).join(''));
+          const total = baseReviewsCount + approved.length;
+          document.querySelectorAll('.rev-count-label').forEach(el => el.innerText = total);
+        }
+      } catch (_) {}
     }
 
-    function submitReview() {
+    async function submitReview() {
       const author = document.getElementById('rev-author').value.trim() || 'Cliente Anônimo';
       const stars = document.getElementById('rev-stars').value;
       const title = document.getElementById('rev-title').value.trim() || 'Atendimento excelente';
       const comment = document.getElementById('rev-comment').value.trim();
 
-      if (!comment) return alert('Por favor, escreva um comentário antes de publicar.');
+      if (!comment) return alert('Por favor, escreva um comentário antes de enviar.');
 
-      const newRev = { author, stars, title, comment };
-      const saved = JSON.parse(localStorage.getItem('reviews_' + profileSlug) || '[]');
-      saved.unshift(newRev);
-      localStorage.setItem('reviews_' + profileSlug, JSON.stringify(saved));
+      try {
+        const res = await fetch('/api/portal/creators/' + encodeURIComponent(profileSlug) + '/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author, stars, title, comment }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return alert(data.error || 'Erro ao enviar avaliação.');
+        }
 
-      document.getElementById('comments-list').insertAdjacentHTML('afterbegin', renderCommentCard(newRev));
-      const total = baseReviewsCount + saved.length;
-      document.querySelectorAll('.rev-count-label').forEach(el => el.innerText = total);
-
-      document.getElementById('rev-author').value = '';
-      document.getElementById('rev-title').value = '';
-      document.getElementById('rev-comment').value = '';
-      document.getElementById('write-review-box').style.display = 'none';
-      alert('✅ Obrigado! Sua avaliação foi publicada.');
+        document.getElementById('rev-author').value = '';
+        document.getElementById('rev-title').value = '';
+        document.getElementById('rev-comment').value = '';
+        document.getElementById('write-review-box').style.display = 'none';
+        alert('📩 Avaliação enviada para a acompanhante! Ela só aparecerá no perfil após a aprovação dela.');
+      } catch (_) {
+        alert('Erro de rede ao enviar avaliação.');
+      }
     }
 
-    loadSavedReviews();
+    loadApprovedReviews();
   </script>
 </body>
 </html>

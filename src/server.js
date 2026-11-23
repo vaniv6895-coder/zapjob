@@ -30,6 +30,7 @@ import { getMercadoPagoPayment } from './mercadopago.js';
 
 dotenv.config();
 
+const MAX_VERIFICATION_ATTEMPTS = 5;
 const app = Fastify({ logger: true });
 
 // =========================================================================
@@ -147,14 +148,14 @@ app.get('/api/verification/status', async (req, reply) => {
     }
 
     const row = await pool.query(
-      `SELECT token, challenge_code, expires_at, video_url, status, verified_at
+      `SELECT token, challenge_code, expires_at, video_url, attempts_count, status, verified_at
        FROM model_verifications
        WHERE token = $1`,
       [token]
     );
 
     if (row.rowCount === 0) {
-      return reply.send({ ok: true, found: false });
+      return reply.send({ ok: true, found: false, attemptsCount: 0, maxAttempts: MAX_VERIFICATION_ATTEMPTS });
     }
 
     const item = row.rows[0];
@@ -164,6 +165,8 @@ app.get('/api/verification/status', async (req, reply) => {
       token: item.token,
       status: item.status,
       videoUrl: item.video_url || '',
+      attemptsCount: Number(item.attempts_count || 0),
+      maxAttempts: MAX_VERIFICATION_ATTEMPTS,
       verifiedAt: item.verified_at || null,
     });
   } catch (err) {
@@ -202,7 +205,7 @@ app.post('/api/verification/submit', async (req, reply) => {
     }
 
     const challengeRow = await pool.query(
-      `SELECT token, challenge_code, expires_at, status FROM model_verifications WHERE token = $1`,
+      `SELECT token, challenge_code, expires_at, attempts_count, status FROM model_verifications WHERE token = $1`,
       [token]
     );
 
@@ -211,6 +214,13 @@ app.post('/api/verification/submit', async (req, reply) => {
     }
 
     const challenge = challengeRow.rows[0];
+    const currentAttempts = Number(challenge.attempts_count || 0);
+    if (currentAttempts >= MAX_VERIFICATION_ATTEMPTS) {
+      return reply.status(429).send({
+        error: `Limite de ${MAX_VERIFICATION_ATTEMPTS} envios de vídeo atingido.`,
+      });
+    }
+
     if (Date.now() > Number(challenge.expires_at)) {
       return reply.status(400).send({ error: 'Código expirado. Atualize a página e grave novamente.' });
     }
@@ -236,16 +246,18 @@ app.post('/api/verification/submit', async (req, reply) => {
       });
     }
 
+    const nextAttempts = currentAttempts + 1;
     const uploaded = await uploadVerificationVideoToR2(buffer, mimeType, token, serverHash);
 
     await pool.query(
       `UPDATE model_verifications
        SET video_hash = $1,
            video_url = $2,
+           attempts_count = $3,
            status = 'pending_review',
            verified_at = NOW()
-       WHERE token = $3`,
-      [serverHash, uploaded.url, token]
+       WHERE token = $4`,
+      [serverHash, uploaded.url, nextAttempts, token]
     );
 
     return reply.send({
@@ -254,6 +266,8 @@ app.post('/api/verification/submit', async (req, reply) => {
       status: 'pending_review',
       videoUrl: uploaded.url,
       hash: serverHash,
+      attemptsCount: nextAttempts,
+      maxAttempts: MAX_VERIFICATION_ATTEMPTS,
     });
   } catch (err) {
     if (err?.code === '23505') {

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { pool } from './db.js';
 import { getCreatorBySlug, listCreatorMedia, trackProfileEvent } from './portalDb.js';
 
 const TEMPLATE_PATH = path.resolve('acompanhante.html');
@@ -22,6 +23,43 @@ function parseTagList(rawValue, fallback = []) {
       .filter(Boolean);
   }
   return fallback;
+}
+
+async function resolveVerificationVideoUrl(creator, mediaList) {
+  if (creator.verification_video_url && String(creator.verification_video_url).trim()) {
+    return String(creator.verification_video_url).trim();
+  }
+
+  const verifMediaItem = mediaList.find((m) => m.media_type === 'verification');
+  if (verifMediaItem && verifMediaItem.public_url) {
+    return verifMediaItem.public_url;
+  }
+
+  try {
+    const tokenCandidates = [
+      creator.verification_token,
+      `creator_${creator.id}`,
+    ]
+      .map((t) => String(t || '').trim())
+      .filter(Boolean);
+
+    if (tokenCandidates.length > 0) {
+      const res = await pool.query(
+        `SELECT video_url
+         FROM model_verifications
+         WHERE token = ANY($1::text[])
+           AND COALESCE(TRIM(video_url), '') <> ''
+         ORDER BY verified_at DESC NULLS LAST, id DESC
+         LIMIT 1`,
+        [tokenCandidates]
+      );
+      if (res.rows[0]?.video_url) {
+        return String(res.rows[0].video_url).trim();
+      }
+    }
+  } catch {}
+
+  return '';
 }
 
 export function registerPortalProfileRoute(app) {
@@ -75,11 +113,7 @@ export function registerPortalProfileRoute(app) {
       (audioMediaItem && audioMediaItem.public_url) ||
       (isDemoAccount ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
 
-    const verifMediaItem = mediaList.find((m) => m.media_type === 'verification');
-    const finalVerifUrl =
-      (creator.verification_video_url && String(creator.verification_video_url).trim()) ||
-      (verifMediaItem && verifMediaItem.public_url) ||
-      '';
+    const finalVerifUrl = await resolveVerificationVideoUrl(creator, mediaList);
 
     const coverUrl =
       creator.cover_url ||
