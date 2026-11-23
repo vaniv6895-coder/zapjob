@@ -10,15 +10,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function cleanMediaUrl(url = '') {
   return String(url || '')
     .trim()
-    .replace(/(\.mp4|\.mov|\.avi|\.m4v|\.jpg|\.jpeg|\.png|\.webp)(\1)+(?=$|\?)/i, '$1');
+    .replace(/(\.mp4|\.mov|\.avi|\.m4v|\.webm|\.jpg|\.jpeg|\.png|\.webp)(\1)+(?=$|\?)/i, '$1');
 }
 
 function detectMediaKind(url, declaredKind) {
   if (declaredKind === 'video' || declaredKind === 'audio' || declaredKind === 'image') {
     return declaredKind;
   }
-  if (/\.(ogg|mp3|wav|m4a|opus|webm)(\?|$)/i.test(url)) return 'audio';
-  if (/\.(mp4|mov|avi|m4v)(\?|$)/i.test(url)) return 'video';
+  if (/\.(ogg|mp3|wav|m4a|opus)(\?|$)/i.test(url)) return 'audio';
+  if (/\.(mp4|mov|avi|m4v|webm)(\?|$)/i.test(url)) return 'video';
   return 'image';
 }
 
@@ -65,10 +65,14 @@ function isDuplicateAssistantText(cleanText, assistantHistory = []) {
   return false;
 }
 
-function isPhotoRequest(text = '') {
-  return /\b(foto|fotos|imagem|imagens|pic|pics|photo|manda uma foto|me manda foto|cad[eê] a foto|mostra)\b/i.test(
+function isMediaTriggerRequest(text = '') {
+  return /\b(v[ií]deo|videos|foto|fotos|imagem|imagens|pic|pics|photo|manda|me manda|cad[eê]|mostra|pr[eé]via|previas|ver)\b/i.test(
     String(text || '')
   );
+}
+
+function isPhotoRequest(text = '') {
+  return /\b(foto|fotos|imagem|imagens|pic|pics|photo)\b/i.test(String(text || ''));
 }
 
 function detectClientLanguage(text, userId, history = []) {
@@ -125,27 +129,46 @@ function isLanguageMatch(nodeLang, clientLang) {
   return false;
 }
 
-// Pega somente vídeos e fotos configurados dentro do próprio visual_flow
-function extractFlowMedia(flow, sentUrlsSet, clientLang, desiredKind = null) {
+// Busca os vídeos/fotos configurados nos blocos do visual_flow
+function pickFlowMedia(flow, sentUrlsSet, clientLang, { preferPhoto = false, allowRepeatIfOnlyOne = false } = {}) {
   const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
-  const items = [];
+  const allMediaNodes = [];
 
   for (const n of nodes) {
     if (n.type !== 'media' || typeof n.text !== 'string' || !n.text.trim().startsWith('http')) continue;
     const url = cleanMediaUrl(n.text);
-    if (!url || sentUrlsSet.has(url)) continue;
+    if (!url) continue;
 
     const kind = detectMediaKind(url, n.mediaKind);
-    if (kind === 'audio') continue;
-    if (desiredKind && kind !== desiredKind) continue;
+    if (kind === 'audio') continue; // Nunca misturar áudio aqui
 
     const lang = n.mediaLang || 'ALL';
     if (!isLanguageMatch(lang, clientLang)) continue;
 
-    items.push({ url, kind, lang });
+    allMediaNodes.push({ url, kind, lang });
   }
 
-  return items;
+  if (allMediaNodes.length === 0) return null;
+
+  // Filtra pelo tipo desejado (vídeo por padrão, ou foto se pediu foto)
+  const targetKind = preferPhoto ? 'image' : 'video';
+  let typedPool = allMediaNodes.filter((m) => m.kind === targetKind);
+  if (typedPool.length === 0) {
+    typedPool = allMediaNodes; // Se não tiver foto, usa o vídeo do fluxo (ou vice-versa)
+  }
+
+  // Primeiro tenta um que ainda não foi enviado para este cliente
+  const unsent = typedPool.filter((m) => !sentUrlsSet.has(m.url));
+  if (unsent.length > 0) {
+    return unsent[unsent.length - 1]; // Pega o mais recente adicionado no fluxo
+  }
+
+  // Se o cliente pediu explicitamente ("manda", "cadê o vídeo") e só existe 1 mídia no fluxo, envia ela mesmo assim
+  if (allowRepeatIfOnlyOne && typedPool.length > 0) {
+    return typedPool[typedPool.length - 1];
+  }
+
+  return null;
 }
 
 async function sendTypingIndicator(channel, userId, lastMessageId, kind = 'text') {
@@ -197,8 +220,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   const history = await getMemory(channel, userId, 60);
   const assistantMessages = history.filter((m) => m.role === 'assistant');
-  const assistantAlreadyReplied = assistantMessages.length > 0;
-  const isFirstContact = !assistantAlreadyReplied;
+  const isFirstContact = assistantMessages.length === 0;
   const userMsgCount = history.filter((m) => m.role === 'user').length;
   const clientLang = detectClientLanguage(userMessage, userId, history);
 
@@ -247,6 +269,7 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
 
   const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
   const sentAudioLastTurn = Boolean(lastAssistantMsg && lastAssistantMsg.media_type === 'audio');
+  const explicitMediaAsk = isMediaTriggerRequest(userMessage);
 
   await sendTypingIndicator(channel, userId, lastMessageId, 'text');
 
@@ -262,77 +285,44 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const contextualMessage = `${userMessage}\n\n[IDIOMA DETECTADO DO CLIENTE: ${humanLang}]`;
   const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
 
+  let selectedMedia = null;
+
+  // 1. Se o cliente pediu ("manda", "cadê o vídeo", "prévia") OU já passou da 2ª mensagem sem áudio recente:
+  if (explicitMediaAsk || (userMsgCount >= 2 && !sentAudioLastTurn)) {
+    selectedMedia = pickFlowMedia(flow, sentUrls, clientLang, {
+      preferPhoto: isPhotoRequest(userMessage),
+      allowRepeatIfOnlyOne: explicitMediaAsk,
+    });
+  }
+
   if (rawAiReply) {
-    // Só aceita links que estejam explicitamente configurados nos nós de mídia do próprio fluxo
-    const flowNodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
-    const allowedFlowUrls = new Set(
-      flowNodes
-        .filter((n) => n.type === 'media' && typeof n.text === 'string' && n.text.trim().startsWith('http'))
-        .map((n) => cleanMediaUrl(n.text))
-        .filter(Boolean)
-    );
-
     const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
-    const mediaUrls = [];
-    let match;
-    while ((match = mediaRegex.exec(rawAiReply)) !== null) {
-      const foundUrl = cleanMediaUrl(match[1]);
-      if (
-        foundUrl &&
-        allowedFlowUrls.has(foundUrl) &&
-        !sentUrls.has(foundUrl) &&
-        !mediaUrls.includes(foundUrl)
-      ) {
-        mediaUrls.push(foundUrl);
-      }
-    }
-
-    if (mediaUrls.length === 0 && userMsgCount >= 2 && !sentAudioLastTurn) {
-      const desiredKind = isPhotoRequest(userMessage) ? 'image' : null;
-      const candidates =
-        (desiredKind ? extractFlowMedia(flow, sentUrls, clientLang, desiredKind) : []) || [];
-      const fallbackCandidates =
-        candidates.length > 0 ? candidates : extractFlowMedia(flow, sentUrls, clientLang, null);
-
-      if (fallbackCandidates.length > 0) {
-        mediaUrls.push(cleanMediaUrl(fallbackCandidates[fallbackCandidates.length - 1].url));
-      }
-    }
-
     let cleanText = rawAiReply.replace(mediaRegex, '').trim();
 
     if (cleanText && isDuplicateAssistantText(cleanText, assistantMessages)) {
-      if (isPhotoRequest(userMessage) && mediaUrls.length === 0) {
-        cleanText = 'As fotos completas e os ensaios ficam lá dentro do meu acesso VIP, bem mais à vontade pra você ver tudo sem pressa 😉 Dá uma olhada no link que te mandei.';
-      } else {
-        cleanText = '';
-      }
+      cleanText = '';
     }
 
-    if (cleanText && !isDuplicateAssistantText(cleanText, assistantMessages)) {
+    if (cleanText) {
       await sendTypingIndicator(channel, userId, lastMessageId, 'text');
-      await sleep(1600);
+      await sleep(1400);
       await saveMessage(channel, userId, 'assistant', cleanText, 'text', null);
       await sendChannelText(channel, userId, cleanText);
       assistantMessages.push({ role: 'assistant', content: cleanText, media_type: 'text' });
     }
+  }
 
-    const urlToSend = mediaUrls.find((u) => !sentUrls.has(cleanMediaUrl(u)));
-    if (urlToSend) {
-      const cleanUrl = cleanMediaUrl(urlToSend);
-      const kind = detectMediaKind(cleanUrl);
-      if (kind === 'audio' && sentAudioLastTurn) return;
-
-      try {
-        console.log(`[FlowEngine] Enviando ${kind} do fluxo para ${userId}: ${cleanUrl}`);
-        await sendTypingIndicator(channel, userId, lastMessageId, kind);
-        await sleep(kind === 'audio' ? 3500 : 1800);
-        await sendChannelMedia(channel, userId, cleanUrl, kind);
-        await saveMessage(channel, userId, 'assistant', `[${kind} enviado]`, kind, cleanUrl);
-        sentUrls.add(cleanUrl);
-      } catch (mediaErr) {
-        console.error('[FlowEngine] Erro ao enviar mídia:', mediaErr?.response?.data || mediaErr.message);
-      }
+  // 2. Dispara o vídeo/foto do bloco do fluxo garantido
+  if (selectedMedia && selectedMedia.url) {
+    try {
+      console.log(`[FlowEngine] Enviando ${selectedMedia.kind} do fluxo para ${userId}: ${selectedMedia.url}`);
+      await sendTypingIndicator(channel, userId, lastMessageId, selectedMedia.kind);
+      await sleep(1500);
+      await sendChannelMedia(channel, userId, selectedMedia.url, selectedMedia.kind);
+      await saveMessage(channel, userId, 'assistant', `[${selectedMedia.kind} enviado]`, selectedMedia.kind, selectedMedia.url);
+      sentUrls.add(selectedMedia.url);
+    } catch (mediaErr) {
+      console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr.message);
     }
   }
 }
