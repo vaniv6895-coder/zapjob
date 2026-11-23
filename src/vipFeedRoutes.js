@@ -62,8 +62,8 @@ function planDaysFromKey(planKey) {
   return map[String(planKey || 'm1').toLowerCase()] || 30;
 }
 
-export function registerVipFeedRoutes(app, requireCreatorAuth) {
-  pool.query(`
+export async function ensureVipTables() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS vip_posts (
       id SERIAL PRIMARY KEY,
       creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
@@ -141,6 +141,10 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS vip_plans JSONB;
     ALTER TABLE creator_accounts ADD COLUMN IF NOT EXISTS cover_video_url TEXT;
   `).catch(() => {});
+}
+
+export function registerVipFeedRoutes(app, requireCreatorAuth) {
+  ensureVipTables();
 
   app.post('/api/vip/fan-nickname', async (req, reply) => {
     const { fanCode, nickname, contact, deviceHash } = req.body || {};
