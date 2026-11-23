@@ -589,9 +589,11 @@
               <span class="text-[11px] text-pink-300 font-medium">
                 ${isSub ? 'Visível apenas para assinantes' : 'Compra única (1x)'}
               </span>
-              <button onclick="deletePost(${post.id})" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">
-                Excluir
-              </button>
+              ${
+                post.can_delete === false
+                  ? `<span class="text-[11px] text-zinc-500 font-medium" title="Disponível apenas nas primeiras 24h">Prazo de 24h encerrado</span>`
+                  : `<button onclick="deletePost(${post.id})" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">Excluir</button>`
+              }
             </div>
           </article>
         `;
@@ -600,13 +602,20 @@
 
     async function deletePost(id) {
       if (!confirm('Remover esta mídia da galeria?')) return;
-      const res = await fetch('/api/portal/vip/posts/' + id, {
-        method: 'DELETE',
-        headers: authHeaders()
-      });
-      if (res.ok) {
-        allPosts = allPosts.filter(p => p.id !== id);
-        renderGallery();
+      try {
+        const res = await fetch('/api/portal/vip/posts/' + id, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          allPosts = allPosts.filter(p => p.id !== id);
+          renderGallery();
+        } else {
+          alert(data.error || `Não foi possível excluir a publicação (${res.status}).`);
+        }
+      } catch {
+        alert('Erro de conexão ao tentar excluir a publicação.');
       }
     }
 
