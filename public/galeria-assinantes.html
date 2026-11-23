@@ -21,7 +21,7 @@
 <body class="min-h-screen pb-16">
   <!-- Topbar -->
   <header class="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/80 px-4 py-3">
-    <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-2.5">
         <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-pink-600/20 text-pink-400 border border-pink-500/30 text-lg">🔒</span>
         <div>
@@ -29,11 +29,14 @@
           <p class="text-xs text-zinc-400" id="creatorHeaderInfo">Carregando perfil...</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <a href="/vip-studio" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 transition">
-          VIP Studio
+      <div class="flex items-center gap-2 flex-wrap">
+        <a id="btnPreviewStudio" href="/vip-studio?studio=1" class="px-3 py-1.5 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/40 text-xs font-semibold text-pink-200 transition">
+          👁️ Prévia & Studio
         </a>
-        <a href="/minha-conta" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-300 transition">
+        <a id="btnPublicProfile" href="/vitrine" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 transition">
+          Perfil Público
+        </a>
+        <a href="/minha-conta?studio=1" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-300 transition">
           Minha Conta
         </a>
       </div>
@@ -61,7 +64,7 @@
       </div>
       <div class="shrink-0 bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2.5 text-left sm:text-right w-full sm:w-auto">
         <div class="text-[11px] text-zinc-400">Valor da sua assinatura</div>
-        <div class="text-lg font-extrabold text-emerald-400" id="monthlyPriceLabel">R$ 49,90/mês</div>
+        <div class="text-lg font-extrabold text-emerald-400" id="monthlyPriceLabel">R$ 25,99/mês</div>
       </div>
     </section>
 
@@ -453,7 +456,7 @@
           allow_subscription: allowSubscription
         };
 
-        const postRes = await fetch('/api/vip/posts', {
+        const postRes = await fetch('/api/portal/vip/posts', {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify(postPayload)
@@ -559,7 +562,7 @@
 
     async function deletePost(id) {
       if (!confirm('Remover esta mídia da galeria?')) return;
-      const res = await fetch('/api/vip/posts/' + id, {
+      const res = await fetch('/api/portal/vip/posts/' + id, {
         method: 'DELETE',
         headers: authHeaders()
       });
@@ -579,8 +582,8 @@
       try {
         const [meRes, postsRes, earnRes] = await Promise.all([
           fetch('/api/portal/me', { headers: authHeaders() }),
-          fetch('/api/vip/my-posts', { headers: authHeaders() }),
-          fetch('/api/vip/earnings', { headers: authHeaders() })
+          fetch('/api/portal/vip/my-posts', { headers: authHeaders() }),
+          fetch('/api/vip/earnings', { headers: authHeaders() }).catch(() => null)
         ]);
 
         if (meRes.status === 401) {
@@ -590,30 +593,35 @@
 
         const meData = await meRes.json();
         const postsData = await postsRes.json();
-        const earnData = await earnRes.json();
+        const earnData = earnRes && earnRes.ok ? await earnRes.json() : null;
 
         if (meData.creator) {
           document.getElementById('creatorHeaderInfo').textContent =
             `${meData.creator.stage_name} • ${meData.creator.city}-${meData.creator.state}`;
           document.getElementById('monthlyPriceLabel').textContent =
-            formatBRL(meData.creator.vip_monthly_price || 49.90) + '/mês';
+            formatBRL(meData.creator.vip_monthly_price || 25.99) + '/mês';
           document.getElementById('publicLinkBox').innerHTML =
             `Página pública: <a href="/vip/${encodeURIComponent(meData.creator.slug)}" target="_blank" class="text-pink-400 underline">/vip/${escapeHtml(meData.creator.slug)}</a>`;
+          const pubBtn = document.getElementById('btnPublicProfile');
+          if (pubBtn && meData.creator.slug) {
+            pubBtn.href = '/acompanhante/' + encodeURIComponent(meData.creator.slug);
+          }
         }
 
         allPosts = postsData.posts || [];
         renderGallery();
 
+        const totals = earnData?.totals || meData.vipTotals || {};
         const totalBalance =
           earnData && earnData.totalAll !== undefined
             ? earnData.totalAll
             : (meData.vipBalance ?? meData.creator?.vip_balance ?? 0);
 
         document.getElementById('totalAll').textContent = formatBRL(totalBalance);
-        document.getElementById('totalSubs').textContent = formatBRL(earnData?.totalSubs ?? 0);
-        document.getElementById('countSubs').textContent = earnData?.countSubs || 0;
-        document.getElementById('totalPpv').textContent = formatBRL(earnData?.totalPpv ?? 0);
-        document.getElementById('countPpv').textContent = earnData?.countPpv || 0;
+        document.getElementById('totalSubs').textContent = formatBRL(earnData?.totalSubs ?? totals.totalSubs ?? 0);
+        document.getElementById('countSubs').textContent = earnData?.countSubs ?? totals.countSubs ?? 0;
+        document.getElementById('totalPpv').textContent = formatBRL(earnData?.totalPpv ?? totals.totalPpv ?? 0);
+        document.getElementById('countPpv').textContent = earnData?.countPpv ?? totals.countPpv ?? 0;
 
         const tbody = document.getElementById('buyersTableBody');
         const buyers = (earnData && (earnData.sales || earnData.recentBuyers)) || meData.vipSales || [];
