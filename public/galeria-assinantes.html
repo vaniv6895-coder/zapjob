@@ -68,7 +68,7 @@
       </div>
     </section>
 
-    <!-- Box de Envio Direto de Vídeo ou Foto (R2 Presigned PUT) -->
+    <!-- Box de Envio Direto de Vídeo ou Foto (R2 Presigned PUT com fallback Direct) -->
     <section class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div>
@@ -242,6 +242,15 @@
       barEl.style.width = `${safePct}%`;
     }
 
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function otimizarVideoLocalmente(file, onProgress) {
       const sizeMb = file.size / (1024 * 1024);
       if (sizeMb <= 25) return file;
@@ -410,45 +419,74 @@
         const finalMb = (fileToUpload.size / (1024 * 1024)).toFixed(1);
         setProgress(true, `Preparando envio seguro (${finalMb} MB)...`, 5, false);
 
+        let mediaUrlFinal = '';
+        let r2KeyFinal = '';
+        let mediaTypeFinal = isVideo ? 'video' : 'image';
+        const contentTypeFinal = fileToUpload.type || (isVideo ? 'video/mp4' : 'image/jpeg');
+
         const signRes = await fetch('/api/creator/upload-url', {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({
             fileName: fileToUpload.name,
-            contentType: fileToUpload.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+            contentType: contentTypeFinal,
             visibility
           })
         });
 
-        const signData = await signRes.json().catch(() => ({}));
-        if (!signRes.ok || !signData.ok || !signData.uploadUrl) {
-          throw new Error(signData.error || 'Não foi possível gerar URL de upload');
-        }
+        if (signRes.status === 404) {
+          setProgress(true, `⬆️ Enviando ${isVideo ? 'vídeo' : 'foto'} via servidor...`, 40, false);
+          const base64Data = await fileToBase64(fileToUpload);
+          const directRes = await fetch('/api/creator/upload-direct', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({
+              fileName: fileToUpload.name,
+              contentType: contentTypeFinal,
+              visibility,
+              base64Data
+            })
+          });
+          const directData = await directRes.json().catch(() => ({}));
+          if (!directRes.ok || !directData.ok || !directData.publicUrl) {
+            throw new Error(directData.error || 'Rota de upload não encontrada.');
+          }
+          mediaUrlFinal = directData.publicUrl;
+          r2KeyFinal = directData.r2Key || '';
+          mediaTypeFinal = directData.mediaType || mediaTypeFinal;
+        } else {
+          const signData = await signRes.json().catch(() => ({}));
+          if (!signRes.ok || !signData.ok || !signData.uploadUrl) {
+            throw new Error(signData.error || 'Não foi possível gerar URL de upload');
+          }
 
-        const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, fileToUpload, (pct) => {
-          setProgress(
-            true,
-            `Enviando ${isVideo ? 'vídeo' : 'foto'} (${finalMb} MB) para nuvem privada...`,
-            pct,
-            false
-          );
-        });
+          const putRes = await uploadFileToPresignedUrl(signData.uploadUrl, fileToUpload, (pct) => {
+            setProgress(
+              true,
+              `Enviando ${isVideo ? 'vídeo' : 'foto'} (${finalMb} MB) para nuvem privada...`,
+              pct,
+              false
+            );
+          });
 
-        if (!putRes.ok) {
-          throw new Error(`Falha no upload direto (${putRes.status}). Verifique o CORS do bucket R2.`);
+          if (!putRes.ok) {
+            throw new Error(`Falha no upload direto (${putRes.status}). Verifique o CORS do bucket R2.`);
+          }
+          mediaUrlFinal = signData.publicUrl;
+          r2KeyFinal = signData.r2Key || '';
+          mediaTypeFinal = signData.mediaType || mediaTypeFinal;
         }
 
         setProgress(true, 'Salvando na galeria exclusiva...', 99, false);
 
-        const mediaTypeFinal = isVideo ? 'video' : 'image';
         const postPayload = {
           mediaType: mediaTypeFinal,
           media_type: mediaTypeFinal,
-          mediaUrl: signData.publicUrl,
-          publicUrl: signData.publicUrl,
-          media_url: signData.publicUrl,
-          r2Key: signData.r2Key,
-          r2_key: signData.r2Key,
+          mediaUrl: mediaUrlFinal,
+          publicUrl: mediaUrlFinal,
+          media_url: mediaUrlFinal,
+          r2Key: r2KeyFinal,
+          r2_key: r2KeyFinal,
           visibility,
           caption,
           price,

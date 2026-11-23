@@ -330,23 +330,47 @@ REGRA CRÍTICA DE IDIOMA:
 
 let workingModelCache = null;
 
-async function getCandidateModels() {
-  if (workingModelCache) return [workingModelCache];
+function isTransientModelError(err) {
+  const status = Number(err?.status || err?.code || err?.response?.status || 0);
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    status === 404 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    msg.includes('503') ||
+    msg.includes('overloaded') ||
+    msg.includes('unavailable') ||
+    msg.includes('high demand')
+  );
+}
 
-  const fallbacks = [
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getCandidateModels() {
+  const envPrimary = String(process.env.GEMINI_MODEL || '').trim();
+  const envFallback = String(process.env.GEMINI_FALLBACK_MODEL || '').trim();
+
+  const defaults = [
+    ...(envPrimary ? [envPrimary] : []),
     'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
     'gemini-3.6-flash',
     'gemini-3.7-flash',
     'gemini-3.8-flash',
+    ...(envFallback ? [envFallback] : []),
   ];
 
+  let listed = [];
   try {
     const pager = await ai.models.list();
-    const available = [];
     for await (const m of pager) {
-      const name = (m.name || '').replace(/^models\//, '');
+      const name = String(m.name || '').replace(/^models\//, '');
       if (
         name.includes('gemini') &&
         name.includes('flash') &&
@@ -354,13 +378,16 @@ async function getCandidateModels() {
         !name.includes('2.0') &&
         !name.includes('2.5')
       ) {
-        available.push(name);
+        listed.push(name);
       }
     }
-    return [...new Set([...fallbacks, ...available])];
-  } catch {
-    return fallbacks;
+  } catch {}
+
+  const merged = [...new Set([...defaults, ...listed])];
+  if (workingModelCache && merged.includes(workingModelCache)) {
+    return [workingModelCache, ...merged.filter((m) => m !== workingModelCache)];
   }
+  return merged;
 }
 
 export async function generateAgentReply(channel, userId, userMessage, mediaBuffer = null, mimeType = null) {
@@ -481,32 +508,50 @@ Nova mensagem do cliente: ${userMessage}`;
 
   const candidates = await getCandidateModels();
   const systemInstruction = buildSystemInstruction(settings, mediaCatalog, hasPass, paywallEnabled);
+  let lastError = null;
 
   for (const modelName of candidates) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents,
-        config: {
-          systemInstruction,
-          temperature: 0.72,
-          maxOutputTokens: 450,
-        },
-      });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.72,
+            maxOutputTokens: 450,
+          },
+        });
 
-      if (response?.text) {
-        workingModelCache = modelName;
-        console.log('[AI] Resposta bruta:', response.text);
-        return response.text;
+        if (response?.text) {
+          workingModelCache = modelName;
+          console.log(`[AI] Resposta gerada via ${modelName} (tentativa ${attempt})`);
+          console.log('[AI] Resposta bruta:', response.text);
+          return response.text;
+        }
+      } catch (err) {
+        lastError = err;
+        const status = err?.status || err?.code || 'N/A';
+
+        if (isTransientModelError(err)) {
+          if (workingModelCache === modelName) {
+            workingModelCache = null;
+          }
+          console.warn(
+            `[AI] ${modelName} falhou (status: ${status}, tentativa ${attempt}/2): ${err?.message || err}`
+          );
+          if (attempt < 2) {
+            await sleep(400 * attempt);
+            continue;
+          }
+          break;
+        }
+
+        throw err;
       }
-    } catch (err) {
-      if (err?.status === 404 || err?.status === 429) {
-        console.warn(`[AI] ${modelName} indisponível (${err.status}), testando próximo...`);
-        continue;
-      }
-      throw err;
     }
   }
 
+  console.error('[AI] Todos os modelos falharam após retry/fallback:', lastError?.message || lastError);
   return 'Oi! Tive um probleminha aqui na conexão, pode me mandar de novo? 😊';
 }

@@ -19,26 +19,44 @@ function normalizeComparable(val) {
 }
 
 async function resolveCreatorBySlugFallback(rawSlug) {
-  const cleanSlug = String(rawSlug || '').trim();
+  const cleanSlug = decodeURIComponent(String(rawSlug || '')).trim().toLowerCase();
   if (!cleanSlug) return null;
 
   const direct = await getCreatorBySlug(cleanSlug).catch(() => null);
   if (direct) return direct;
 
   try {
-    const byLower = await pool.query(
-      `SELECT * FROM creator_accounts WHERE LOWER(slug) = LOWER($1) LIMIT 1`,
+    const byExact = await pool.query(
+      `SELECT * FROM creator_accounts WHERE LOWER(TRIM(slug)) = $1 LIMIT 1`,
       [cleanSlug]
     );
-    if (byLower.rows[0]) return byLower.rows[0];
+    if (byExact.rows[0]) return byExact.rows[0];
 
-    const withoutSuffix = cleanSlug.replace(/-\d+$/, '');
-    if (withoutSuffix && withoutSuffix !== cleanSlug) {
+    const withoutHexSuffix = cleanSlug.replace(/-[a-f0-9]{4}$/i, '');
+    const withoutNumericSuffix = withoutHexSuffix.replace(/-\d+$/, '');
+    const baseCandidate = withoutNumericSuffix || withoutHexSuffix;
+
+    if (baseCandidate && baseCandidate !== cleanSlug) {
       const byPrefix = await pool.query(
-        `SELECT * FROM creator_accounts WHERE LOWER(slug) = LOWER($1) OR LOWER(slug) LIKE LOWER($2) ORDER BY id DESC LIMIT 1`,
-        [withoutSuffix, `${withoutSuffix}-%`]
+        `SELECT * FROM creator_accounts
+         WHERE LOWER(slug) = $1 OR LOWER(slug) LIKE $2
+         ORDER BY active DESC, verified DESC, id DESC
+         LIMIT 1`,
+        [baseCandidate, `${baseCandidate}-%`]
       );
       if (byPrefix.rows[0]) return byPrefix.rows[0];
+    }
+
+    const nameGuess = baseCandidate.replace(/-/g, ' ').trim();
+    if (nameGuess) {
+      const byName = await pool.query(
+        `SELECT * FROM creator_accounts
+         WHERE LOWER(TRANSLATE(TRIM(stage_name), 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuucAAAAAEEEEIIIIOOOOOUUUC')) = $1
+         ORDER BY active DESC, verified DESC, id DESC
+         LIMIT 1`,
+        [nameGuess]
+      );
+      if (byName.rows[0]) return byName.rows[0];
     }
   } catch {}
 

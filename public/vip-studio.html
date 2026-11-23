@@ -799,38 +799,61 @@
     }
 
     function aplicarLinksVip(slug) {
-      if (!slug) return;
-      vipCreatorSlug = slug;
-      const url = montarUrlVip(slug);
+      const cleanSlug = String(slug || '').trim();
+      if (!cleanSlug) return;
+      vipCreatorSlug = cleanSlug;
+      try {
+        localStorage.setItem('vip_creator_slug', cleanSlug);
+        sessionStorage.setItem('vip_creator_slug', cleanSlug);
+      } catch {}
+      const url = montarUrlVip(cleanSlug);
       ['btnVerClubePublico', 'navVerVipBtn', 'drawerVerVipLink'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) {
           el.href = url;
-          el.dataset.vipSlug = slug;
+          el.dataset.vipSlug = cleanSlug;
         }
       });
     }
 
-    async function abrirPaginaVipModelo(event) {
-      if (event) event.preventDefault();
-      if (vipCreatorSlug) {
-        window.location.href = montarUrlVip(vipCreatorSlug);
-        return;
-      }
+    async function resolverSlugAtualDaConta() {
+      try {
+        const studioRes = await fetch('/api/portal/creator/vip-studio', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (studioRes.ok) {
+          const stData = await studioRes.json();
+          if (stData?.creator?.slug) {
+            aplicarLinksVip(stData.creator.slug);
+            return stData.creator.slug;
+          }
+        }
+      } catch {}
+
       try {
         const meRes = await fetch('/api/portal/me', {
           headers: { Authorization: 'Bearer ' + token }
         });
         if (meRes.ok) {
           const meData = await meRes.json();
-          const slug = meData?.creator?.slug;
+          const slug = meData?.creator?.slug || meData?.slug;
           if (slug) {
             aplicarLinksVip(slug);
-            window.location.href = montarUrlVip(slug);
-            return;
+            return slug;
           }
         }
       } catch {}
+
+      return vipCreatorSlug || '';
+    }
+
+    async function abrirPaginaVipModelo(event) {
+      if (event) event.preventDefault();
+      const slugAtual = await resolverSlugAtualDaConta();
+      if (slugAtual) {
+        window.location.href = montarUrlVip(slugAtual);
+        return;
+      }
       window.location.href = '/vitrine';
     }
 
@@ -874,6 +897,8 @@
       const bio = document.getElementById('vipBioInput').value.trim() || 'Assine meu Clube VIP para desbloquear todas as fotos e vídeos exclusivos sem censura.';
       const plans = readPlansForm();
 
+      document.getElementById('heroStageName').innerText = name;
+      document.getElementById('heroBioPreview').innerText = bio ? bio.slice(0, 80) : 'Clube VIP Exclusivo';
       document.getElementById('lpNameText').innerText = name;
       document.getElementById('lpBioText').innerText = bio;
 
@@ -1152,9 +1177,10 @@
       const m1 = plans[0];
       const vipPlansMap = {};
       plans.forEach(p => { vipPlansMap[p.key] = { label: p.label, de: p.de, por: p.por }; });
+      const cleanName = document.getElementById('vipNameInput').value.trim();
 
       const payload = {
-        stage_name: document.getElementById('vipNameInput').value.trim() || undefined,
+        stage_name: cleanName || undefined,
         vip_monthly_price: m1.por,
         vip_anchor_price: m1.de,
         vip_plans: vipPlansMap,
@@ -1169,8 +1195,17 @@
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        notificarUpload('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!', 'ok');
+        let updatedSlug = '';
+        try {
+          const putData = await res.json();
+          updatedSlug = putData?.creator?.slug || putData?.slug || '';
+        } catch {}
+
         await carregarStudioVip();
+        if (updatedSlug) {
+          aplicarLinksVip(updatedSlug);
+        }
+        notificarUpload('✅ Planos (1 mês, 2 meses, trimestral, anual), ancoragem e bio salvos!', 'ok');
       } else {
         notificarUpload('❌ Erro ao salvar configurações VIP', 'err');
       }
