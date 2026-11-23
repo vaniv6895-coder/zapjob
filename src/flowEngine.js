@@ -284,10 +284,10 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   if (explicitMediaAsk || (userMsgCount >= 2 && !sentAudioLastTurn)) {
     selectedMedia = pickFlowMedia(flow, sentUrls, clientLang, {
       preferPhoto: isPhotoRequest(userMessage),
-      allowRepeatIfOnlyOne: true,
+      allowRepeatIfOnlyOne: explicitMediaAsk,
     });
 
-    if (!selectedMedia && Array.isArray(flow?.nodes)) {
+    if (!selectedMedia && explicitMediaAsk && Array.isArray(flow?.nodes)) {
       const anyMediaNode = [...flow.nodes]
         .reverse()
         .find((n) => {
