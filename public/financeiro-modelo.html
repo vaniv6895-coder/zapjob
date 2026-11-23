@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meu Saldo & Saques — Garota VIP Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #121216;
+      --elevated: #18181f;
+      --border: rgba(255, 255, 255, 0.08);
+      --pink: #e11d48;
+      --purple: #9333ea;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      padding-bottom: 48px;
+    }
+    .topbar {
+      position: sticky; top: 0; z-index: 30;
+      background: rgba(9,9,11,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .nav-btn {
+      background: var(--elevated); border: 1px solid var(--border);
+      color: var(--text); text-decoration: none;
+      padding: 7px 12px; border-radius: 10px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 16px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media(min-width: 640px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+    .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+    .kpi-lbl { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+    .kpi-val { font-size: 20px; font-weight: 800; margin-top: 4px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
+    .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    input {
+      background: #0a0a0d; border: 1px solid var(--border);
+      border-radius: 11px; padding: 11px 13px;
+      color: #fff; font-family: inherit; font-size: 13px; outline: none;
+    }
+    input:focus { border-color: var(--pink); }
+    .btn-saque {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: #fff; border: none; border-radius: 11px;
+      padding: 11px 18px; font-family: inherit; font-size: 13px; font-weight: 800;
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn-saque:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      background: var(--elevated); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 13px; font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/vip-studio" class="nav-btn">← VIP Studio</a>
+    <strong style="font-size:14px;">💸 Meu Saldo & Saques</strong>
+    <a href="/galeria-assinantes" class="nav-btn">🔒 Galeria</a>
+  </header>
+
+  <main class="container">
+    <section class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-lbl">Disponível p/ Saque</div>
+        <div class="kpi-val" id="valDisponivel" style="color:var(--green);">R$ 0,00</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Total Ganho</div>
+        <div class="kpi-val" id="valBruto">R$ 0,00</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Assinaturas</div>
+        <div class="kpi-val" id="valSubs">R$ 0,00</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Avulsos (1x)</div>
+        <div class="kpi-val" id="valPpv">R$ 0,00</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="font-size:16px;font-weight:800;">Solicitar Recebimento via Pix</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:3px;">
+        O saldo exibido é exclusivo da sua conta (<strong id="creatorLabel">Modelo</strong>).
+      </p>
+
+      <form class="form-row" onsubmit="pedirSaque(event)">
+        <input type="number" step="0.01" min="1" id="inpAmount" placeholder="Valor R$ (ex: 25.00)" required style="flex:1;min-width:130px;" />
+        <input type="text" id="inpPix" placeholder="Sua chave Pix (CPF, e-mail, celular ou aleatória)" required style="flex:2;min-width:210px;" />
+        <button type="submit" id="btnSubmitSaque" class="btn-saque">Solicitar Saque</button>
+      </form>
+      <p id="msgFeedback" style="font-size:12px;font-weight:700;margin-top:10px;"></p>
+    </section>
+
+    <section class="card">
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px;">📋 Histórico de Saques</h3>
+      <div id="withdrawalsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </section>
+
+    <section class="card">
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px;">💎 Últimas Vendas da Sua Conta</h3>
+      <div id="salesList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </section>
+  </main>
+
+  <script>
+    const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
+    if (!token) window.location.replace('/minha-conta');
+
+    function brl(n) {
+      return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',');
+    }
+
+    function renderizarFinanceiro(data) {
+      if (data.creatorName) document.getElementById('creatorLabel').innerText = data.creatorName;
+      document.getElementById('valDisponivel').innerText = brl(data.balance);
+      document.getElementById('valBruto').innerText = brl(data.grossEarned);
+      document.getElementById('valSubs').innerText = brl(data.totalSubs);
+      document.getElementById('valPpv').innerText = brl(data.totalPpv);
+
+      const wList = document.getElementById('withdrawalsList');
+      const withdrawals = data.withdrawals || [];
+      wList.innerHTML = withdrawals.length
+        ? withdrawals.map(w => {
+            const isPaid = w.status === 'paid';
+            const dt = w.created_at ? new Date(w.created_at).toLocaleDateString('pt-BR') : '';
+            return `
+              <div class="row-item">
+                <div>
+                  <strong>${brl(w.amount)}</strong> • <span style="color:var(--muted);">${w.pix_key}</span>
+                  <div style="font-size:11px;color:var(--muted);">${dt}</div>
+                </div>
+                <span style="font-weight:800;color:${isPaid ? 'var(--green)' : 'var(--amber)'};">
+                  ${isPaid ? '✅ Pago' : '⏳ Pendente'}
+                </span>
+              </div>
+            `;
+          }).join('')
+        : '<p style="font-size:12px;color:var(--muted);">Nenhum saque solicitado ainda.</p>';
+
+      const sList = document.getElementById('salesList');
+      const sales = data.sales || [];
+      sList.innerHTML = sales.length
+        ? sales.map(s => {
+            const dt = s.created_at ? new Date(s.created_at).toLocaleDateString('pt-BR') : '';
+            return `
+              <div class="row-item">
+                <div>
+                  <strong>${s.buyer_identifier}</strong>
+                  <div style="font-size:11px;color:var(--muted);">${s.item_title} (${s.sale_type}) • ${dt}</div>
+                </div>
+                <strong style="color:var(--green);">${brl(s.price)}</strong>
+              </div>
+            `;
+          }).join('')
+        : '<p style="font-size:12px;color:var(--muted);">Nenhuma venda confirmada ainda.</p>';
+    }
+
+    async function carregarFinanceiro() {
+      const res = await fetch('/api/portal/me/finance', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (res.status === 401) {
+        window.location.replace('/minha-conta');
+        return;
+      }
+      const data = await res.json();
+      if (data.ok) renderizarFinanceiro(data);
+    }
+
+    async function pedirSaque(e) {
+      e.preventDefault();
+      const amount = Number(document.getElementById('inpAmount').value);
+      const pixKey = document.getElementById('inpPix').value.trim();
+      const fb = document.getElementById('msgFeedback');
+      const btn = document.getElementById('btnSubmitSaque');
+
+      btn.disabled = true;
+      fb.style.color = 'var(--muted)';
+      fb.innerText = 'Registrando solicitação de saque...';
+
+      try {
+        const res = await fetch('/api/portal/me/withdraw', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({ amount, pixKey })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          fb.style.color = '#f87171';
+          fb.innerText = data.error || 'Erro ao solicitar saque.';
+        } else {
+          fb.style.color = 'var(--green)';
+          fb.innerText = '✅ Saque solicitado! O saldo já foi reservado.';
+          document.getElementById('inpAmount').value = '';
+          renderizarFinanceiro(data);
+        }
+      } catch {
+        fb.style.color = '#f87171';
+        fb.innerText = 'Erro de conexão.';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    carregarFinanceiro();
+  </script>
+</body>
+</html>

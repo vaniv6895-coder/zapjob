@@ -297,8 +297,26 @@ async function createPortalHighlightPix({ orderId, planName, amount, creatorEmai
   return { paymentId: res.data.id, qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64 || null };
 }
 
+async function ensureCreatorWithdrawalsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_withdrawals (
+      id SERIAL PRIMARY KEY,
+      creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
+      amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+      pix_key VARCHAR(160) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW(),
+      paid_at TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_creator_withdrawals_creator
+      ON creator_withdrawals (creator_id, created_at DESC);
+  `).catch(() => {});
+}
+
 async function getCreatorVipBalanceAndSales(creatorId) {
-  const [subsRes, ppvRes, salesRes] = await Promise.all([
+  await ensureCreatorWithdrawalsTable();
+
+  const [subsRes, ppvRes, wdSumRes, wdListRes, salesRes] = await Promise.all([
     pool.query(
       `SELECT COALESCE(SUM(price), 0)::numeric AS total_subs, COUNT(*)::int AS count_subs
        FROM vip_subscriptions
@@ -312,6 +330,20 @@ async function getCreatorVipBalanceAndSales(creatorId) {
        WHERE p.creator_id = $1 AND u.paid = TRUE`,
       [creatorId]
     ).catch(() => ({ rows: [{ total_ppv: 0, count_ppv: 0 }] })),
+    pool.query(
+      `SELECT COALESCE(SUM(amount), 0)::numeric AS total_withdrawn
+       FROM creator_withdrawals
+       WHERE creator_id = $1 AND status IN ('pending', 'paid')`,
+      [creatorId]
+    ).catch(() => ({ rows: [{ total_withdrawn: 0 }] })),
+    pool.query(
+      `SELECT id, amount, pix_key, status, created_at, paid_at
+       FROM creator_withdrawals
+       WHERE creator_id = $1
+       ORDER BY created_at DESC
+       LIMIT 30`,
+      [creatorId]
+    ).catch(() => ({ rows: [] })),
     pool.query(
       `SELECT
          s.id,
@@ -347,7 +379,9 @@ async function getCreatorVipBalanceAndSales(creatorId) {
 
   const totalSubs = Number(subsRes.rows[0]?.total_subs || 0);
   const totalPpv = Number(ppvRes.rows[0]?.total_ppv || 0);
-  const balance = Number((totalSubs + totalPpv).toFixed(2));
+  const grossEarned = Number((totalSubs + totalPpv).toFixed(2));
+  const withdrawnOrReserved = Number(wdSumRes.rows[0]?.total_withdrawn || 0);
+  const balance = Math.max(0, Number((grossEarned - withdrawnOrReserved).toFixed(2)));
 
   const sales = salesRes.rows.map((r) => {
     const nick = String(r.fan_nickname || 'Cliente VIP').trim();
@@ -366,10 +400,13 @@ async function getCreatorVipBalanceAndSales(creatorId) {
 
   return {
     balance,
+    grossEarned,
+    withdrawnOrReserved,
     totalSubs,
     countSubs: Number(subsRes.rows[0]?.count_subs || 0),
     totalPpv,
     countPpv: Number(ppvRes.rows[0]?.count_ppv || 0),
+    withdrawals: wdListRes.rows,
     sales,
   };
 }
@@ -377,6 +414,8 @@ async function getCreatorVipBalanceAndSales(creatorId) {
 export function registerPortalRoutes(app) {
   if (app.__portalRoutesRegistered) return;
   app.__portalRoutesRegistered = true;
+
+  ensureCreatorWithdrawalsTable();
 
   pool.query(`
     ALTER TABLE creator_media
@@ -522,6 +561,7 @@ export function registerPortalRoutes(app) {
       'Disallow: /admin-dashboard',
       'Disallow: /admin-ai-gmail',
       'Disallow: /minha-conta',
+      'Disallow: /financeiro',
       'Disallow: /painel-fa',
       'Disallow: /api/',
       '',
@@ -845,6 +885,15 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
+  app.get('/financeiro', async (req, reply) => {
+    const filePath = path.join(process.cwd(), 'public', 'financeiro-modelo.html');
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({ error: 'Arquivo public/financeiro-modelo.html não encontrado.' });
+    }
+    const html = fs.readFileSync(filePath, 'utf-8');
+    return reply.type('text/html; charset=utf-8').send(html);
+  });
+
   const serveGaleriaAssinantes = async (req, reply) => {
     const filePath = path.join(process.cwd(), 'public', 'galeria-assinantes.html');
     if (!fs.existsSync(filePath)) {
@@ -875,10 +924,13 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.send({
       ok: true,
       totalAll: vipSummary.balance,
+      grossEarned: vipSummary.grossEarned,
+      withdrawnOrReserved: vipSummary.withdrawnOrReserved,
       totalSubs: vipSummary.totalSubs,
       countSubs: vipSummary.countSubs,
       totalPpv: vipSummary.totalPpv,
       countPpv: vipSummary.countPpv,
+      withdrawals: vipSummary.withdrawals,
       sales: vipSummary.sales,
       recentBuyers: vipSummary.sales,
       totals: {
@@ -890,7 +942,81 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       },
     });
   });
-  
+
+  app.get('/api/portal/me/finance', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const summary = await getCreatorVipBalanceAndSales(req.creator.id);
+    return reply.send({
+      ok: true,
+      creatorName: req.creator.stage_name,
+      ...summary,
+    });
+  });
+
+  app.post('/api/portal/me/withdraw', { preHandler: requireCreatorAuth }, async (req, reply) => {
+    const { amount, pixKey } = req.body || {};
+    const cleanPix = sanitizeText(pixKey, 160);
+    const reqAmount = Number(amount);
+
+    if (!cleanPix || cleanPix.length < 4) {
+      return reply.status(400).send({ error: 'Informe uma chave Pix válida.' });
+    }
+    if (!Number.isFinite(reqAmount) || reqAmount <= 0) {
+      return reply.status(400).send({ error: 'Informe um valor de saque maior que zero.' });
+    }
+
+    const summary = await getCreatorVipBalanceAndSales(req.creator.id);
+    if (reqAmount > summary.balance) {
+      return reply.status(400).send({
+        error: `Saldo insuficiente. Disponível: R$ ${summary.balance.toFixed(2).replace('.', ',')}.`,
+      });
+    }
+
+    const ins = await pool.query(
+      `INSERT INTO creator_withdrawals (creator_id, amount, pix_key, status)
+       VALUES ($1, $2, $3, 'pending')
+       RETURNING id, amount, pix_key, status, created_at, paid_at`,
+      [req.creator.id, Number(reqAmount.toFixed(2)), cleanPix]
+    );
+
+    const updated = await getCreatorVipBalanceAndSales(req.creator.id);
+    return reply.send({
+      ok: true,
+      withdrawal: ins.rows[0],
+      ...updated,
+    });
+  });
+
+  app.get('/api/portal/admin/withdrawals', async (req, reply) => {
+    await ensureCreatorWithdrawalsTable();
+    const { rows } = await pool.query(`
+      SELECT w.id, w.creator_id, c.stage_name, c.email, w.amount, w.pix_key, w.status, w.created_at, w.paid_at
+      FROM creator_withdrawals w
+      JOIN creator_accounts c ON c.id = w.creator_id
+      ORDER BY CASE WHEN w.status = 'pending' THEN 0 ELSE 1 END, w.created_at DESC
+      LIMIT 100
+    `);
+    return reply.send({ ok: true, withdrawals: rows });
+  });
+
+  app.post('/api/portal/admin/withdrawals/:id/pay', async (req, reply) => {
+    await ensureCreatorWithdrawalsTable();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.status(400).send({ error: 'Saque inválido.' });
+    }
+    const res = await pool.query(
+      `UPDATE creator_withdrawals
+       SET status = 'paid', paid_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+    if (!res.rows[0]) {
+      return reply.status(404).send({ error: 'Solicitação de saque não encontrada.' });
+    }
+    return reply.send({ ok: true, withdrawal: res.rows[0] });
+  });
+
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
   registerPortalSecurityRoutes(app, requireCreatorAuth, signSessionToken);
@@ -974,6 +1100,9 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         vip_balance: vipSummary.balance,
       },
       vipBalance: vipSummary.balance,
+      vipGrossEarned: vipSummary.grossEarned,
+      vipWithdrawn: vipSummary.withdrawnOrReserved,
+      vipWithdrawals: vipSummary.withdrawals,
       vipSales: vipSummary.sales,
       vipTotals: {
         totalAll: vipSummary.balance,
@@ -994,6 +1123,9 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       ok: true,
       balance: vipSummary.balance,
       vipBalance: vipSummary.balance,
+      grossEarned: vipSummary.grossEarned,
+      withdrawnOrReserved: vipSummary.withdrawnOrReserved,
+      withdrawals: vipSummary.withdrawals,
       sales: vipSummary.sales,
       recentBuyers: vipSummary.sales,
       totals: {

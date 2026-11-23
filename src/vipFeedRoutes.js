@@ -114,15 +114,22 @@ export async function ensureVipTables() {
       creator_id INT NOT NULL REFERENCES creator_accounts(id) ON DELETE CASCADE,
       media_type VARCHAR(15) NOT NULL DEFAULT 'photo',
       caption TEXT,
-      preview_url TEXT NOT NULL,
-      media_url TEXT NOT NULL,
+      preview_url TEXT,
+      media_url TEXT,
       price NUMERIC(10, 2) NOT NULL DEFAULT 19.90,
       allow_subscription BOOLEAN NOT NULL DEFAULT TRUE,
       likes INT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS media_type VARCHAR(15) NOT NULL DEFAULT 'photo';
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS caption TEXT;
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS preview_url TEXT;
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS media_url TEXT;
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2) NOT NULL DEFAULT 19.90;
     ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS allow_subscription BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS likes INT NOT NULL DEFAULT 0;
+    ALTER TABLE vip_posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
 
     CREATE TABLE IF NOT EXISTS vip_subscriptions (
       id SERIAL PRIMARY KEY,
@@ -322,17 +329,26 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   });
 
   app.get('/api/vip/profile/:slug', async (req, reply) => {
+    await ensureVipTables();
     const creator = await resolveCreatorBySlugFallback(req.params.slug);
     if (!creator) return reply.status(404).send({ error: 'Perfil VIP não encontrado.' });
 
     const [postsRes, mediaList] = await Promise.all([
       pool.query(
-        `SELECT id, creator_id, media_type, caption, preview_url, price, allow_subscription, likes, created_at
+        `SELECT id,
+                creator_id,
+                COALESCE(media_type, 'photo') AS media_type,
+                caption,
+                COALESCE(preview_url, media_url) AS preview_url,
+                COALESCE(price, 19.90) AS price,
+                COALESCE(allow_subscription, TRUE) AS allow_subscription,
+                COALESCE(likes, 0) AS likes,
+                created_at
          FROM vip_posts
          WHERE creator_id = $1
          ORDER BY id DESC`,
         [creator.id]
-      ),
+      ).catch(() => ({ rows: [] })),
       listCreatorMedia(creator.id, true),
     ]);
 
@@ -364,34 +380,58 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   });
 
   app.get('/api/portal/vip/my-posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const { rows } = await pool.query(
-      `SELECT id, creator_id, media_type, caption, preview_url, media_url, price, allow_subscription, likes, created_at
-       FROM vip_posts
-       WHERE creator_id = $1
-       ORDER BY id DESC`,
-      [req.creator.id]
-    );
-    return reply.send({ ok: true, posts: rows });
+    try {
+      await ensureVipTables();
+      const { rows } = await pool.query(
+        `SELECT id,
+                creator_id,
+                COALESCE(media_type, 'photo') AS media_type,
+                caption,
+                COALESCE(preview_url, media_url) AS preview_url,
+                media_url,
+                COALESCE(price, 19.90) AS price,
+                COALESCE(allow_subscription, TRUE) AS allow_subscription,
+                COALESCE(likes, 0) AS likes,
+                created_at
+         FROM vip_posts
+         WHERE creator_id = $1
+         ORDER BY id DESC`,
+        [req.creator.id]
+      );
+      return reply.send({ ok: true, posts: rows });
+    } catch (err) {
+      app.log.error(err, '[VIP] Erro ao listar my-posts');
+      return reply.status(500).send({ ok: false, error: err?.message || 'Erro ao carregar publicações.' });
+    }
   });
 
   app.post('/api/portal/vip/posts', { preHandler: requireCreatorAuth }, async (req, reply) => {
-    const { mediaType, caption, previewUrl, mediaUrl, price, allowSubscription } = req.body || {};
-    const cleanMediaUrl = sanitizePlainText(mediaUrl, 1000);
-    if (!cleanMediaUrl) return reply.status(400).send({ error: 'Informe a mídia (mediaUrl).' });
+    try {
+      await ensureVipTables();
+      const body = req.body || {};
+      const rawMediaUrl = body.mediaUrl || body.publicUrl || body.media_url || '';
+      const cleanMediaUrl = sanitizePlainText(rawMediaUrl, 1000);
+      if (!cleanMediaUrl) return reply.status(400).send({ error: 'Informe a mídia (mediaUrl).' });
 
-    const cleanPreview = sanitizePlainText(previewUrl, 1000) || req.creator.avatar_url || cleanMediaUrl;
-    const cleanPrice = Math.max(1, Number(price || 19.90));
-    const type = mediaType === 'video' ? 'video' : 'photo';
-    const allowSub = allowSubscription === false || allowSubscription === 'false' ? false : true;
+      const rawPreview = body.previewUrl || body.thumbnailUrl || body.preview_url || '';
+      const cleanPreview = sanitizePlainText(rawPreview, 1000) || req.creator.avatar_url || cleanMediaUrl;
+      const cleanPrice = Math.max(0, Number(body.price ?? 19.90));
+      const rawType = String(body.mediaType || body.media_type || '').toLowerCase();
+      const type = rawType === 'video' || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(cleanMediaUrl) ? 'video' : 'photo';
+      const allowSub = body.allowSubscription === false || body.allowSubscription === 'false' || body.allow_subscription === false ? false : true;
 
-    const res = await pool.query(
-      `INSERT INTO vip_posts (creator_id, media_type, caption, preview_url, media_url, price, allow_subscription)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [req.creator.id, type, sanitizePlainText(caption, 400) || null, cleanPreview, cleanMediaUrl, cleanPrice, allowSub]
-    );
+      const res = await pool.query(
+        `INSERT INTO vip_posts (creator_id, media_type, caption, preview_url, media_url, price, allow_subscription)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [req.creator.id, type, sanitizePlainText(body.caption, 400) || null, cleanPreview, cleanMediaUrl, cleanPrice, allowSub]
+      );
 
-    return reply.send({ ok: true, post: res.rows[0] });
+      return reply.send({ ok: true, post: res.rows[0] });
+    } catch (err) {
+      app.log.error(err, '[VIP] Erro ao salvar post VIP');
+      return reply.status(500).send({ ok: false, error: err?.message || 'Erro ao salvar publicação VIP.' });
+    }
   });
 
   app.delete('/api/portal/vip/posts/:id', { preHandler: requireCreatorAuth }, async (req, reply) => {
