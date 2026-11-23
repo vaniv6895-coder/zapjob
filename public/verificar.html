@@ -2,15 +2,15 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Verificação Obrigatória • Vídeo Ao Vivo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verificação de Perfil • Vídeo de Corpo Inteiro</title>
   <style>
     :root {
-      --bg: #09090b;
-      --card: #121216;
-      --surface: #0d0d10;
+      --bg: #0c0c10;
+      --card: #15151b;
+      --surface: #101015;
       --border: rgba(255, 255, 255, 0.1);
-      --text: #fafafa;
+      --text: #f4f4f6;
       --muted: #a1a1aa;
       --accent: #e11d48;
       --success: #10b981;
@@ -18,155 +18,156 @@
       --amber: #f59e0b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    html, body {
-      width: 100%;
+    body {
       min-height: 100dvh;
       background: var(--bg);
       color: var(--text);
+      padding: 20px 14px 40px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
-    .page-fullscreen {
-      min-height: 100dvh;
+    .card {
       width: 100%;
+      max-width: 440px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      padding: 18px 16px 28px;
-      max-width: 520px;
-      margin: 0 auto;
       gap: 14px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
     }
-    .header {
-      text-align: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
+    .header { text-align: center; }
     .badge-req {
       display: inline-block;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: #fda4af;
-      background: rgba(225, 29, 72, 0.16);
-      border: 1px solid rgba(225, 29, 72, 0.4);
-      padding: 4px 12px;
+      background: rgba(225, 29, 72, 0.15);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      padding: 4px 10px;
       border-radius: 99px;
       margin-bottom: 8px;
     }
-    h1 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
-    p.sub { font-size: 13px; color: var(--muted); line-height: 1.45; }
+    h1 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    p.sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
     p.sub strong { color: #fca5a5; }
+
+    .tip-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
 
     .challenge-box {
       background: var(--surface);
-      border: 1.5px dashed var(--amber);
-      border-radius: 14px;
-      padding: 14px;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      border-radius: 12px;
+      padding: 12px;
       text-align: center;
     }
-    .challenge-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--amber); letter-spacing: 0.05em; }
-    .code-big { font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #fff; margin: 6px 0; }
-    .timer { font-size: 12px; color: var(--muted); }
+    .challenge-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--amber); letter-spacing: 0.05em; }
+    .code-big { font-size: 30px; font-weight: 800; letter-spacing: 7px; color: #fff; margin: 4px 0; }
+    .timer { font-size: 11.5px; color: var(--muted); }
 
     video.main-video {
       width: 100%;
-      max-height: 36dvh;
-      border-radius: 14px;
-      background: #000;
+      max-height: 260px;
+      border-radius: 12px;
+      background: #09090c;
       border: 1px solid var(--border);
       object-fit: cover;
     }
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     button {
       width: 100%;
       border: none;
-      border-radius: 12px;
-      padding: 13px 14px;
-      font-size: 13.5px;
-      font-weight: 800;
+      border-radius: 11px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 700;
       cursor: pointer;
       transition: 0.15s;
     }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-cam { background: #18181d; color: #fff; border: 1px solid var(--border); }
+    .btn-cam { background: #1e1e26; color: #fff; border: 1px solid var(--border); }
     .btn-rec { background: var(--danger); color: #fff; }
-    .btn-send { background: var(--success); color: #04241b; letter-spacing: 0.02em; }
+    .btn-send { background: var(--success); color: #04241b; font-weight: 800; }
     .btn-continue {
       display: none;
       background: var(--accent);
       color: #fff;
       margin-top: 10px;
     }
-    .attempts-info {
-      font-size: 12px;
-      color: var(--muted);
-      text-align: center;
-      font-weight: 600;
-    }
+    .attempts-info { font-size: 11.5px; color: var(--muted); text-align: center; }
 
     .feedback {
       display: none;
-      padding: 11px 12px;
+      padding: 10px 12px;
       border-radius: 10px;
-      font-size: 12.5px;
+      font-size: 12px;
       line-height: 1.4;
     }
-    .feedback.ok { display: block; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #6ee7b7; }
-    .feedback.err { display: block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
+    .feedback.ok { display: block; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+    .feedback.err { display: block; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; }
 
     .saved-box {
       display: none;
-      background: var(--card);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 12px;
     }
-    .saved-title { font-size: 12.5px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
-    .footer-note { text-align: center; font-size: 11.5px; color: #71717a; line-height: 1.4; }
+    .saved-title { font-size: 12px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
   </style>
 </head>
 <body>
-  <main class="page-fullscreen">
+  <main class="card">
     <div class="header">
-      <span class="badge-req">Etapa Obrigatória</span>
-      <h1>🎥 Aguardando Vídeo de Verificação</h1>
+      <span class="badge-req">Verificação do Perfil</span>
+      <h1>🎥 Vídeo de Corpo Inteiro</h1>
       <p class="sub">
-        Sem esta verificação por vídeo ao vivo, seu perfil <strong>não é aprovado e não vai para o ar</strong>.
-        Grave falando o código em voz alta.
+        Sem este vídeo o perfil <strong>não vai para o ar</strong>. Afaste o celular para mostrar o <strong>corpo inteiro</strong> e fale o código em voz alta.
       </p>
     </div>
 
-    <div style="display:flex; flex-direction:column; gap:12px;">
-      <div class="challenge-box">
-        <div class="challenge-label">Fale este código no vídeo agora</div>
-        <div class="code-big" id="challenge-code">----</div>
-        <div class="timer" id="challenge-timer">Carregando código...</div>
-      </div>
-
-      <video id="preview" class="main-video" autoplay playsinline muted></video>
-
-      <div class="grid-2">
-        <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
-        <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
-      </div>
-
-      <button type="button" class="btn-send" id="btn-send" disabled>OBRIGATÓRIO • Enviar Vídeo de Verificação</button>
-      <div class="attempts-info" id="attempts-info">Envios utilizados: 0 de 5 (5 restantes)</div>
-
-      <div class="feedback" id="feedback-box"></div>
-
-      <div class="saved-box" id="saved-box">
-        <div class="saved-title" id="saved-title">✅ Vídeo de verificação na tela</div>
-        <video id="saved-video" class="main-video" style="max-height:28dvh;" controls playsinline></video>
-        <button type="button" class="btn-continue" id="btn-continue" onclick="irParaConta()">
-          Continuar para o Perfil →
-        </button>
-      </div>
+    <div class="tip-box">
+      <strong>Como fazer com calma:</strong> apoie ou afaste o celular para pegar do corpo inteiro, fale o código abaixo em voz alta e envie. Você tem até <strong>5 chances</strong> caso mude algo no visual depois.
     </div>
 
-    <div class="footer-note">
-      Você tem até 5 chances para refazer seu vídeo ao vivo caso mude algo no seu corpo ou visual depois.
+    <div class="challenge-box">
+      <div class="challenge-label">Fale este código no vídeo</div>
+      <div class="code-big" id="challenge-code">----</div>
+      <div class="timer" id="challenge-timer">Carregando código...</div>
+    </div>
+
+    <video id="preview" class="main-video" autoplay playsinline muted></video>
+
+    <div class="grid-2">
+      <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
+      <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
+    </div>
+
+    <button type="button" class="btn-send" id="btn-send" disabled>OBRIGATÓRIO • Enviar Vídeo</button>
+    <div class="attempts-info" id="attempts-info">Envios utilizados: 0 de 5 (5 restantes)</div>
+
+    <div class="feedback" id="feedback-box"></div>
+
+    <div class="saved-box" id="saved-box">
+      <div class="saved-title" id="saved-title">✅ Vídeo enviado</div>
+      <video id="saved-video" class="main-video" style="max-height:220px;" controls playsinline></video>
+      <button type="button" class="btn-continue" id="btn-continue" onclick="irParaConta()">
+        Continuar para o Perfil →
+      </button>
     </div>
   </main>
 
@@ -229,8 +230,8 @@
       savedVideo.src = url;
       savedBox.style.display = 'block';
       savedTitle.textContent = status === 'verified'
-        ? '✅ Verificação aprovada — perfil liberado para ir ao ar'
-        : '⏳ Vídeo enviado — aguardando aprovação para ir ao ar';
+        ? '✅ Verificação aprovada'
+        : '✅ Vídeo enviado — aguardando aprovação';
       if (status === 'pending_review' || status === 'verified') {
         btnContinue.style.display = 'block';
       }
@@ -300,13 +301,13 @@
         btnSend.disabled = true;
 
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+          video: { facingMode: 'user' },
           audio: true
         });
         previewEl.srcObject = stream;
         await previewEl.play();
         btnRec.disabled = false;
-        setFeedback(`Câmera pronta. Grave e fale o código ${challengeCode} em voz alta.`, true);
+        setFeedback(`Câmera pronta. Afaste para mostrar o corpo inteiro e fale ${challengeCode}.`, true);
       } catch (_) {
         setFeedback('Permita o acesso à câmera e ao microfone no navegador.', false);
       }
@@ -337,7 +338,7 @@
 
         recorder.start();
         btnRec.textContent = '⏹️ Parar Gravação';
-        setFeedback(`Gravando... Fale o código ${challengeCode} com clareza!`, true);
+        setFeedback(`Gravando corpo inteiro... Fale o código ${challengeCode}!`, true);
       } else {
         recorder.stop();
       }
@@ -358,7 +359,7 @@
       }
 
       btnSend.disabled = true;
-      setFeedback('Validando hash e enviando vídeo...', true);
+      setFeedback('Enviando vídeo de verificação...', true);
 
       try {
         const fileHash = await sha256Hex(recordedBlob);
@@ -373,7 +374,7 @@
         const res = await fetch('/api/verification/submit', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setFeedback(data.error || 'Falha na validação do vídeo.', false);
+          setFeedback(data.error || 'Erro ao salvar vídeo de verificação.', false);
           btnSend.disabled = false;
           return;
         }
@@ -393,7 +394,7 @@
         }
 
         showSavedVideo(data.videoUrl, data.status);
-        setFeedback('Vídeo enviado! Ele já está aparecendo na sua tela.', true);
+        setFeedback('Vídeo enviado com sucesso!', true);
       } catch (_) {
         setFeedback('Erro de rede ao enviar o vídeo.', false);
         btnSend.disabled = false;

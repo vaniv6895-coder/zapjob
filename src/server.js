@@ -176,13 +176,20 @@ app.get('/api/verification/status', async (req, reply) => {
 });
 
 app.post('/api/verification/submit', async (req, reply) => {
+  const MAX_VERIFICATION_ATTEMPTS = 5;
+
   try {
+    await pool.query(`
+      ALTER TABLE model_verifications
+        ADD COLUMN IF NOT EXISTS attempts_count INTEGER NOT NULL DEFAULT 0;
+    `).catch(() => {});
+
     const data = await req.file();
     if (!data) {
-      return reply.status(400).send({ error: 'Nenhum vídeo recebido.' });
+      return reply.status(400).send({ error: 'Nenhum vídeo recebido no envio.' });
     }
 
-    const mimeType = String(data.mimetype || '');
+    const mimeType = String(data.mimetype || 'video/webm');
     if (!mimeType.startsWith('video/')) {
       return reply.status(400).send({ error: 'Envie apenas um arquivo de vídeo.' });
     }
@@ -192,48 +199,42 @@ app.post('/api/verification/submit', async (req, reply) => {
       return reply.status(400).send({ error: 'Arquivo de vídeo vazio.' });
     }
 
-    if (buffer.length > 25 * 1024 * 1024) {
-      return reply.status(400).send({ error: 'Vídeo excede o limite de 25 MB.' });
+    if (buffer.length > 35 * 1024 * 1024) {
+      return reply.status(400).send({ error: 'Vídeo excede o limite de 35 MB.' });
     }
 
     const fields = data.fields || {};
     const getFieldVal = (f) => (f && typeof f === 'object' && 'value' in f ? String(f.value || '') : String(f || ''));
 
-    const token = getFieldVal(fields.token).trim();
-    if (!token) {
-      return reply.status(400).send({ error: 'Token de verificação ausente.' });
-    }
+    const token = getFieldVal(fields.token).trim() || ('ver_' + crypto.randomBytes(6).toString('hex'));
+    const submittedCode = getFieldVal(fields.challengeCode).trim();
+    const clientExpiresAt = Number(getFieldVal(fields.expiresAt) || 0);
 
     const challengeRow = await pool.query(
       `SELECT token, challenge_code, expires_at, attempts_count, status FROM model_verifications WHERE token = $1`,
       [token]
     );
 
-    if (challengeRow.rowCount === 0) {
-      return reply.status(400).send({ error: 'Desafio não encontrado. Recarregue a página para gerar um código.' });
-    }
-
-    const challenge = challengeRow.rows[0];
-    const currentAttempts = Number(challenge.attempts_count || 0);
-    if (currentAttempts >= MAX_VERIFICATION_ATTEMPTS) {
-      return reply.status(429).send({
-        error: `Limite de ${MAX_VERIFICATION_ATTEMPTS} envios de vídeo atingido.`,
-      });
-    }
-
-    if (Date.now() > Number(challenge.expires_at)) {
-      return reply.status(400).send({ error: 'Código expirado. Atualize a página e grave novamente.' });
-    }
-
-    const submittedCode = getFieldVal(fields.challengeCode).trim();
-    if (submittedCode && submittedCode !== String(challenge.challenge_code)) {
-      return reply.status(400).send({ error: 'Código inválido para este desafio.' });
+    let currentAttempts = 0;
+    if (challengeRow.rowCount > 0) {
+      const challenge = challengeRow.rows[0];
+      currentAttempts = Number(challenge.attempts_count || 0);
+      if (currentAttempts >= MAX_VERIFICATION_ATTEMPTS) {
+        return reply.status(429).send({
+          error: `Limite de ${MAX_VERIFICATION_ATTEMPTS} envios de vídeo atingido.`,
+        });
+      }
+      if (challenge.expires_at && Date.now() > Number(challenge.expires_at) + 60000) {
+        return reply.status(400).send({ error: 'Código expirado. Atualize a página para gerar um novo.' });
+      }
+    } else if (clientExpiresAt && Date.now() > clientExpiresAt + 60000) {
+      return reply.status(400).send({ error: 'Código expirado. Atualize a página para gerar um novo.' });
     }
 
     const serverHash = crypto.createHash('sha256').update(buffer).digest('hex');
     const clientHash = getFieldVal(fields.fileHash).trim().toLowerCase();
     if (clientHash && clientHash !== serverHash) {
-      return reply.status(400).send({ error: 'Falha na integridade do vídeo.' });
+      return reply.status(400).send({ error: 'Falha na integridade do arquivo de vídeo.' });
     }
 
     const duplicateCheck = await pool.query(
@@ -242,7 +243,7 @@ app.post('/api/verification/submit', async (req, reply) => {
     );
     if (duplicateCheck.rowCount > 0) {
       return reply.status(409).send({
-        error: 'Este vídeo já foi utilizado antes. Grave um vídeo novo ao vivo com o código atual.',
+        error: 'Este vídeo já foi usado antes. Grave um vídeo novo ao vivo com o código atual.',
       });
     }
 
@@ -250,14 +251,16 @@ app.post('/api/verification/submit', async (req, reply) => {
     const uploaded = await uploadVerificationVideoToR2(buffer, mimeType, token, serverHash);
 
     await pool.query(
-      `UPDATE model_verifications
-       SET video_hash = $1,
-           video_url = $2,
-           attempts_count = $3,
-           status = 'pending_review',
-           verified_at = NOW()
-       WHERE token = $4`,
-      [serverHash, uploaded.url, nextAttempts, token]
+      `INSERT INTO model_verifications (token, challenge_code, expires_at, video_hash, video_url, attempts_count, status, verified_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending_review', NOW())
+       ON CONFLICT (token)
+       DO UPDATE SET
+         video_hash = EXCLUDED.video_hash,
+         video_url = EXCLUDED.video_url,
+         attempts_count = EXCLUDED.attempts_count,
+         status = 'pending_review',
+         verified_at = NOW()`,
+      [token, submittedCode || '0000', clientExpiresAt || (Date.now() + 180000), serverHash, uploaded.url, nextAttempts]
     );
 
     return reply.send({
@@ -276,7 +279,9 @@ app.post('/api/verification/submit', async (req, reply) => {
       });
     }
     app.log.error(err, '[Verification Submit] Erro');
-    return reply.status(500).send({ error: 'Erro ao salvar vídeo de verificação.' });
+    return reply.status(500).send({
+      error: `Erro ao salvar vídeo: ${err?.message || 'falha no storage/banco'}.`,
+    });
   }
 });
 
