@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Verificação de Identidade • Vídeo Real</title>
+  <style>
+    :root {
+      --bg: #0b111a;
+      --card: #131c2e;
+      --border: #26344d;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #00a884;
+      --danger: #ef4444;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .box {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    }
+    h1 { font-size: 18px; font-weight: 700; }
+    p.sub { font-size: 13px; color: var(--muted); line-height: 1.45; }
+    .challenge-card {
+      background: #0b1320;
+      border: 1.5px dashed var(--amber);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .challenge-label { font-size: 11px; text-transform: uppercase; color: var(--amber); font-weight: 700; letter-spacing: 0.5px; }
+    .code-big {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      margin: 6px 0;
+      color: #fff;
+    }
+    .timer { font-size: 12px; color: var(--muted); }
+    video {
+      width: 100%;
+      max-height: 280px;
+      border-radius: 12px;
+      background: #000;
+      border: 1px solid var(--border);
+      object-fit: cover;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-cam { background: #1e293b; color: #fff; border: 1px solid var(--border); }
+    .btn-rec { background: var(--danger); color: #fff; }
+    .btn-send { background: var(--accent); color: #04241b; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status {
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      display: none;
+      line-height: 1.4;
+    }
+    .status.ok { display: block; background: rgba(0, 168, 132, 0.15); border: 1px solid var(--accent); color: #6ee7b7; }
+    .status.err { display: block; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; }
+    input.token-input {
+      width: 100%;
+      background: #0b1320;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .submitted-box {
+      display: none;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1320;
+      border: 1px solid var(--border);
+    }
+    .submitted-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div>
+      <h1>🎥 Verificação por Vídeo Ao Vivo</h1>
+      <p class="sub">Grave um vídeo curto falando em voz alta o código exibido abaixo para liberar sua verificação.</p>
+    </div>
+
+    <input type="text" id="verify-token" class="token-input" placeholder="Token/ID da verificação (se exigido)" />
+
+    <div class="challenge-card">
+      <div class="challenge-label">Fale este código no vídeo agora</div>
+      <div class="code-big" id="challenge-code">----</div>
+      <div class="timer" id="challenge-timer">Carregando desafio...</div>
+    </div>
+
+    <video id="preview" autoplay playsinline muted></video>
+
+    <div class="row">
+      <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
+      <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
+    </div>
+
+    <button type="button" class="btn-send" id="btn-send" disabled>Enviar Vídeo de Verificação</button>
+
+    <div class="status" id="status-box"></div>
+
+    <div class="submitted-box" id="submitted-box">
+      <div class="submitted-label" id="submitted-label">✅ Vídeo de verificação na tela</div>
+      <video id="submitted-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const tokenInput = document.getElementById('verify-token');
+    if (params.get('token')) tokenInput.value = params.get('token');
+
+    const codeEl = document.getElementById('challenge-code');
+    const timerEl = document.getElementById('challenge-timer');
+    const videoEl = document.getElementById('preview');
+    const btnOpenCam = document.getElementById('btn-open-cam');
+    const btnRecord = document.getElementById('btn-record');
+    const btnSend = document.getElementById('btn-send');
+    const statusBox = document.getElementById('status-box');
+    const submittedBox = document.getElementById('submitted-box');
+    const submittedVideo = document.getElementById('submitted-video');
+    const submittedLabel = document.getElementById('submitted-label');
+
+    let stream = null;
+    let recorder = null;
+    let chunks = [];
+    let recordedBlob = null;
+    let challengeCode = '';
+    let expiresAt = 0;
+
+    function setStatus(msg, type = 'ok') {
+      statusBox.textContent = msg;
+      statusBox.className = `status ${type}`;
+    }
+
+    function showSavedVerificationVideo(videoUrl, status) {
+      if (!videoUrl) return;
+      submittedVideo.src = videoUrl;
+      submittedBox.style.display = 'block';
+      const statusMap = {
+        pending_review: '⏳ Vídeo enviado — aguardando revisão',
+        verified: '✅ Perfil verificado com este vídeo',
+        rejected: '❌ Vídeo recusado — grave um novo com o código atual',
+      };
+      submittedLabel.textContent = statusMap[status] || '✅ Vídeo de verificação enviado';
+    }
+
+    function genLocalCode() {
+      challengeCode = String(Math.floor(1000 + Math.random() * 9000));
+      expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutos
+      codeEl.textContent = challengeCode;
+    }
+
+    async function loadChallenge() {
+      try {
+        const q = tokenInput.value.trim() ? `?token=${encodeURIComponent(tokenInput.value.trim())}` : '';
+        const res = await fetch(`/api/verification/challenge${q}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.code) {
+            challengeCode = String(data.code);
+            expiresAt = data.expiresAt || (Date.now() + 3 * 60 * 1000);
+            codeEl.textContent = challengeCode;
+            return;
+          }
+        }
+      } catch (_) {}
+      genLocalCode();
+    }
+
+    async function checkExistingVerification() {
+      const tok = tokenInput.value.trim();
+      if (!tok) return;
+      try {
+        const res = await fetch(`/api/verification/status?token=${encodeURIComponent(tok)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.found && data.videoUrl) {
+          showSavedVerificationVideo(data.videoUrl, data.status);
+        }
+      } catch (_) {}
+    }
+
+    setInterval(() => {
+      if (!expiresAt) return;
+      const leftSec = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      if (leftSec === 0) {
+        genLocalCode();
+        setStatus('O tempo do código expirou. Um novo código foi gerado.', 'err');
+      }
+      const min = String(Math.floor(leftSec / 60)).padStart(2, '0');
+      const sec = String(leftSec % 60).padStart(2, '0');
+      timerEl.textContent = `Expira em ${min}:${sec}`;
+    }, 1000);
+
+    btnOpenCam.addEventListener('click', async () => {
+      try {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        videoEl.srcObject = null;
+        videoEl.src = '';
+        videoEl.muted = true;
+        recordedBlob = null;
+        btnSend.disabled = true;
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+          audio: true
+        });
+        videoEl.srcObject = stream;
+        await videoEl.play();
+        btnRecord.disabled = false;
+        setStatus('Câmera pronta. Clique em Gravar Vídeo e fale o código em voz alta.', 'ok');
+      } catch (err) {
+        setStatus('Não foi possível acessar a câmera/microfone. Verifique as permissões do navegador.', 'err');
+      }
+    });
+
+    btnRecord.addEventListener('click', () => {
+      if (!recorder || recorder.state === 'inactive') {
+        if (!stream) return;
+        chunks = [];
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+          ? 'video/webm;codecs=vp8,opus'
+          : (MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '');
+
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => {
+          const finalType = recorder.mimeType || 'video/webm';
+          recordedBlob = new Blob(chunks, { type: finalType });
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          videoEl.srcObject = null;
+          videoEl.src = URL.createObjectURL(recordedBlob);
+          videoEl.muted = false;
+          videoEl.controls = true;
+          videoEl.play();
+          btnRecord.textContent = '⏺️ Gravar de Novo';
+          btnSend.disabled = false;
+          setStatus('Vídeo gravado! Confira se o código ficou claro e clique em Enviar.', 'ok');
+        };
+
+        recorder.start();
+        btnRecord.textContent = '⏹️ Parar Gravação';
+        setStatus(`Gravando... Fale o código ${challengeCode} com clareza!`, 'ok');
+      } else {
+        recorder.stop();
+      }
+    });
+
+    async function sha256Hex(blob) {
+      const buf = await blob.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    btnSend.addEventListener('click', async () => {
+      if (!recordedBlob) return;
+      if (Date.now() > expiresAt) {
+        genLocalCode();
+        setStatus('O código havia expirado. Grave novamente com o novo código.', 'err');
+        return;
+      }
+
+      btnSend.disabled = true;
+      setStatus('Validando e enviando vídeo...', 'ok');
+
+      try {
+        const fileHash = await sha256Hex(recordedBlob);
+        const ext = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+        const form = new FormData();
+        form.append('video', recordedBlob, `verificacao_${Date.now()}.${ext}`);
+        form.append('challengeCode', challengeCode);
+        form.append('expiresAt', String(expiresAt));
+        form.append('fileHash', fileHash);
+        form.append('token', tokenInput.value.trim());
+
+        const res = await fetch('/api/verification/submit', {
+          method: 'POST',
+          body: form
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(data.error || 'Falha na validação do vídeo.', 'err');
+          btnSend.disabled = false;
+          return;
+        }
+
+        if (data.videoUrl) {
+          showSavedVerificationVideo(data.videoUrl, data.status);
+        }
+        setStatus('Verificação enviada com sucesso! O vídeo já aparece abaixo na tela.', 'ok');
+      } catch (err) {
+        setStatus('Erro de rede ao enviar o vídeo.', 'err');
+        btnSend.disabled = false;
+      }
+    });
+
+    loadChallenge();
+    checkExistingVerification();
+  </script>
+</body>
+</html>

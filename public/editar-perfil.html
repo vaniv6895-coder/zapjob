@@ -23,6 +23,8 @@
       --text-secondary: #a1a1aa;
       --text-muted: #71717a;
       --success: #10b981;
+      --amber: #f59e0b;
+      --danger: #ef4444;
       --radius-lg: 18px;
       --radius-md: 12px;
       --radius-sm: 8px;
@@ -458,6 +460,102 @@
       50% { opacity: 0.72; }
     }
 
+    /* Verificação por Vídeo Ao Vivo */
+    .verify-challenge-box {
+      background: var(--bg-input);
+      border: 1.5px dashed rgba(245, 158, 11, 0.65);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .verify-challenge-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--amber);
+    }
+    .verify-code-big {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: #fff;
+      margin: 6px 0;
+    }
+    .verify-timer {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .verify-video {
+      width: 100%;
+      max-height: 270px;
+      border-radius: var(--radius-md);
+      background: #000;
+      border: 1px solid var(--border);
+      object-fit: cover;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .btn-verify-rec {
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+    .btn-verify-rec:hover:not(:disabled) {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+    .btn-verify-send {
+      width: 100%;
+      background: var(--success);
+      border: none;
+      color: #04241b;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-verify-send:disabled { opacity: 0.45; cursor: not-allowed; }
+    .verify-feedback {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .verify-feedback.ok {
+      display: block;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+    .verify-feedback.err {
+      display: block;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+    .saved-verify-card {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+    }
+    .saved-verify-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--success);
+      margin-bottom: 8px;
+    }
+
     /* Gallery Dropzone & Grid */
     .dropzone {
       border: 1.5px dashed rgba(255, 255, 255, 0.15);
@@ -821,7 +919,47 @@
       </div>
     </section>
 
-    <!-- Bloco 4: Características e Serviços -->
+    <!-- Bloco 4: Verificação Real por Vídeo Ao Vivo -->
+    <section class="panel" id="liveVerificationPanel">
+      <div class="panel-body">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">🎥 Verificação por Vídeo Ao Vivo</h2>
+            <p class="panel-desc">Abra a câmera ao vivo e fale o código de 4 dígitos para comprovar sua identidade.</p>
+          </div>
+        </div>
+
+        <div class="verify-challenge-box">
+          <div class="verify-challenge-label">Fale este código no vídeo agora</div>
+          <div class="verify-code-big" id="verifyChallengeCode">----</div>
+          <div class="verify-timer" id="verifyChallengeTimer">Carregando desafio...</div>
+        </div>
+
+        <video id="verifyPreview" class="verify-video" autoplay playsinline muted></video>
+
+        <div class="grid-2" style="margin-bottom: 10px;">
+          <button type="button" class="btn-secondary" id="btnOpenVerifyCam" onclick="abrirCameraVerificacao()">
+            📷 Abrir Câmera
+          </button>
+          <button type="button" class="btn-secondary btn-verify-rec" id="btnRecordVerify" disabled onclick="toggleGravacaoVerificacao()">
+            ⏺️ Gravar Vídeo
+          </button>
+        </div>
+
+        <button type="button" class="btn-verify-send" id="btnSendVerify" disabled onclick="enviarVideoVerificacao()">
+          Enviar Vídeo de Verificação
+        </button>
+
+        <div class="verify-feedback" id="verifyFeedback"></div>
+
+        <div class="saved-verify-card" id="savedVerifyCard">
+          <div class="saved-verify-title" id="savedVerifyTitle">✅ Vídeo de verificação salvo</div>
+          <video id="savedVerifyVideo" class="verify-video" style="margin-bottom:0;" controls playsinline></video>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bloco 5: Características e Serviços -->
     <section class="panel">
       <div class="panel-body">
         <div class="panel-header">
@@ -875,7 +1013,7 @@
       </div>
     </section>
 
-    <!-- Bloco 5: Galeria de Mídia -->
+    <!-- Bloco 6: Galeria de Mídia -->
     <section class="panel">
       <div class="panel-body">
         <div class="panel-header">
@@ -898,6 +1036,8 @@
     <input type="hidden" id="avatarUrl" />
     <input type="hidden" id="coverUrl" />
     <input type="hidden" id="audioUrl" />
+    <input type="hidden" id="verificationToken" />
+    <input type="hidden" id="verificationVideoUrl" />
 
     <!-- Barra Fixa de Ação -->
     <div class="save-dock">
@@ -914,9 +1054,217 @@
     let creatorSlug = '';
     let leftAt = 0;
 
+    // Estado da Verificação por Vídeo Ao Vivo
+    let verifyToken = sessionStorage.getItem('creator_verify_token') || '';
+    let verifyChallengeCode = '';
+    let verifyExpiresAt = 0;
+    let verifyStream = null;
+    let verifyRecorder = null;
+    let verifyChunks = [];
+    let verifyRecordedBlob = null;
+
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
       document.getElementById('drawerBackdrop').classList.toggle('open');
+    }
+
+    function setVerifyFeedback(msg, isOk = true) {
+      const el = document.getElementById('verifyFeedback');
+      el.textContent = msg;
+      el.className = `verify-feedback ${isOk ? 'ok' : 'err'}`;
+    }
+
+    function exibirVideoVerificacaoSalvo(videoUrl, status) {
+      if (!videoUrl) return;
+      document.getElementById('verificationVideoUrl').value = videoUrl;
+      const card = document.getElementById('savedVerifyCard');
+      const vid = document.getElementById('savedVerifyVideo');
+      const title = document.getElementById('savedVerifyTitle');
+      vid.src = videoUrl;
+      card.style.display = 'block';
+      const labels = {
+        pending_review: '⏳ Vídeo enviado — aguardando revisão',
+        verified: '✅ Perfil verificado com este vídeo',
+        rejected: '❌ Vídeo recusado — grave um novo com o código atual',
+      };
+      title.textContent = labels[status] || '✅ Vídeo de verificação salvo';
+    }
+
+    function gerarDesafioLocal() {
+      verifyChallengeCode = String(Math.floor(1000 + Math.random() * 9000));
+      verifyExpiresAt = Date.now() + 3 * 60 * 1000;
+      document.getElementById('verifyChallengeCode').textContent = verifyChallengeCode;
+    }
+
+    async function carregarDesafioVerificacao(forceToken) {
+      if (forceToken) {
+        verifyToken = String(forceToken).trim();
+        sessionStorage.setItem('creator_verify_token', verifyToken);
+      } else if (!verifyToken) {
+        verifyToken = 'creator_' + (token ? token.slice(-12) : Date.now()) + '_' + Math.random().toString(36).slice(2, 6);
+        sessionStorage.setItem('creator_verify_token', verifyToken);
+      }
+      document.getElementById('verificationToken').value = verifyToken;
+
+      try {
+        const res = await fetch('/api/verification/challenge?token=' + encodeURIComponent(verifyToken));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.code) {
+            verifyChallengeCode = String(data.code);
+            verifyExpiresAt = Number(data.expiresAt) || (Date.now() + 3 * 60 * 1000);
+            document.getElementById('verifyChallengeCode').textContent = verifyChallengeCode;
+          }
+        } else {
+          gerarDesafioLocal();
+        }
+      } catch (_) {
+        gerarDesafioLocal();
+      }
+
+      try {
+        const stRes = await fetch('/api/verification/status?token=' + encodeURIComponent(verifyToken));
+        if (stRes.ok) {
+          const stData = await stRes.json();
+          if (stData.found && stData.videoUrl) {
+            exibirVideoVerificacaoSalvo(stData.videoUrl, stData.status);
+          }
+        }
+      } catch (_) {}
+    }
+
+    setInterval(() => {
+      if (!verifyExpiresAt) return;
+      const leftSec = Math.max(0, Math.floor((verifyExpiresAt - Date.now()) / 1000));
+      if (leftSec === 0) {
+        carregarDesafioVerificacao(verifyToken);
+        setVerifyFeedback('O código expirou. Um novo código foi gerado.', false);
+      }
+      const m = String(Math.floor(leftSec / 60)).padStart(2, '0');
+      const s = String(leftSec % 60).padStart(2, '0');
+      document.getElementById('verifyChallengeTimer').textContent = `Expira em ${m}:${s}`;
+    }, 1000);
+
+    async function abrirCameraVerificacao() {
+      const preview = document.getElementById('verifyPreview');
+      try {
+        if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+        preview.srcObject = null;
+        preview.src = '';
+        preview.muted = true;
+        preview.controls = false;
+        verifyRecordedBlob = null;
+        document.getElementById('btnSendVerify').disabled = true;
+
+        verifyStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+          audio: true
+        });
+        preview.srcObject = verifyStream;
+        await preview.play();
+        document.getElementById('btnRecordVerify').disabled = false;
+        setVerifyFeedback(`Câmera pronta. Grave e fale o código ${verifyChallengeCode} em voz alta.`, true);
+      } catch (_) {
+        setVerifyFeedback('Não foi possível acessar câmera/microfone. Verifique as permissões do navegador.', false);
+      }
+    }
+
+    function toggleGravacaoVerificacao() {
+      const btnRec = document.getElementById('btnRecordVerify');
+      const preview = document.getElementById('verifyPreview');
+
+      if (!verifyRecorder || verifyRecorder.state === 'inactive') {
+        if (!verifyStream) return;
+        verifyChunks = [];
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+          ? 'video/webm;codecs=vp8,opus'
+          : (MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '');
+
+        verifyRecorder = mime ? new MediaRecorder(verifyStream, { mimeType: mime }) : new MediaRecorder(verifyStream);
+        verifyRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) verifyChunks.push(e.data);
+        };
+        verifyRecorder.onstop = () => {
+          const finalType = verifyRecorder.mimeType || 'video/webm';
+          verifyRecordedBlob = new Blob(verifyChunks, { type: finalType });
+          if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+          preview.srcObject = null;
+          preview.src = URL.createObjectURL(verifyRecordedBlob);
+          preview.muted = false;
+          preview.controls = true;
+          preview.play();
+          btnRec.textContent = '⏺️ Gravar de Novo';
+          document.getElementById('btnSendVerify').disabled = false;
+          setVerifyFeedback('Vídeo gravado! Confira se o código ficou claro e clique em Enviar.', true);
+        };
+
+        verifyRecorder.start();
+        btnRec.textContent = '⏹️ Parar Gravação';
+        setVerifyFeedback(`Gravando... Fale o código ${verifyChallengeCode} com clareza!`, true);
+      } else {
+        verifyRecorder.stop();
+      }
+    }
+
+    async function sha256Hex(blob) {
+      const buf = await blob.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function enviarVideoVerificacao() {
+      if (!verifyRecordedBlob) return;
+      if (Date.now() > verifyExpiresAt) {
+        carregarDesafioVerificacao(verifyToken);
+        setVerifyFeedback('O código havia expirado. Grave novamente com o novo código.', false);
+        return;
+      }
+
+      const btnSend = document.getElementById('btnSendVerify');
+      btnSend.disabled = true;
+      setVerifyFeedback('Validando hash e enviando vídeo...', true);
+
+      try {
+        const fileHash = await sha256Hex(verifyRecordedBlob);
+        const ext = verifyRecordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+        const fd = new FormData();
+        fd.append('video', verifyRecordedBlob, `verificacao_${Date.now()}.${ext}`);
+        fd.append('challengeCode', verifyChallengeCode);
+        fd.append('expiresAt', String(verifyExpiresAt));
+        fd.append('fileHash', fileHash);
+        fd.append('token', verifyToken);
+
+        const res = await fetch('/api/verification/submit', {
+          method: 'POST',
+          body: fd
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setVerifyFeedback(data.error || 'Falha na validação do vídeo.', false);
+          btnSend.disabled = false;
+          return;
+        }
+
+        if (data.videoUrl) {
+          exibirVideoVerificacaoSalvo(data.videoUrl, data.status);
+          if (token) {
+            await fetch('/api/portal/me', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+              body: JSON.stringify({
+                verification_token: verifyToken,
+                verification_video_url: data.videoUrl,
+                verification_status: data.status || 'pending_review',
+              }),
+            }).catch(() => {});
+          }
+        }
+        setVerifyFeedback('Vídeo enviado! Ele já aparece na sua tela e ficou vinculado ao perfil.', true);
+      } catch (_) {
+        setVerifyFeedback('Erro de rede ao enviar o vídeo.', false);
+        btnSend.disabled = false;
+      }
     }
 
     let mediaRecorderAudio = null;
@@ -1079,10 +1427,21 @@
             player.src = c.audio_url;
             player.style.display = 'block';
           }
+
+          if (c.verification_token) {
+            verifyToken = c.verification_token;
+            sessionStorage.setItem('creator_verify_token', verifyToken);
+          }
+          if (c.verification_video_url) {
+            exibirVideoVerificacaoSalvo(c.verification_video_url, c.verification_status);
+          }
         }
+
+        await carregarDesafioVerificacao(verifyToken);
         carregarGaleria();
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
+        await carregarDesafioVerificacao(verifyToken);
       }
     }
 
@@ -1194,6 +1553,8 @@
         avatar_url: document.getElementById('avatarUrl').value || null,
         cover_url: document.getElementById('coverUrl').value || null,
         audio_url: document.getElementById('audioUrl').value || null,
+        verification_token: document.getElementById('verificationToken').value || null,
+        verification_video_url: document.getElementById('verificationVideoUrl').value || null,
       };
 
       try {

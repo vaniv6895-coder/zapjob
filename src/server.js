@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fs from 'fs';
+import crypto from 'crypto';
 import { registerPortalRoutes } from './portalRoutes.js';
 import { ensureVipTables, registerVipFeedRoutes } from './vipFeedRoutes.js';
 import path from 'path';
@@ -21,6 +22,7 @@ import { downloadWhatsAppMedia, sendWhatsAppTyping, sendWhatsAppText } from './w
 import { downloadTelegramMedia, sendTelegramText } from './telegram.js';
 import { downloadMessengerMedia } from './messenger.js';
 import { uploadMedia } from './storage.js';
+import { uploadVerificationVideoToR2 } from './r2Verification.js';
 import { runHybridFlow } from './flowEngine.js';
 import { registerPanelRoutes } from './panel.js';
 import { registerCheckoutRoutes } from './checkout.js';
@@ -96,6 +98,172 @@ app.get('/vip-shield.js', async (req, reply) => {
 app.get('/device-id.js', async (req, reply) => {
   const code = fs.readFileSync(path.resolve('src/device-id.js'), 'utf8');
   return reply.type('application/javascript; charset=utf-8').send(code);
+});
+
+// =========================================================================
+// VERIFICAÇÃO REAL POR VÍDEO AO VIVO + HASH SHA-256 NO POSTGRES + R2
+// =========================================================================
+app.get('/verificar', async (req, reply) => {
+  const htmlPath = path.resolve(process.cwd(), 'public/verificar.html');
+  if (!fs.existsSync(htmlPath)) {
+    return reply.status(404).send('Arquivo public/verificar.html não encontrado.');
+  }
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  return reply.type('text/html; charset=utf-8').send(html);
+});
+
+app.get('/api/verification/challenge', async (req, reply) => {
+  try {
+    const token = String(req.query?.token || crypto.randomBytes(8).toString('hex')).trim();
+    const code = String(crypto.randomInt(1000, 9999));
+    const expiresAt = Date.now() + 3 * 60 * 1000;
+
+    await pool.query(
+      `INSERT INTO model_verifications (token, challenge_code, expires_at, status)
+       VALUES ($1, $2, $3, 'pending_challenge')
+       ON CONFLICT (token)
+       DO UPDATE SET
+         challenge_code = EXCLUDED.challenge_code,
+         expires_at = EXCLUDED.expires_at,
+         status = CASE
+           WHEN model_verifications.status = 'verified' THEN 'verified'
+           ELSE 'pending_challenge'
+         END`,
+      [token, code, expiresAt]
+    );
+
+    return reply.send({ token, code, expiresAt });
+  } catch (err) {
+    app.log.error(err, '[Verification Challenge] Erro');
+    return reply.status(500).send({ error: 'Erro ao gerar desafio de verificação.' });
+  }
+});
+
+app.get('/api/verification/status', async (req, reply) => {
+  try {
+    const token = String(req.query?.token || '').trim();
+    if (!token) {
+      return reply.status(400).send({ error: 'Token obrigatório.' });
+    }
+
+    const row = await pool.query(
+      `SELECT token, challenge_code, expires_at, video_url, status, verified_at
+       FROM model_verifications
+       WHERE token = $1`,
+      [token]
+    );
+
+    if (row.rowCount === 0) {
+      return reply.send({ ok: true, found: false });
+    }
+
+    const item = row.rows[0];
+    return reply.send({
+      ok: true,
+      found: true,
+      token: item.token,
+      status: item.status,
+      videoUrl: item.video_url || '',
+      verifiedAt: item.verified_at || null,
+    });
+  } catch (err) {
+    app.log.error(err, '[Verification Status] Erro');
+    return reply.status(500).send({ error: 'Erro ao consultar status da verificação.' });
+  }
+});
+
+app.post('/api/verification/submit', async (req, reply) => {
+  try {
+    const data = await req.file();
+    if (!data) {
+      return reply.status(400).send({ error: 'Nenhum vídeo recebido.' });
+    }
+
+    const mimeType = String(data.mimetype || '');
+    if (!mimeType.startsWith('video/')) {
+      return reply.status(400).send({ error: 'Envie apenas um arquivo de vídeo.' });
+    }
+
+    const buffer = await data.toBuffer();
+    if (!buffer || buffer.length === 0) {
+      return reply.status(400).send({ error: 'Arquivo de vídeo vazio.' });
+    }
+
+    if (buffer.length > 25 * 1024 * 1024) {
+      return reply.status(400).send({ error: 'Vídeo excede o limite de 25 MB.' });
+    }
+
+    const fields = data.fields || {};
+    const getFieldVal = (f) => (f && typeof f === 'object' && 'value' in f ? String(f.value || '') : String(f || ''));
+
+    const token = getFieldVal(fields.token).trim();
+    if (!token) {
+      return reply.status(400).send({ error: 'Token de verificação ausente.' });
+    }
+
+    const challengeRow = await pool.query(
+      `SELECT token, challenge_code, expires_at, status FROM model_verifications WHERE token = $1`,
+      [token]
+    );
+
+    if (challengeRow.rowCount === 0) {
+      return reply.status(400).send({ error: 'Desafio não encontrado. Recarregue a página para gerar um código.' });
+    }
+
+    const challenge = challengeRow.rows[0];
+    if (Date.now() > Number(challenge.expires_at)) {
+      return reply.status(400).send({ error: 'Código expirado. Atualize a página e grave novamente.' });
+    }
+
+    const submittedCode = getFieldVal(fields.challengeCode).trim();
+    if (submittedCode && submittedCode !== String(challenge.challenge_code)) {
+      return reply.status(400).send({ error: 'Código inválido para este desafio.' });
+    }
+
+    const serverHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    const clientHash = getFieldVal(fields.fileHash).trim().toLowerCase();
+    if (clientHash && clientHash !== serverHash) {
+      return reply.status(400).send({ error: 'Falha na integridade do vídeo.' });
+    }
+
+    const duplicateCheck = await pool.query(
+      `SELECT id FROM model_verifications WHERE video_hash = $1 AND token <> $2`,
+      [serverHash, token]
+    );
+    if (duplicateCheck.rowCount > 0) {
+      return reply.status(409).send({
+        error: 'Este vídeo já foi utilizado antes. Grave um vídeo novo ao vivo com o código atual.',
+      });
+    }
+
+    const uploaded = await uploadVerificationVideoToR2(buffer, mimeType, token, serverHash);
+
+    await pool.query(
+      `UPDATE model_verifications
+       SET video_hash = $1,
+           video_url = $2,
+           status = 'pending_review',
+           verified_at = NOW()
+       WHERE token = $3`,
+      [serverHash, uploaded.url, token]
+    );
+
+    return reply.send({
+      ok: true,
+      token,
+      status: 'pending_review',
+      videoUrl: uploaded.url,
+      hash: serverHash,
+    });
+  } catch (err) {
+    if (err?.code === '23505') {
+      return reply.status(409).send({
+        error: 'Este vídeo já foi registrado no sistema. Grave um vídeo inédito.',
+      });
+    }
+    app.log.error(err, '[Verification Submit] Erro');
+    return reply.status(500).send({ error: 'Erro ao salvar vídeo de verificação.' });
+  }
 });
 
 // Página inicial neutra (para aprovação de domínio na Meta)
@@ -179,7 +347,6 @@ app.get('/fluxo', async (req, reply) => {
 registerPanelRoutes(app);
 registerCheckoutRoutes(app);
 registerPortalRoutes(app);
- 
 
 registerPortalReelsRoute(app);
 
@@ -387,7 +554,6 @@ app.post('/webhook/mercadopago', async (req, reply) => {
       }
       return;
     }
-
 
     // Caso B: Pagamento de destaque do Portal (external_reference = "portal:orderId")
     if (extRef.startsWith('portal:')) {
