@@ -460,40 +460,90 @@
       50% { opacity: 0.72; }
     }
 
-    /* Verificação Dedicada Status Card */
-    .verify-status-card {
+    /* Verificação por Vídeo Ao Vivo (Card + Câmera Tela Cheia com Número) */
+    .verify-tip-box {
       background: var(--bg-input);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .verify-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      padding: 11px 12px;
       font-size: 12px;
-      font-weight: 700;
-      padding: 5px 10px;
-      border-radius: 99px;
-      width: fit-content;
-      background: rgba(245, 158, 11, 0.15);
-      color: #fcd34d;
-      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 12px;
     }
-    .verify-badge.verified {
-      background: rgba(16, 185, 129, 0.15);
+    .verify-challenge-box {
+      background: var(--bg-input);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .verify-challenge-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--amber);
+    }
+    .verify-code-big {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 7px;
+      color: #fff;
+      margin: 4px 0;
+    }
+    .verify-timer {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .btn-open-fullcam {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-open-fullcam:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-open-fullcam:disabled { opacity: 0.45; cursor: not-allowed; }
+    .verify-attempts-info {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+    .verify-feedback {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .verify-feedback.ok {
+      display: block;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.4);
       color: #6ee7b7;
-      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .verify-feedback.err {
+      display: block;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
     }
     .saved-verify-card {
       display: none;
-      margin-top: 8px;
+      margin-top: 12px;
       padding: 12px;
       border-radius: var(--radius-md);
-      background: var(--bg-page);
+      background: var(--bg-input);
       border: 1px solid var(--border);
     }
     .saved-verify-title {
@@ -504,11 +554,106 @@
     }
     .saved-verify-video {
       width: 100%;
-      max-height: 260px;
+      max-height: 250px;
       border-radius: var(--radius-sm);
       background: #000;
+      object-fit: cover;
       display: block;
     }
+
+    /* Overlay Tela Cheia da Câmera com Número para Falar */
+    .full-cam-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      background: #000;
+      z-index: 99999;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 14px 24px;
+    }
+    .full-cam-overlay.open { display: flex; }
+    .full-cam-video {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      object-fit: cover;
+      z-index: 1;
+    }
+    .full-cam-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .full-number-box {
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(245, 158, 11, 0.8);
+      border-radius: 14px;
+      padding: 10px 16px;
+      text-align: center;
+      flex: 1;
+    }
+    .full-number-big {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #fff;
+      line-height: 1.15;
+    }
+    .btn-close-cam {
+      background: rgba(24, 24, 27, 0.85);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .full-cam-bottom {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.88) 35%);
+      padding-top: 18px;
+    }
+    .full-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-full-rec {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-full-rec:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-full-send {
+      background: var(--success);
+      color: #04241b;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      opacity: 0.45;
+    }
+    .btn-full-send:enabled { opacity: 1; cursor: pointer; }
+    .btn-full-send:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* Reviews Moderation Cards */
     .reviews-mod-list {
@@ -722,26 +867,13 @@
       const t = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token');
       if (!t) {
         window.location.replace('/minha-conta');
-        return;
+      } else {
+        sessionStorage.setItem('portal_token', t);
+        localStorage.setItem('portal_token', t);
+        if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
+          window.location.replace('/biometria-facial?mode=unlock');
+        }
       }
-      sessionStorage.setItem('portal_token', t);
-      localStorage.setItem('portal_token', t);
-      if (localStorage.getItem('bio_enabled') === '1' && sessionStorage.getItem('bio_verified') !== '1') {
-        window.location.replace('/biometria-facial?mode=unlock');
-        return;
-      }
-      fetch('/api/portal/me', { headers: { Authorization: 'Bearer ' + t } })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          const c = data?.creator || data;
-          if (c && !String(c.verification_video_url || '').trim()) {
-            const vTok = c.verification_token || ('creator_' + c.id);
-            sessionStorage.setItem('creator_verify_token', vTok);
-            localStorage.setItem('creator_verify_token', vTok);
-            window.location.replace('/verificar?token=' + encodeURIComponent(vTok) + '&next=' + encodeURIComponent('/minha-conta/editar'));
-          }
-        })
-        .catch(() => {});
     })();
   </script>
 </head>
@@ -972,31 +1104,39 @@
       </div>
     </section>
 
-    <!-- Bloco 4: Verificação Obrigatória por Vídeo (Página Dedicada) -->
+    <!-- Bloco 4: Verificação por Vídeo Ao Vivo (Corpo Inteiro + Tela Cheia ao Abrir Câmera) -->
     <section class="panel" id="liveVerificationPanel">
       <div class="panel-body">
         <div class="panel-header">
           <div>
-            <h2 class="panel-title">🎥 Verificação por Vídeo Ao Vivo</h2>
-            <p class="panel-desc">Sem esta verificação o perfil não é aprovado e não vai para o ar (até 5 envios permitidos).</p>
+            <h2 class="panel-title">🎥 Verificação por Vídeo (Corpo Inteiro)</h2>
+            <p class="panel-desc">Sem este vídeo o perfil não vai para o ar. Ao abrir a câmera, ela ocupa a tela inteira com o número para você falar.</p>
           </div>
         </div>
 
-        <div class="verify-status-card">
-          <span class="verify-badge" id="verifyBadge">⏳ Pendente de verificação</span>
-          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.45;" id="verifyHelperText">
-            Abra a tela dedicada de verificação para gravar seu vídeo ao vivo falando o código de 4 dígitos.
-          </p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn-primary" style="padding: 10px 14px; font-size: 12.5px;" onclick="irParaVerificacaoDedicada()">
-              🎥 Abrir Página de Verificação
-            </button>
-          </div>
+        <div class="verify-tip-box">
+          <strong>Como fazer com calma:</strong> afaste o celular para mostrar o <strong>corpo inteiro</strong>, fale o número abaixo em voz alta e envie. Você tem até <strong>5 chances</strong> caso mude algo no visual depois.
+        </div>
 
-          <div class="saved-verify-card" id="savedVerifyCard">
-            <div class="saved-verify-title" id="savedVerifyTitle">✅ Vídeo de verificação salvo</div>
-            <video id="savedVerifyVideo" class="saved-verify-video" controls playsinline></video>
-          </div>
+        <div class="verify-challenge-box">
+          <div class="verify-challenge-label">Número para falar no vídeo</div>
+          <div class="verify-code-big" id="verifyChallengeCode">----</div>
+          <div class="verify-timer" id="verifyChallengeTimer">Carregando código...</div>
+        </div>
+
+        <button type="button" class="btn-open-fullcam" id="btnOpenVerifyCam" onclick="abrirCameraVerificacao()">
+          📷 Abrir Câmera em Tela Inteira
+        </button>
+
+        <div class="verify-attempts-info" id="verifyAttemptsInfo">
+          Envios utilizados: 0 de 5 (5 restantes)
+        </div>
+
+        <div class="verify-feedback" id="verifyFeedback"></div>
+
+        <div class="saved-verify-card" id="savedVerifyCard">
+          <div class="saved-verify-title" id="savedVerifyTitle">✅ Vídeo de verificação salvo</div>
+          <video id="savedVerifyVideo" class="saved-verify-video" controls playsinline></video>
         </div>
       </div>
     </section>
@@ -1110,12 +1250,49 @@
 
   </form>
 
+  <!-- Câmera em Tela Cheia com Número para Falar -->
+  <div id="fullCamOverlay" class="full-cam-overlay">
+    <video id="verifyPreview" class="full-cam-video" autoplay playsinline muted></video>
+
+    <div class="full-cam-top">
+      <div class="full-number-box">
+        <div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;">Fale este número no vídeo</div>
+        <div id="fullCamNumber" class="full-number-big">----</div>
+        <div id="fullCamTimer" style="font-size:11px;color:#d4d4d8;">Expira em 03:00</div>
+      </div>
+      <button type="button" class="btn-close-cam" onclick="fecharCameraVerificacao()">✕ Fechar</button>
+    </div>
+
+    <div class="full-cam-bottom">
+      <div id="fullCamStatus" style="text-align:center;font-size:12.5px;font-weight:700;color:#fff;">
+        Afaste o celular para mostrar o corpo inteiro e fale o número.
+      </div>
+      <div class="full-grid-2">
+        <button type="button" class="btn-full-rec" id="btnRecordVerify" disabled onclick="toggleGravacaoVerificacao()">
+          ⏺️ Gravar Vídeo
+        </button>
+        <button type="button" class="btn-full-send" id="btnSendVerify" disabled onclick="enviarVideoVerificacao()">
+          OBRIGATÓRIO • Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    const MAX_VERIFY_ATTEMPTS = 5;
     const token = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || '';
     let creatorSlug = '';
-    let creatorId = 0;
     let leftAt = 0;
+
+    // Estado da Verificação por Vídeo Ao Vivo (Tela Cheia ao Abrir Câmera)
     let verifyToken = sessionStorage.getItem('creator_verify_token') || localStorage.getItem('creator_verify_token') || '';
+    let verifyChallengeCode = '';
+    let verifyExpiresAt = 0;
+    let verifyAttemptsUsed = 0;
+    let verifyStream = null;
+    let verifyRecorder = null;
+    let verifyChunks = [];
+    let verifyRecordedBlob = null;
 
     function toggleDrawer() {
       document.getElementById('sideDrawer').classList.toggle('open');
@@ -1126,43 +1303,252 @@
       return String(str || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
     }
 
-    function getVerifyToken() {
-      if (verifyToken) return verifyToken;
-      verifyToken = 'creator_' + (creatorId || Date.now()) + '_' + Math.random().toString(36).slice(2, 6);
-      sessionStorage.setItem('creator_verify_token', verifyToken);
-      localStorage.setItem('creator_verify_token', verifyToken);
-      document.getElementById('verificationToken').value = verifyToken;
-      return verifyToken;
+    function setVerifyFeedback(msg, isOk = true) {
+      const el = document.getElementById('verifyFeedback');
+      el.textContent = msg;
+      el.className = `verify-feedback ${isOk ? 'ok' : 'err'}`;
+      const fullSt = document.getElementById('fullCamStatus');
+      if (fullSt) fullSt.textContent = msg;
     }
 
-    function irParaVerificacaoDedicada() {
-      const tok = getVerifyToken();
-      window.location.href = '/verificar?token=' + encodeURIComponent(tok) + '&next=' + encodeURIComponent('/minha-conta/editar');
+    function syncVerifyNumbers() {
+      const txt = verifyChallengeCode || '----';
+      document.getElementById('verifyChallengeCode').textContent = txt;
+      document.getElementById('fullCamNumber').textContent = txt;
     }
 
-    function exibirVideoVerificacaoSalvo(videoUrl, isVerified) {
+    function updateVerifyAttemptsUI(used) {
+      verifyAttemptsUsed = Math.min(MAX_VERIFY_ATTEMPTS, Number(used || 0));
+      const left = Math.max(0, MAX_VERIFY_ATTEMPTS - verifyAttemptsUsed);
+      document.getElementById('verifyAttemptsInfo').textContent =
+        `Envios utilizados: ${verifyAttemptsUsed} de ${MAX_VERIFY_ATTEMPTS} (${left} restante${left === 1 ? '' : 's'})`;
+      if (left === 0) {
+        document.getElementById('btnOpenVerifyCam').disabled = true;
+        document.getElementById('btnRecordVerify').disabled = true;
+        document.getElementById('btnSendVerify').disabled = true;
+      }
+    }
+
+    function exibirVideoVerificacaoSalvo(videoUrl, status) {
       if (!videoUrl) return;
       document.getElementById('verificationVideoUrl').value = videoUrl;
       const card = document.getElementById('savedVerifyCard');
       const vid = document.getElementById('savedVerifyVideo');
       const title = document.getElementById('savedVerifyTitle');
-      const badge = document.getElementById('verifyBadge');
-      const helper = document.getElementById('verifyHelperText');
-
       vid.src = videoUrl;
       card.style.display = 'block';
+      const labels = {
+        pending_review: '⏳ Vídeo enviado — aguardando aprovação para ir ao ar',
+        verified: '✅ Perfil verificado com este vídeo',
+        rejected: '❌ Vídeo recusado — grave um novo com o número atual',
+      };
+      title.textContent = labels[status] || '✅ Vídeo de verificação salvo';
+    }
 
-      if (badge) {
-        badge.textContent = isVerified ? '✅ Verificado' : '⏳ Vídeo enviado — aguardando aprovação';
-        badge.className = isVerified ? 'verify-badge verified' : 'verify-badge';
+    function gerarDesafioLocal() {
+      verifyChallengeCode = String(Math.floor(1000 + Math.random() * 9000));
+      verifyExpiresAt = Date.now() + 3 * 60 * 1000;
+      syncVerifyNumbers();
+    }
+
+    async function carregarDesafioVerificacao(forceToken) {
+      if (forceToken) {
+        verifyToken = String(forceToken).trim();
+        sessionStorage.setItem('creator_verify_token', verifyToken);
+        localStorage.setItem('creator_verify_token', verifyToken);
+      } else if (!verifyToken) {
+        verifyToken = 'creator_' + (token ? token.slice(-12) : Date.now()) + '_' + Math.random().toString(36).slice(2, 6);
+        sessionStorage.setItem('creator_verify_token', verifyToken);
+        localStorage.setItem('creator_verify_token', verifyToken);
       }
-      if (title) {
-        title.textContent = isVerified
-          ? '✅ Vídeo de verificação aprovado'
-          : '⏳ Vídeo de verificação enviado';
+      document.getElementById('verificationToken').value = verifyToken;
+
+      try {
+        const res = await fetch('/api/verification/challenge?token=' + encodeURIComponent(verifyToken));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.code) {
+            verifyChallengeCode = String(data.code);
+            verifyExpiresAt = Number(data.expiresAt) || (Date.now() + 3 * 60 * 1000);
+            syncVerifyNumbers();
+          }
+        } else {
+          gerarDesafioLocal();
+        }
+      } catch (_) {
+        gerarDesafioLocal();
       }
-      if (helper) {
-        helper.textContent = 'Você pode refazer o vídeo pela página dedicada (até 5 envios no total) caso mude seu visual.';
+
+      try {
+        const stRes = await fetch('/api/verification/status?token=' + encodeURIComponent(verifyToken));
+        if (stRes.ok) {
+          const stData = await stRes.json();
+          if (stData.found) {
+            updateVerifyAttemptsUI(stData.attemptsCount || 0);
+            if (stData.videoUrl) {
+              exibirVideoVerificacaoSalvo(stData.videoUrl, stData.status);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    setInterval(() => {
+      if (!verifyExpiresAt) return;
+      const leftSec = Math.max(0, Math.floor((verifyExpiresAt - Date.now()) / 1000));
+      if (leftSec === 0) {
+        carregarDesafioVerificacao(verifyToken);
+        setVerifyFeedback('O número expirou. Um novo número foi gerado.', false);
+      }
+      const m = String(Math.floor(leftSec / 60)).padStart(2, '0');
+      const s = String(leftSec % 60).padStart(2, '0');
+      const txt = `Expira em ${m}:${s}`;
+      document.getElementById('verifyChallengeTimer').textContent = txt;
+      document.getElementById('fullCamTimer').textContent = txt;
+    }, 1000);
+
+    function fecharCameraVerificacao() {
+      if (verifyRecorder && verifyRecorder.state !== 'inactive') {
+        try { verifyRecorder.stop(); } catch (_) {}
+      }
+      if (verifyStream) {
+        verifyStream.getTracks().forEach(t => t.stop());
+        verifyStream = null;
+      }
+      const preview = document.getElementById('verifyPreview');
+      preview.srcObject = null;
+      preview.src = '';
+      document.getElementById('fullCamOverlay').classList.remove('open');
+    }
+
+    async function abrirCameraVerificacao() {
+      if (verifyAttemptsUsed >= MAX_VERIFY_ATTEMPTS) return;
+      const overlay = document.getElementById('fullCamOverlay');
+      const preview = document.getElementById('verifyPreview');
+      overlay.classList.add('open');
+      syncVerifyNumbers();
+
+      try {
+        if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+        preview.srcObject = null;
+        preview.src = '';
+        preview.muted = true;
+        preview.controls = false;
+        verifyRecordedBlob = null;
+        document.getElementById('btnRecordVerify').textContent = '⏺️ Gravar Vídeo';
+        document.getElementById('btnSendVerify').disabled = true;
+
+        verifyStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true
+        });
+        preview.srcObject = verifyStream;
+        await preview.play();
+        document.getElementById('btnRecordVerify').disabled = false;
+        setVerifyFeedback(`Câmera aberta. Afaste para mostrar o corpo inteiro e fale ${verifyChallengeCode}.`, true);
+      } catch (_) {
+        setVerifyFeedback('Não foi possível acessar câmera/microfone. Verifique as permissões do navegador.', false);
+      }
+    }
+
+    function toggleGravacaoVerificacao() {
+      const btnRec = document.getElementById('btnRecordVerify');
+      const preview = document.getElementById('verifyPreview');
+
+      if (!verifyRecorder || verifyRecorder.state === 'inactive') {
+        if (!verifyStream) return;
+        verifyChunks = [];
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+          ? 'video/webm;codecs=vp8,opus'
+          : (MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '');
+
+        verifyRecorder = mime ? new MediaRecorder(verifyStream, { mimeType: mime }) : new MediaRecorder(verifyStream);
+        verifyRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) verifyChunks.push(e.data);
+        };
+        verifyRecorder.onstop = () => {
+          const finalType = verifyRecorder.mimeType || 'video/webm';
+          verifyRecordedBlob = new Blob(verifyChunks, { type: finalType });
+          if (verifyStream) verifyStream.getTracks().forEach(t => t.stop());
+          preview.srcObject = null;
+          preview.src = URL.createObjectURL(verifyRecordedBlob);
+          preview.muted = false;
+          preview.controls = true;
+          preview.play();
+          btnRec.textContent = '⏺️ Gravar de Novo';
+          document.getElementById('btnSendVerify').disabled = false;
+          setVerifyFeedback('Vídeo gravado! Confira e clique em OBRIGATÓRIO • Enviar.', true);
+        };
+
+        verifyRecorder.start();
+        btnRec.textContent = '⏹️ Parar';
+        setVerifyFeedback(`Gravando corpo inteiro... Fale o número ${verifyChallengeCode}!`, true);
+      } else {
+        verifyRecorder.stop();
+      }
+    }
+
+    async function sha256Hex(blob) {
+      const buf = await blob.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function enviarVideoVerificacao() {
+      if (!verifyRecordedBlob) return;
+      if (Date.now() > verifyExpiresAt) {
+        carregarDesafioVerificacao(verifyToken);
+        setVerifyFeedback('O número havia expirado. Grave novamente com o novo número.', false);
+        return;
+      }
+
+      const btnSend = document.getElementById('btnSendVerify');
+      btnSend.disabled = true;
+      setVerifyFeedback('Validando hash e enviando vídeo...', true);
+
+      try {
+        const fileHash = await sha256Hex(verifyRecordedBlob);
+        const ext = verifyRecordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+        const fd = new FormData();
+        fd.append('video', verifyRecordedBlob, `verificacao_${Date.now()}.${ext}`);
+        fd.append('challengeCode', verifyChallengeCode);
+        fd.append('expiresAt', String(verifyExpiresAt));
+        fd.append('fileHash', fileHash);
+        fd.append('token', verifyToken);
+
+        const res = await fetch('/api/verification/submit', {
+          method: 'POST',
+          body: fd
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setVerifyFeedback(data.error || 'Falha na validação do vídeo.', false);
+          btnSend.disabled = false;
+          return;
+        }
+
+        updateVerifyAttemptsUI(data.attemptsCount || (verifyAttemptsUsed + 1));
+
+        if (data.videoUrl) {
+          exibirVideoVerificacaoSalvo(data.videoUrl, data.status);
+          if (token) {
+            await fetch('/api/portal/me', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+              body: JSON.stringify({
+                verification_token: verifyToken,
+                verification_video_url: data.videoUrl,
+                verification_status: data.status || 'pending_review',
+              }),
+            }).catch(() => {});
+          }
+        }
+        fecharCameraVerificacao();
+        setVerifyFeedback('Vídeo enviado! Ele já aparece na sua tela e ficou vinculado ao perfil.', true);
+      } catch (_) {
+        setVerifyFeedback('Erro de rede ao enviar o vídeo.', false);
+        btnSend.disabled = false;
       }
     }
 
@@ -1348,7 +1734,6 @@
         const c = data.creator || data;
 
         if (c) {
-          creatorId = Number(c.id || 0);
           creatorSlug = c.slug || '';
           document.getElementById('stageName').value = c.stage_name || '';
           document.getElementById('age').value = c.age || '';
@@ -1391,21 +1776,18 @@
             verifyToken = c.verification_token;
             sessionStorage.setItem('creator_verify_token', verifyToken);
             localStorage.setItem('creator_verify_token', verifyToken);
-            document.getElementById('verificationToken').value = verifyToken;
           }
-
-          if (!String(c.verification_video_url || '').trim()) {
-            irParaVerificacaoDedicada();
-            return;
+          if (c.verification_video_url) {
+            exibirVideoVerificacaoSalvo(c.verification_video_url, c.verification_status);
           }
-
-          exibirVideoVerificacaoSalvo(c.verification_video_url, Boolean(c.verified));
         }
 
+        await carregarDesafioVerificacao(verifyToken);
         carregarAvaliacoesRecebidas();
         carregarGaleria();
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
+        await carregarDesafioVerificacao(verifyToken);
       }
     }
 
@@ -1476,13 +1858,6 @@
 
     async function salvarAlteracoes(e) {
       e.preventDefault();
-      const vUrl = document.getElementById('verificationVideoUrl').value.trim();
-      if (!vUrl) {
-        alert('A verificação por vídeo ao vivo é obrigatória para salvar e ir para o ar.');
-        irParaVerificacaoDedicada();
-        return;
-      }
-
       const btn = document.getElementById('btn-save');
       const hint = document.getElementById('save-status-hint');
       btn.innerText = 'Salvando...';
@@ -1525,7 +1900,7 @@
         cover_url: document.getElementById('coverUrl').value || null,
         audio_url: document.getElementById('audioUrl').value || null,
         verification_token: document.getElementById('verificationToken').value || null,
-        verification_video_url: vUrl,
+        verification_video_url: document.getElementById('verificationVideoUrl').value || null,
       };
 
       try {

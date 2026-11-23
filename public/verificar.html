@@ -78,16 +78,6 @@
     .code-big { font-size: 30px; font-weight: 800; letter-spacing: 7px; color: #fff; margin: 4px 0; }
     .timer { font-size: 11.5px; color: var(--muted); }
 
-    video.main-video {
-      width: 100%;
-      max-height: 260px;
-      border-radius: 12px;
-      background: #09090c;
-      border: 1px solid var(--border);
-      object-fit: cover;
-    }
-
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     button {
       width: 100%;
       border: none;
@@ -99,9 +89,7 @@
       transition: 0.15s;
     }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-cam { background: #1e1e26; color: #fff; border: 1px solid var(--border); }
-    .btn-rec { background: var(--danger); color: #fff; }
-    .btn-send { background: var(--success); color: #04241b; font-weight: 800; }
+    .btn-cam { background: var(--accent); color: #fff; font-weight: 800; }
     .btn-continue {
       display: none;
       background: var(--accent);
@@ -128,6 +116,80 @@
       padding: 12px;
     }
     .saved-title { font-size: 12px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
+    .saved-video {
+      width: 100%;
+      max-height: 240px;
+      border-radius: 10px;
+      background: #09090c;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Overlay da Câmera em Tela Cheia com Número para Falar */
+    .full-cam-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      background: #000;
+      z-index: 99999;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 14px 24px;
+    }
+    .full-cam-overlay.open { display: flex; }
+    .full-cam-video {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      object-fit: cover;
+      z-index: 1;
+    }
+    .full-cam-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .full-number-box {
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(245, 158, 11, 0.8);
+      border-radius: 14px;
+      padding: 10px 16px;
+      text-align: center;
+      flex: 1;
+    }
+    .full-number-big {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #fff;
+      line-height: 1.15;
+    }
+    .btn-close-cam {
+      width: auto;
+      background: rgba(24, 24, 27, 0.85);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 10px 14px;
+    }
+    .full-cam-bottom {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.88) 35%);
+      padding-top: 18px;
+    }
+    .full-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-full-rec { background: var(--danger); color: #fff; font-weight: 800; }
+    .btn-full-send { background: var(--success); color: #04241b; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -136,40 +198,56 @@
       <span class="badge-req">Verificação do Perfil</span>
       <h1>🎥 Vídeo de Corpo Inteiro</h1>
       <p class="sub">
-        Sem este vídeo o perfil <strong>não vai para o ar</strong>. Afaste o celular para mostrar o <strong>corpo inteiro</strong> e fale o código em voz alta.
+        Sem este vídeo o perfil <strong>não vai para o ar</strong>. Ao abrir a câmera, ela ocupa a tela inteira com o número para você falar.
       </p>
     </div>
 
     <div class="tip-box">
-      <strong>Como fazer com calma:</strong> apoie ou afaste o celular para pegar do corpo inteiro, fale o código abaixo em voz alta e envie. Você tem até <strong>5 chances</strong> caso mude algo no visual depois.
+      <strong>Como fazer com calma:</strong> afaste o celular para mostrar o <strong>corpo inteiro</strong>, fale o número que aparece na tela em voz alta e envie. Você tem até <strong>5 chances</strong> caso mude algo no visual depois.
     </div>
 
     <div class="challenge-box">
-      <div class="challenge-label">Fale este código no vídeo</div>
+      <div class="challenge-label">Número para falar no vídeo</div>
       <div class="code-big" id="challenge-code">----</div>
       <div class="timer" id="challenge-timer">Carregando código...</div>
     </div>
 
-    <video id="preview" class="main-video" autoplay playsinline muted></video>
-
-    <div class="grid-2">
-      <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera</button>
-      <button type="button" class="btn-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
-    </div>
-
-    <button type="button" class="btn-send" id="btn-send" disabled>OBRIGATÓRIO • Enviar Vídeo</button>
+    <button type="button" class="btn-cam" id="btn-open-cam">📷 Abrir Câmera em Tela Inteira</button>
     <div class="attempts-info" id="attempts-info">Envios utilizados: 0 de 5 (5 restantes)</div>
 
     <div class="feedback" id="feedback-box"></div>
 
     <div class="saved-box" id="saved-box">
       <div class="saved-title" id="saved-title">✅ Vídeo enviado</div>
-      <video id="saved-video" class="main-video" style="max-height:220px;" controls playsinline></video>
+      <video id="saved-video" class="saved-video" controls playsinline></video>
       <button type="button" class="btn-continue" id="btn-continue" onclick="irParaConta()">
         Continuar para o Perfil →
       </button>
     </div>
   </main>
+
+  <div id="full-cam-overlay" class="full-cam-overlay">
+    <video id="preview" class="full-cam-video" autoplay playsinline muted></video>
+
+    <div class="full-cam-top">
+      <div class="full-number-box">
+        <div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;">Fale este número no vídeo</div>
+        <div id="full-number" class="full-number-big">----</div>
+        <div id="full-timer" style="font-size:11px;color:#d4d4d8;">Expira em 03:00</div>
+      </div>
+      <button type="button" class="btn-close-cam" id="btn-close-cam">✕ Fechar</button>
+    </div>
+
+    <div class="full-cam-bottom">
+      <div id="full-status" style="text-align:center;font-size:12.5px;font-weight:700;color:#fff;">
+        Afaste o celular para mostrar o corpo inteiro e fale o número.
+      </div>
+      <div class="full-grid-2">
+        <button type="button" class="btn-full-rec" id="btn-record" disabled>⏺️ Gravar Vídeo</button>
+        <button type="button" class="btn-full-send" id="btn-send" disabled>OBRIGATÓRIO • Enviar</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const MAX_ATTEMPTS = 5;
@@ -190,8 +268,13 @@
 
     const codeEl = document.getElementById('challenge-code');
     const timerEl = document.getElementById('challenge-timer');
+    const fullOverlay = document.getElementById('full-cam-overlay');
+    const fullNumberEl = document.getElementById('full-number');
+    const fullTimerEl = document.getElementById('full-timer');
+    const fullStatusEl = document.getElementById('full-status');
     const previewEl = document.getElementById('preview');
     const btnCam = document.getElementById('btn-open-cam');
+    const btnCloseCam = document.getElementById('btn-close-cam');
     const btnRec = document.getElementById('btn-record');
     const btnSend = document.getElementById('btn-send');
     const attemptsInfo = document.getElementById('attempts-info');
@@ -212,6 +295,12 @@
     function setFeedback(msg, ok = true) {
       feedbackBox.textContent = msg;
       feedbackBox.className = `feedback ${ok ? 'ok' : 'err'}`;
+      if (fullStatusEl) fullStatusEl.textContent = msg;
+    }
+
+    function syncCodeDisplay() {
+      codeEl.textContent = challengeCode || '----';
+      fullNumberEl.textContent = challengeCode || '----';
     }
 
     function updateAttemptsUI(used) {
@@ -237,14 +326,28 @@
       }
     }
 
+    function fecharCameraVerificacao() {
+      if (recorder && recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch (_) {}
+      }
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      previewEl.srcObject = null;
+      previewEl.src = '';
+      fullOverlay.classList.remove('open');
+    }
+
     function irParaConta() {
+      fecharCameraVerificacao();
       window.location.href = nextUrl;
     }
 
     function genLocalCode() {
       challengeCode = String(Math.floor(1000 + Math.random() * 9000));
       expiresAt = Date.now() + 3 * 60 * 1000;
-      codeEl.textContent = challengeCode;
+      syncCodeDisplay();
     }
 
     async function loadChallenge() {
@@ -255,7 +358,7 @@
           if (data.code) {
             challengeCode = String(data.code);
             expiresAt = Number(data.expiresAt) || (Date.now() + 3 * 60 * 1000);
-            codeEl.textContent = challengeCode;
+            syncCodeDisplay();
             return;
           }
         }
@@ -282,15 +385,21 @@
       const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
       if (left === 0) {
         loadChallenge();
-        setFeedback('O tempo acabou. Um novo código foi gerado.', false);
+        setFeedback('O tempo acabou. Um novo número foi gerado.', false);
       }
       const m = String(Math.floor(left / 60)).padStart(2, '0');
       const s = String(left % 60).padStart(2, '0');
-      timerEl.textContent = `Expira em ${m}:${s}`;
+      const txt = `Expira em ${m}:${s}`;
+      timerEl.textContent = txt;
+      fullTimerEl.textContent = txt;
     }, 1000);
+
+    btnCloseCam.addEventListener('click', fecharCameraVerificacao);
 
     btnCam.addEventListener('click', async () => {
       if (attemptsUsed >= MAX_ATTEMPTS) return;
+      fullOverlay.classList.add('open');
+      syncCodeDisplay();
       try {
         if (stream) stream.getTracks().forEach(t => t.stop());
         previewEl.srcObject = null;
@@ -298,6 +407,7 @@
         previewEl.muted = true;
         previewEl.controls = false;
         recordedBlob = null;
+        btnRec.textContent = '⏺️ Gravar Vídeo';
         btnSend.disabled = true;
 
         stream = await navigator.mediaDevices.getUserMedia({
@@ -307,7 +417,7 @@
         previewEl.srcObject = stream;
         await previewEl.play();
         btnRec.disabled = false;
-        setFeedback(`Câmera pronta. Afaste para mostrar o corpo inteiro e fale ${challengeCode}.`, true);
+        setFeedback(`Câmera aberta. Afaste para mostrar o corpo inteiro e fale ${challengeCode}.`, true);
       } catch (_) {
         setFeedback('Permita o acesso à câmera e ao microfone no navegador.', false);
       }
@@ -333,12 +443,12 @@
           previewEl.play();
           btnRec.textContent = '⏺️ Gravar de Novo';
           btnSend.disabled = false;
-          setFeedback('Vídeo gravado! Confira e clique em OBRIGATÓRIO • Enviar Vídeo.', true);
+          setFeedback('Vídeo gravado! Confira e clique em OBRIGATÓRIO • Enviar.', true);
         };
 
         recorder.start();
-        btnRec.textContent = '⏹️ Parar Gravação';
-        setFeedback(`Gravando corpo inteiro... Fale o código ${challengeCode}!`, true);
+        btnRec.textContent = '⏹️ Parar';
+        setFeedback(`Gravando corpo inteiro... Fale o número ${challengeCode}!`, true);
       } else {
         recorder.stop();
       }
@@ -354,7 +464,7 @@
       if (!recordedBlob) return;
       if (Date.now() > expiresAt) {
         loadChallenge();
-        setFeedback('O código expirou. Grave novamente com o novo código.', false);
+        setFeedback('O número expirou. Grave novamente com o novo número.', false);
         return;
       }
 
@@ -393,6 +503,7 @@
           }).catch(() => {});
         }
 
+        fecharCameraVerificacao();
         showSavedVideo(data.videoUrl, data.status);
         setFeedback('Vídeo enviado com sucesso!', true);
       } catch (_) {
