@@ -44,6 +44,9 @@ export async function ensureSecurityTables() {
 }
 
 export function registerPortalSecurityRoutes(app, requireCreatorAuth, signSessionToken) {
+  if (app.__portalSecurityRoutesRegistered) return;
+  app.__portalSecurityRoutesRegistered = true;
+
   ensureSecurityTables().catch((err) => app.log.error(err, '[Security] Erro ao criar tabela creator_passkeys'));
 
   // 1. Iniciar cadastro de Face ID / Biometria (modelo já logada)

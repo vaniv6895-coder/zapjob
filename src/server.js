@@ -4,7 +4,7 @@ import { Readable } from 'stream';
 import fs from 'fs';
 import crypto from 'crypto';
 import { registerPortalRoutes } from './portalRoutes.js';
-import { ensureVipTables, registerVipFeedRoutes } from './vipFeedRoutes.js';
+import { ensureVipTables } from './vipFeedRoutes.js';
 import path from 'path';
 import { registerPortalReelsRoute } from './portalReelsPage.js';
 import dotenv from 'dotenv';
@@ -34,11 +34,11 @@ dotenv.config();
 const MAX_VERIFICATION_ATTEMPTS = 5;
 const app = Fastify({ logger: true });
 
-// Captura o corpo bruto (rawBody) apenas para rotas de webhook com assinatura (ex.: Stripe)
+// Captura o corpo bruto (rawBody) apenas para rotas de webhook com assinatura (ex.: Paxum IPN)
 // sem interferir no stream de uploads multipart
 app.addHook('preParsing', async (request, reply, payload) => {
   const urlPath = String(request.url || '').split('?')[0];
-  if (urlPath !== '/webhook/stripe') {
+  if (urlPath !== '/webhook/paxum') {
     return payload;
   }
 
@@ -194,8 +194,6 @@ app.get('/api/verification/status', async (req, reply) => {
 });
 
 app.post('/api/verification/submit', async (req, reply) => {
-  const MAX_VERIFICATION_ATTEMPTS = 5;
-
   try {
     await pool.query(`
       ALTER TABLE model_verifications
@@ -384,7 +382,6 @@ app.get('/fluxo', async (req, reply) => {
 registerPanelRoutes(app);
 registerCheckoutRoutes(app);
 registerPortalRoutes(app);
-
 registerPortalReelsRoute(app);
 
 // Verificação de Webhook (WhatsApp e Messenger)
@@ -579,7 +576,7 @@ app.post('/webhook/mercadopago', async (req, reply) => {
 
     const extRef = String(payment.external_reference || '');
 
-    // Caso A: Pagamento de Conteúdo VIP Visualização Única (external_reference = "vip_ppv:unlockId")
+    // Caso A: Assinatura VIP (external_reference = "vip_sub:subId")
     if (extRef.startsWith('vip_sub:')) {
       const subId = Number(extRef.split(':')[1]);
       if (subId) {
@@ -592,7 +589,20 @@ app.post('/webhook/mercadopago', async (req, reply) => {
       return;
     }
 
-    // Caso B: Pagamento de destaque do Portal (external_reference = "portal:orderId")
+    // Caso B: Conteúdo VIP avulso (external_reference = "vip_ppv:unlockId")
+    if (extRef.startsWith('vip_ppv:')) {
+      const unlockId = Number(extRef.split(':')[1]);
+      if (unlockId) {
+        await pool.query(
+          `UPDATE ppv_unlocks SET paid = TRUE WHERE id = $1`,
+          [unlockId]
+        );
+        app.log.info(`[VIP PPV] ✅ Conteúdo avulso #${unlockId} liberado`);
+      }
+      return;
+    }
+
+    // Caso C: Pagamento de destaque do Portal (external_reference = "portal:orderId")
     if (extRef.startsWith('portal:')) {
       const orderId = Number(extRef.split(':')[1]);
       if (orderId) {
@@ -604,7 +614,7 @@ app.post('/webhook/mercadopago', async (req, reply) => {
       return;
     }
 
-    // Caso C: Pagamento de passe do Chat Bot (external_reference = "channel:userId:hours")
+    // Caso D: Pagamento de passe do Chat Bot (external_reference = "channel:userId:hours")
     const [channel, userId, hoursRaw] = extRef.split(':');
     const hours = Number(hoursRaw) || 24;
 

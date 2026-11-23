@@ -837,7 +837,10 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
     return reply.type('text/html; charset=utf-8').send(html);
   });
 
-  registerVipFeedRoutes(app, requireCreatorAuth);
+  if (!app.__vipFeedRoutesRegistered) {
+    app.__vipFeedRoutesRegistered = true;
+    registerVipFeedRoutes(app, requireCreatorAuth);
+  }
   registerPortalProfileRoute(app);
   registerPortalMediaRoutes(app, requireCreatorAuth);
   registerPortalSecurityRoutes(app, requireCreatorAuth, signSessionToken);
