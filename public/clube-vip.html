@@ -563,7 +563,22 @@
       CHF: { m1: { de: 22.90, por: 13.90 }, m2: { de: 39.90, por: 22.90 }, m3: { de: 59.90, por: 31.90 }, m12: { de: 149.90, por: 84.90 } },
     };
 
-    const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || 'demo');
+    const rawPathSlug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+    const savedCreatorSlug = (() => {
+      try {
+        return localStorage.getItem('vip_creator_slug') || sessionStorage.getItem('vip_creator_slug') || '';
+      } catch {
+        return '';
+      }
+    })();
+    let activeSlug = rawPathSlug || savedCreatorSlug || 'demo';
+
+    function withCacheBust(url) {
+      if (!url) return '';
+      if (/^https?:\/\/images\.unsplash\.com/i.test(url)) return url;
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}v=${Date.now()}`;
+    }
 
     function exibirBarraModeloSeLogada(creatorSlug) {
       const hasCreatorToken = Boolean(
@@ -746,14 +761,15 @@
       if (!coverBox) return;
 
       const videoPost = (posts || []).find(p => p.media_type === 'video' && (p.preview_url || p.media_url));
-      const candidateUrl = creator.cover_video_url
+      const rawCandidateUrl = creator.cover_video_url
         || (isVideoUrl(creator.cover_url) ? creator.cover_url : '')
         || creator.cover_url
         || (videoPost ? (videoPost.preview_url || videoPost.media_url) : '')
         || creator.avatar_url
         || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&q=85';
 
-      const mediaHtml = isVideoUrl(candidateUrl)
+      const candidateUrl = withCacheBust(rawCandidateUrl);
+      const mediaHtml = isVideoUrl(rawCandidateUrl)
         ? `<video src="${candidateUrl}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;filter:none;display:block;"></video>`
         : `<img id="vip-cover" class="cover-media" src="${candidateUrl}" alt="Capa VIP" style="width:100%;height:100%;object-fit:cover;filter:none;display:block;" />`;
 
@@ -830,6 +846,8 @@
       const feedEl = document.getElementById('vip-feed-list');
       if (!feedEl) return;
 
+      const avatarSrc = withCacheBust(creator.avatar_url || 'https://placehold.co/80x80');
+
       feedEl.innerHTML = posts.map((p, idx) => {
         const displayPrice = convertPostPrice(p.price, activeCurrency);
         const btnLabel = activeCurrency === 'BRL'
@@ -840,7 +858,7 @@
           <article class="post-card">
             <div class="post-head">
               <div class="post-author">
-                <img src="${creator.avatar_url || 'https://placehold.co/80x80'}" />
+                <img src="${avatarSrc}" />
                 <div>
                   <strong style="display:flex;align-items:center;gap:5px;font-size:14px;color:#fff;">
                     ${creator.stage_name} <span class="verified-dot" style="width:14px;height:14px;font-size:9px;">✓</span>
@@ -856,7 +874,7 @@
             <p class="post-caption">${p.caption || 'Conteúdo exclusivo disponível no Clube VIP.'}</p>
 
             <div id="vip-media-slot-${p.id}" class="media-slot">
-              <img class="blur-bg" src="${p.preview_url || creator.avatar_url}" />
+              <img class="blur-bg" src="${withCacheBust(p.preview_url || creator.avatar_url)}" />
               <div class="lock-overlay">
                 <div class="lock-icon">${p.media_type === 'video' ? '🎬' : '🔒'}</div>
                 <strong style="font-size:16.5px;margin-bottom:6px;color:#fff;">
@@ -880,16 +898,55 @@
       }).join('');
     }
 
+    async function buscarPerfilPorSlug(targetSlug) {
+      if (!targetSlug) return null;
+      try {
+        const res = await fetch('/api/vip/profile/' + encodeURIComponent(targetSlug));
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    }
+
     async function carregarClubeVip() {
-      const res = await fetch('/api/vip/profile/' + encodeURIComponent(slug));
-      if (!res.ok) {
+      let payload = await buscarPerfilPorSlug(activeSlug);
+
+      if (!payload) {
+        const creatorToken = sessionStorage.getItem('portal_token') || localStorage.getItem('portal_token') || localStorage.getItem('creator_token') || '';
+        if (creatorToken) {
+          try {
+            const meRes = await fetch('/api/portal/me', {
+              headers: { Authorization: 'Bearer ' + creatorToken }
+            });
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              const meSlug = meData?.creator?.slug || meData?.slug;
+              if (meSlug && meSlug !== activeSlug) {
+                activeSlug = meSlug;
+                payload = await buscarPerfilPorSlug(activeSlug);
+              }
+            }
+          } catch {}
+        }
+      }
+
+      if (!payload || !payload.creator) {
         document.getElementById('vip-name').innerText = 'Perfil não encontrado';
         return;
       }
-      const { creator, posts = [] } = await res.json();
+
+      const { creator, posts = [] } = payload;
       CREATOR_ID = creator.id;
       currentCreatorData = creator;
       currentPostsData = posts;
+
+      if (creator.slug) {
+        try {
+          localStorage.setItem('vip_creator_slug', creator.slug);
+          sessionStorage.setItem('vip_creator_slug', creator.slug);
+        } catch {}
+      }
 
       exibirBarraModeloSeLogada(creator.slug);
 
@@ -902,7 +959,7 @@
       document.getElementById('vip-name').innerText = creator.stage_name;
       document.getElementById('vip-meta').innerText = '@' + creator.slug + ' • 📍 ' + (creator.city || 'Brasil');
       document.getElementById('vip-bio').innerText = creator.bio || 'Conteúdo exclusivo, bastidores e ensaios especiais para assinantes VIP.';
-      if (creator.avatar_url) document.getElementById('vip-avatar').src = creator.avatar_url;
+      if (creator.avatar_url) document.getElementById('vip-avatar').src = withCacheBust(creator.avatar_url);
 
       renderizarFundoVip(creator, posts);
       renderizarPlanosVip(creator);
@@ -926,7 +983,7 @@
 
       const deviceHash = typeof window.getDeviceHash === 'function' ? await window.getDeviceHash() : '';
       try {
-        const res = await fetch('/api/portal/vip/' + encodeURIComponent(slug) + '/messages', {
+        const res = await fetch('/api/portal/vip/' + encodeURIComponent(currentCreatorData?.slug || activeSlug) + '/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscriberName: name, messageText, deviceHash })
