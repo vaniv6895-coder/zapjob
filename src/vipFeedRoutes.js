@@ -144,6 +144,9 @@ export async function ensureVipTables() {
 }
 
 export function registerVipFeedRoutes(app, requireCreatorAuth) {
+  if (app.__vipFeedRoutesRegistered) return;
+  app.__vipFeedRoutesRegistered = true;
+
   ensureVipTables();
 
   app.post('/api/vip/fan-nickname', async (req, reply) => {

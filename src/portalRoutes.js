@@ -375,6 +375,9 @@ async function getCreatorVipBalanceAndSales(creatorId) {
 }
 
 export function registerPortalRoutes(app) {
+  if (app.__portalRoutesRegistered) return;
+  app.__portalRoutesRegistered = true;
+
   pool.query(`
     ALTER TABLE creator_media
       ADD COLUMN IF NOT EXISTS link_url TEXT,
