@@ -279,41 +279,32 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
   const contextualMessage = `${userMessage}\n\n[IDIOMA DETECTADO DO CLIENTE: ${humanLang}]`;
   const rawAiReply = await generateAgentReply(channel, userId, contextualMessage, mediaBuffer, mediaMime);
 
-  let selectedMedia = null;
+  const sentThisTurn = new Set();
 
-  if (explicitMediaAsk || (userMsgCount >= 2 && !sentAudioLastTurn)) {
-    selectedMedia = pickFlowMedia(flow, sentUrls, clientLang, {
-      preferPhoto: isPhotoRequest(userMessage),
-      allowRepeatIfOnlyOne: explicitMediaAsk,
-    });
-
-    if (!selectedMedia && explicitMediaAsk && Array.isArray(flow?.nodes)) {
-      const anyMediaNode = [...flow.nodes]
-        .reverse()
-        .find((n) => {
-          if (n.type !== 'media' || typeof n.text !== 'string') return false;
-          const u = cleanMediaUrl(n.text);
-          if (!u.startsWith('http')) return false;
-          const k = detectMediaKind(u, n.mediaKind);
-          return k === 'video' || k === 'image';
-        });
-
-      if (anyMediaNode) {
-        const cleanU = cleanMediaUrl(anyMediaNode.text);
-        selectedMedia = {
-          url: cleanU,
-          kind: detectMediaKind(cleanU, anyMediaNode.mediaKind),
-          lang: anyMediaNode.mediaLang || 'ALL',
-        };
-      }
-    }
-
-    console.log('[FlowEngine] Debug mídia selecionada:', selectedMedia, '| total nós:', flow?.nodes?.length || 0);
+  function isAlreadySent(url) {
+    const clean = cleanMediaUrl(url);
+    return !clean || sentUrls.has(clean) || sentThisTurn.has(clean);
   }
+
+  let selectedMedia = null;
+  let cleanText = '';
 
   if (rawAiReply) {
     const mediaRegex = /\[ENVIAR_MIDIA:\s*(https?:\/\/[^\]\s]+)\s*\]/gi;
-    let cleanText = rawAiReply.replace(mediaRegex, '').trim();
+    const tagMatches = [...rawAiReply.matchAll(mediaRegex)];
+    cleanText = rawAiReply.replace(mediaRegex, '').trim();
+
+    for (const m of tagMatches) {
+      const candidateUrl = cleanMediaUrl(m[1]);
+      if (candidateUrl && !isAlreadySent(candidateUrl)) {
+        selectedMedia = {
+          url: candidateUrl,
+          kind: detectMediaKind(candidateUrl, null),
+          lang: clientLang,
+        };
+        break;
+      }
+    }
 
     if (cleanText && isDuplicateAssistantText(cleanText, assistantMessages)) {
       cleanText = '';
@@ -328,14 +319,44 @@ export async function runHybridFlow({ channel, userId, userMessage, mediaBuffer,
     }
   }
 
-  if (selectedMedia && selectedMedia.url) {
+  if (!selectedMedia && (explicitMediaAsk || (userMsgCount >= 2 && !sentAudioLastTurn))) {
+    selectedMedia = pickFlowMedia(flow, sentUrls, clientLang, {
+      preferPhoto: isPhotoRequest(userMessage),
+      allowRepeatIfOnlyOne: false,
+    });
+
+    if (!selectedMedia && Array.isArray(flow?.nodes)) {
+      const anyMediaNode = [...flow.nodes]
+        .reverse()
+        .find((n) => {
+          if (n.type !== 'media' || typeof n.text !== 'string') return false;
+          const u = cleanMediaUrl(n.text);
+          if (!u.startsWith('http') || isAlreadySent(u)) return false;
+          const k = detectMediaKind(u, n.mediaKind);
+          return k === 'video' || k === 'image';
+        });
+
+      if (anyMediaNode) {
+        const cleanU = cleanMediaUrl(anyMediaNode.text);
+        selectedMedia = {
+          url: cleanU,
+          kind: detectMediaKind(cleanU, anyMediaNode.mediaKind),
+          lang: anyMediaNode.mediaLang || 'ALL',
+        };
+      }
+    }
+  }
+
+  if (selectedMedia && selectedMedia.url && !isAlreadySent(selectedMedia.url)) {
     try {
-      console.log(`[FlowEngine] Enviando ${selectedMedia.kind} do fluxo para ${userId}: ${selectedMedia.url}`);
+      const targetUrl = cleanMediaUrl(selectedMedia.url);
+      sentThisTurn.add(targetUrl);
+      console.log(`[FlowEngine] Enviando ${selectedMedia.kind} único para ${userId}: ${targetUrl}`);
       await sendTypingIndicator(channel, userId, lastMessageId, selectedMedia.kind);
       await sleep(1500);
-      await sendChannelMedia(channel, userId, selectedMedia.url, selectedMedia.kind);
-      await saveMessage(channel, userId, 'assistant', `[${selectedMedia.kind} enviado]`, selectedMedia.kind, selectedMedia.url);
-      sentUrls.add(selectedMedia.url);
+      await sendChannelMedia(channel, userId, targetUrl, selectedMedia.kind);
+      await saveMessage(channel, userId, 'assistant', `[${selectedMedia.kind} enviado]`, selectedMedia.kind, targetUrl);
+      sentUrls.add(targetUrl);
     } catch (mediaErr) {
       console.error('[FlowEngine] Erro ao enviar mídia do fluxo:', mediaErr?.response?.data || mediaErr?.data || mediaErr.message);
     }
