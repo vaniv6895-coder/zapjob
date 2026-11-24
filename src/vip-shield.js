@@ -2,7 +2,7 @@
  * VIP Shield - Proteção Anti-Print, Anti-Gravação, Anti-Download e Marca d'Água Dinâmica
  */
 (function () {
-  // 1. Injeta o CSS de proteção e tela preta
+  // 1. Injeta o CSS de proteção e tela preta sólida
   const style = document.createElement('style');
   style.innerHTML = `
     .vip-protected-wrap {
@@ -40,12 +40,12 @@
       overflow: hidden;
     }
     .vip-watermark-text {
-      color: rgba(255, 255, 255, 0.32);
+      color: rgba(255, 255, 255, 0.34);
       font-family: monospace;
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 1px;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
       transform: rotate(-22deg);
       white-space: nowrap;
       transition: transform 2.5s ease-in-out;
@@ -54,7 +54,7 @@
     #vip-blackout-curtain {
       position: fixed;
       inset: 0;
-      background: #090b10;
+      background: #000000;
       color: #fff;
       z-index: 999999;
       display: none;
@@ -129,7 +129,7 @@
     const mod = e.ctrlKey || e.metaKey;
 
     if (e.key === 'PrintScreen') {
-      triggerBlackout();
+      triggerBlackout(true);
       navigator.clipboard?.writeText('Conteúdo protegido - Portal VIP').catch(() => {});
       setTimeout(releaseBlackout, 2500);
       return;
@@ -141,13 +141,13 @@
       e.key === 'F12'
     ) {
       e.preventDefault();
-      triggerBlackout();
+      triggerBlackout(true);
       setTimeout(releaseBlackout, 2000);
     }
   });
 
-  // 4. Detecta perda de foco (Ferramenta de Captura do Windows / Gravação / Troca de aba)
-  window.addEventListener('blur', () => triggerBlackout(false));
+  // 4. Detecta perda de foco (Ferramenta de Captura / Gravação / Troca de aba)
+  window.addEventListener('blur', () => triggerBlackout(true));
   window.addEventListener('focus', () => releaseBlackout());
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) triggerBlackout(true);
