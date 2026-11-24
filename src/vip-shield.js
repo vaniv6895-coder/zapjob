@@ -2,7 +2,6 @@
  * VIP Shield - Proteção Anti-Print, Anti-Gravação, Anti-Download e Marca d'Água Dinâmica
  */
 (function () {
-  // 1. Injeta o CSS de proteção e tela preta sólida
   const style = document.createElement('style');
   style.innerHTML = `
     .vip-protected-wrap {
@@ -71,7 +70,6 @@
   `;
   document.head.appendChild(style);
 
-  // Cria a cortina de bloqueio instantâneo
   const curtain = document.createElement('div');
   curtain.id = 'vip-blackout-curtain';
   curtain.innerHTML = `
@@ -83,17 +81,28 @@
   `;
   document.body.appendChild(curtain);
 
-  function triggerBlackout(pauseVideos = true) {
+  let releaseTimer = null;
+
+  function triggerBlackout(pauseVideos = true, holdMs = 1500) {
     curtain.classList.add('active');
     if (pauseVideos) {
       document.querySelectorAll('.vip-protected-wrap video').forEach((v) => {
         if (!v.paused) v.pause();
       });
     }
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(() => {
+      if (!document.hidden) {
+        curtain.classList.remove('active');
+      }
+    }, holdMs);
   }
 
   function releaseBlackout() {
-    curtain.classList.remove('active');
+    clearTimeout(releaseTimer);
+    if (!document.hidden) {
+      curtain.classList.remove('active');
+    }
   }
 
   function hardenVideoElement(video) {
@@ -110,7 +119,6 @@
     });
   }
 
-  // 2. Bloqueio de botão direito e arrastar
   document.addEventListener('contextmenu', (e) => {
     if (e.target.closest('.vip-protected-wrap')) {
       e.preventDefault();
@@ -123,15 +131,13 @@
     }
   });
 
-  // 3. Bloqueio de atalhos de PrintScreen, Salvar e DevTools
   document.addEventListener('keydown', (e) => {
     const key = (e.key || '').toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
 
     if (e.key === 'PrintScreen') {
-      triggerBlackout(true);
+      triggerBlackout(true, 2500);
       navigator.clipboard?.writeText('Conteúdo protegido - Portal VIP').catch(() => {});
-      setTimeout(releaseBlackout, 2500);
       return;
     }
 
@@ -141,20 +147,17 @@
       e.key === 'F12'
     ) {
       e.preventDefault();
-      triggerBlackout(true);
-      setTimeout(releaseBlackout, 2000);
+      triggerBlackout(true, 2000);
     }
   });
 
-  // 4. Detecta perda de foco (Ferramenta de Captura / Gravação / Troca de aba)
-  window.addEventListener('blur', () => triggerBlackout(true));
+  window.addEventListener('blur', () => triggerBlackout(true, 1500));
   window.addEventListener('focus', () => releaseBlackout());
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) triggerBlackout(true);
+    if (document.hidden) triggerBlackout(true, 4000);
     else releaseBlackout();
   });
 
-  // 5. Função pública para proteger elementos, dificultar download de vídeo e desenhar fotos em Canvas
   window.applyVipShield = function (subscriberLabel) {
     const watermarkTag = subscriberLabel || 'PORTAL VIP • PROTEGIDO';
     const fullWatermark = `${watermarkTag} • ${new Date().toLocaleDateString('pt-BR')}`;
@@ -168,7 +171,6 @@
       if (wrap.dataset.shielded === '1') return;
       wrap.dataset.shielded = '1';
 
-      // Converte imagem VIP para Canvas (impede "Salvar imagem como" direto)
       const img = wrap.querySelector('img[data-vip-canvas]');
       if (img) {
         const canvas = document.createElement('canvas');
@@ -188,7 +190,6 @@
         loader.src = img.src;
       }
 
-      // Adiciona marca d'água dinâmica repetida
       const overlay = document.createElement('div');
       overlay.className = 'vip-watermark-overlay';
 

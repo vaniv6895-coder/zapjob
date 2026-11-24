@@ -348,28 +348,56 @@ async function getCreatorVipBalanceAndSales(creatorId) {
       `SELECT
          s.id,
          s.buyer_identifier,
-         COALESCE(NULLIF(TRIM(s.fan_nickname), ''), NULLIF(TRIM(f.nickname), ''), NULLIF(TRIM(f.full_name), ''), s.buyer_identifier, 'Assinante VIP') AS fan_nickname,
-         COALESCE(NULLIF(TRIM(s.fan_code), ''), f.fan_code) AS fan_code,
+         COALESCE(
+           NULLIF(TRIM(s.fan_nickname), ''),
+           NULLIF(TRIM(f.nickname), ''),
+           NULLIF(TRIM(f.full_name), ''),
+           NULLIF(TRIM(fa.nickname), ''),
+           NULLIF(TRIM(fa.full_name), ''),
+           NULLIF(TRIM(s.buyer_identifier), ''),
+           'Assinante VIP'
+         ) AS fan_nickname,
+         COALESCE(
+           NULLIF(TRIM(s.fan_code), ''),
+           NULLIF(TRIM(f.fan_code), ''),
+           NULLIF(TRIM(fa.fan_code), ''),
+           'FAN-' || UPPER(SUBSTRING(COALESCE(NULLIF(TRIM(s.device_hash), ''), s.id::text) FROM 1 FOR 6))
+         ) AS fan_code,
          COALESCE(NULLIF(TRIM(s.item_title), ''), 'Assinatura Mensal VIP (30 dias)') AS item_title,
          'Assinatura' AS sale_type,
          s.price,
          s.created_at
        FROM vip_subscriptions s
-       LEFT JOIN vip_fans f ON f.device_hash = s.device_hash
+       LEFT JOIN vip_fans f ON s.device_hash IS NOT NULL AND s.device_hash <> '' AND f.device_hash = s.device_hash
+       LEFT JOIN fan_accounts fa ON s.device_hash IS NOT NULL AND s.device_hash <> '' AND fa.device_hash = s.device_hash
        WHERE s.creator_id = $1 AND s.paid = TRUE
        UNION ALL
        SELECT
          u.id,
          u.buyer_identifier,
-         COALESCE(NULLIF(TRIM(u.fan_nickname), ''), NULLIF(TRIM(f.nickname), ''), NULLIF(TRIM(f.full_name), ''), u.buyer_identifier, 'Cliente VIP') AS fan_nickname,
-         COALESCE(NULLIF(TRIM(u.fan_code), ''), f.fan_code) AS fan_code,
+         COALESCE(
+           NULLIF(TRIM(u.fan_nickname), ''),
+           NULLIF(TRIM(f.nickname), ''),
+           NULLIF(TRIM(f.full_name), ''),
+           NULLIF(TRIM(fa.nickname), ''),
+           NULLIF(TRIM(fa.full_name), ''),
+           NULLIF(TRIM(u.buyer_identifier), ''),
+           'Cliente VIP'
+         ) AS fan_nickname,
+         COALESCE(
+           NULLIF(TRIM(u.fan_code), ''),
+           NULLIF(TRIM(f.fan_code), ''),
+           NULLIF(TRIM(fa.fan_code), ''),
+           'FAN-' || UPPER(SUBSTRING(COALESCE(NULLIF(TRIM(u.device_hash), ''), u.id::text) FROM 1 FOR 6))
+         ) AS fan_code,
          COALESCE(NULLIF(TRIM(u.item_title), ''), NULLIF(TRIM(p.caption), ''), 'Conteúdo Avulso VIP #' || u.post_id) AS item_title,
          'Avulso (PPV)' AS sale_type,
          u.price,
          u.created_at
        FROM ppv_unlocks u
        JOIN vip_posts p ON p.id = u.post_id
-       LEFT JOIN vip_fans f ON f.device_hash = u.device_hash
+       LEFT JOIN vip_fans f ON u.device_hash IS NOT NULL AND u.device_hash <> '' AND f.device_hash = u.device_hash
+       LEFT JOIN fan_accounts fa ON u.device_hash IS NOT NULL AND u.device_hash <> '' AND fa.device_hash = u.device_hash
        WHERE p.creator_id = $1 AND u.paid = TRUE
        ORDER BY created_at DESC
        LIMIT 50`,
@@ -1194,19 +1222,19 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
 
       const mergedPlans = {
         m1: {
-          de: Number(incomingPlans?.m1?.de ?? body.vip_anchor_price ?? prevPlans?.m1?.de ?? 48.99),
+          de: incomingPlans?.m1?.de === null ? null : Number(incomingPlans?.m1?.de ?? body.vip_anchor_price ?? prevPlans?.m1?.de ?? 48.99),
           por: Number(incomingPlans?.m1?.por ?? body.vip_monthly_price ?? prevPlans?.m1?.por ?? 25.99),
         },
         m2: {
-          de: Number(incomingPlans?.m2?.de ?? prevPlans?.m2?.de ?? 89.90),
+          de: incomingPlans?.m2?.de === null ? null : Number(incomingPlans?.m2?.de ?? prevPlans?.m2?.de ?? 89.90),
           por: Number(incomingPlans?.m2?.por ?? prevPlans?.m2?.por ?? 44.99),
         },
         m3: {
-          de: Number(incomingPlans?.m3?.de ?? prevPlans?.m3?.de ?? 129.90),
+          de: incomingPlans?.m3?.de === null ? null : Number(incomingPlans?.m3?.de ?? prevPlans?.m3?.de ?? 129.90),
           por: Number(incomingPlans?.m3?.por ?? prevPlans?.m3?.por ?? 59.99),
         },
         m12: {
-          de: Number(incomingPlans?.m12?.de ?? prevPlans?.m12?.de ?? 399.90),
+          de: incomingPlans?.m12?.de === null ? null : Number(incomingPlans?.m12?.de ?? prevPlans?.m12?.de ?? 399.90),
           por: Number(incomingPlans?.m12?.por ?? prevPlans?.m12?.por ?? 149.99),
         },
       };
@@ -1214,9 +1242,11 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       await pool.query(
         `UPDATE creator_accounts
          SET vip_plans = $1::jsonb,
-             subscription_price = $2
-         WHERE id = $3`,
-        [JSON.stringify(mergedPlans), mergedPlans.m1.por, req.creator.id]
+             subscription_price = $2,
+             vip_monthly_price = $2,
+             vip_anchor_price = $3
+         WHERE id = $4`,
+        [JSON.stringify(mergedPlans), mergedPlans.m1.por, mergedPlans.m1.de, req.creator.id]
       );
       delete body.vip_plans;
       delete body.vip_monthly_price;
