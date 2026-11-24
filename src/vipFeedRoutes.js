@@ -143,6 +143,10 @@ export async function ensureVipTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS mp_payment_id VARCHAR(80);
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS paid BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
+    ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
     ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS fan_code VARCHAR(40);
     ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS fan_nickname VARCHAR(80);
     ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS item_title VARCHAR(160);
@@ -160,6 +164,11 @@ export async function ensureVipTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS mp_payment_id VARCHAR(80);
+    ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS paid BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS views_used INT NOT NULL DEFAULT 0;
+    ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS max_views INT NOT NULL DEFAULT 1;
+    ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
     ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS fan_code VARCHAR(40);
     ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS fan_nickname VARCHAR(80);
     ALTER TABLE ppv_unlocks ADD COLUMN IF NOT EXISTS item_title VARCHAR(160);
