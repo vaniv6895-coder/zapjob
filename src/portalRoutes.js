@@ -425,7 +425,10 @@ export function registerPortalRoutes(app) {
 
   pool.query(`
     ALTER TABLE creator_accounts
-      ADD COLUMN IF NOT EXISTS profile_type VARCHAR(30) DEFAULT 'conteudo';
+      ADD COLUMN IF NOT EXISTS profile_type VARCHAR(30) DEFAULT 'conteudo',
+      ADD COLUMN IF NOT EXISTS vip_plans JSONB,
+      ADD COLUMN IF NOT EXISTS subscription_price NUMERIC(10, 2) DEFAULT 25.99,
+      ADD COLUMN IF NOT EXISTS cover_video_url TEXT;
   `).catch(() => {});
 
   pool.query(`
@@ -1092,11 +1095,21 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
       getCreatorStats30d(req.creator.id),
       getCreatorVipBalanceAndSales(req.creator.id),
     ]);
+    const savedPlans =
+      typeof req.creator.vip_plans === 'string'
+        ? JSON.parse(req.creator.vip_plans)
+        : (req.creator.vip_plans || {});
+    const monthlyPor = Number(savedPlans?.m1?.por ?? req.creator.subscription_price ?? 25.99);
+    const monthlyDe = Number(savedPlans?.m1?.de ?? 48.99);
+
     return reply.send({
       ok: true,
       creator: {
         ...req.creator,
         profile_type: req.creator.profile_type || 'conteudo',
+        vip_plans: savedPlans,
+        vip_monthly_price: monthlyPor,
+        vip_anchor_price: monthlyDe,
         vip_balance: vipSummary.balance,
       },
       vipBalance: vipSummary.balance,
@@ -1167,6 +1180,47 @@ Responda APENAS em JSON válido no formato: {"subject": "...", "body": "..."} (u
         [body.profile_type, req.creator.id]
       ).catch(() => {});
       delete body.profile_type;
+    }
+
+    if (body.vip_plans !== undefined || body.vip_monthly_price !== undefined) {
+      let incomingPlans = body.vip_plans;
+      if (typeof incomingPlans === 'string') {
+        try { incomingPlans = JSON.parse(incomingPlans); } catch { incomingPlans = null; }
+      }
+      const prevPlans =
+        typeof req.creator.vip_plans === 'string'
+          ? JSON.parse(req.creator.vip_plans)
+          : (req.creator.vip_plans || {});
+
+      const mergedPlans = {
+        m1: {
+          de: Number(incomingPlans?.m1?.de ?? body.vip_anchor_price ?? prevPlans?.m1?.de ?? 48.99),
+          por: Number(incomingPlans?.m1?.por ?? body.vip_monthly_price ?? prevPlans?.m1?.por ?? 25.99),
+        },
+        m2: {
+          de: Number(incomingPlans?.m2?.de ?? prevPlans?.m2?.de ?? 89.90),
+          por: Number(incomingPlans?.m2?.por ?? prevPlans?.m2?.por ?? 44.99),
+        },
+        m3: {
+          de: Number(incomingPlans?.m3?.de ?? prevPlans?.m3?.de ?? 129.90),
+          por: Number(incomingPlans?.m3?.por ?? prevPlans?.m3?.por ?? 59.99),
+        },
+        m12: {
+          de: Number(incomingPlans?.m12?.de ?? prevPlans?.m12?.de ?? 399.90),
+          por: Number(incomingPlans?.m12?.por ?? prevPlans?.m12?.por ?? 149.99),
+        },
+      };
+
+      await pool.query(
+        `UPDATE creator_accounts
+         SET vip_plans = $1::jsonb,
+             subscription_price = $2
+         WHERE id = $3`,
+        [JSON.stringify(mergedPlans), mergedPlans.m1.por, req.creator.id]
+      );
+      delete body.vip_plans;
+      delete body.vip_monthly_price;
+      delete body.vip_anchor_price;
     }
 
     if (body.bio !== undefined) body.bio = sanitizeText(body.bio, 1500);
