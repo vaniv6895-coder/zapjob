@@ -114,7 +114,7 @@
       </div>
     </section>
 
-    <!-- Resumo Financeiro + Compradores Recentes -->
+    <!-- Resumo Financeiro -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="glass-card rounded-2xl p-4">
         <div class="text-xs text-zinc-400">Saldo na Conta</div>
@@ -133,8 +133,39 @@
       </div>
     </section>
 
+    <!-- Lista de Clientes que Compraram (Logo no topo, antes das mídias) -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div>
+          <h3 class="text-sm sm:text-base font-bold text-white">🧾 Clientes que Compraram (Assinaturas & Avulsos)</h3>
+          <p class="text-xs text-zinc-400">Nome do cliente, ID do fã, o que foi comprado e o valor aprovado via Pix.</p>
+        </div>
+        <button onclick="loadAllData()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition">
+          ↻ Atualizar
+        </button>
+      </div>
+      <div class="overflow-x-auto max-h-[380px] overflow-y-auto rounded-xl border border-zinc-800/70">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-zinc-950/95 z-10">
+            <tr class="border-b border-zinc-800 text-[11px] uppercase text-zinc-400">
+              <th class="py-2.5 px-3">Cliente & ID</th>
+              <th class="py-2.5 px-3">O que Comprou</th>
+              <th class="py-2.5 px-3">Tipo</th>
+              <th class="py-2.5 px-3">Valor</th>
+              <th class="py-2.5 px-3 text-right">Data</th>
+            </tr>
+          </thead>
+          <tbody id="buyersTableBody" class="divide-y divide-zinc-800/70 text-xs">
+            <tr>
+              <td colspan="5" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Filtros rápidos da Galeria -->
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
       <div class="flex items-center gap-2">
         <button onclick="setFilter('subs')" id="btnFilterSubs" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-pink-600 text-white transition">
           🔒 Exclusivos Assinantes (<span id="countOnlySubs">0</span>)
@@ -150,37 +181,6 @@
     <section id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <div class="col-span-full text-center py-12 text-zinc-500 text-sm">
         Carregando suas fotos e vídeos exclusivos...
-      </div>
-    </section>
-
-    <!-- Lista de Clientes que Compraram -->
-    <section class="glass-card rounded-2xl p-4 sm:p-5">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-sm sm:text-base font-bold text-white">🧾 Clientes que Compraram (Assinaturas & Avulsos)</h3>
-          <p class="text-xs text-zinc-400">Nome do cliente, ID do fã, o que foi comprado e o valor aprovado via Pix.</p>
-        </div>
-        <button onclick="loadAllData()" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200">
-          ↻ Atualizar
-        </button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-zinc-800 text-[11px] uppercase text-zinc-400">
-              <th class="py-2.5 pr-3">Cliente & ID</th>
-              <th class="py-2.5 px-3">O que Comprou</th>
-              <th class="py-2.5 px-3">Tipo</th>
-              <th class="py-2.5 px-3">Valor</th>
-              <th class="py-2.5 pl-3 text-right">Data</th>
-            </tr>
-          </thead>
-          <tbody id="buyersTableBody" class="divide-y divide-zinc-800/70 text-xs">
-            <tr>
-              <td colspan="5" class="py-6 text-center text-zinc-500">Nenhuma compra registrada ainda.</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </section>
   </main>
@@ -677,12 +677,13 @@
         } else {
           tbody.innerHTML = buyers.map(b => {
             const nick = b.fan_nickname || b.buyer_identifier || 'Cliente VIP';
-            const fanId = b.fan_code ? `<span class="block text-[11px] font-mono text-pink-300 mt-0.5">ID: ${escapeHtml(b.fan_code)}</span>` : '';
+            const resolvedCode = b.fan_code || ('ID-' + String(b.id || '').padStart(6, '0'));
+            const fanId = `<span class="block text-[11px] font-mono text-pink-300 mt-0.5">ID: ${escapeHtml(resolvedCode)}</span>`;
             const itemTitle = b.item_title || b.caption || b.sale_type || 'Conteúdo VIP';
             const isSub = b.sale_type === 'Assinatura';
             return `
               <tr>
-                <td class="py-2.5 pr-3 font-semibold text-white">
+                <td class="py-2.5 px-3 font-semibold text-white">
                   ${escapeHtml(nick)}
                   ${fanId}
                 </td>
@@ -695,7 +696,7 @@
                   </span>
                 </td>
                 <td class="py-2.5 px-3 text-emerald-400 font-semibold whitespace-nowrap">${formatBRL(b.price)}</td>
-                <td class="py-2.5 pl-3 text-right text-zinc-400 whitespace-nowrap">${b.created_at ? new Date(b.created_at).toLocaleString('pt-BR') : '-'}</td>
+                <td class="py-2.5 px-3 text-right text-zinc-400 whitespace-nowrap">${b.created_at ? new Date(b.created_at).toLocaleString('pt-BR') : '-'}</td>
               </tr>
             `;
           }).join('');
