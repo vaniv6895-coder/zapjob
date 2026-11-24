@@ -650,53 +650,76 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   }
 
   app.post('/api/vip/subscribe-intent', async (req, reply) => {
-    const { creatorId, buyerIdentifier, fanCode, fanNickname, deviceHash, planKey = 'm1', amount } = req.body || {};
-    const cleanDev = sanitizePlainText(deviceHash, 128);
-    if (!creatorId || !cleanDev) return reply.status(400).send({ error: 'Dados incompletos.' });
+    try {
+      await ensureVipTables();
+      const { creatorId, buyerIdentifier, fanCode, fanNickname, deviceHash, planKey = 'm1', amount } = req.body || {};
+      const cleanDev = sanitizePlainText(deviceHash, 128);
+      if (!creatorId || !cleanDev) {
+        return reply.status(400).send({ error: 'Dados incompletos.' });
+      }
 
-    const creator = await getCreatorById(Number(creatorId));
-    if (!creator) return reply.status(404).send({ error: 'Criadora não encontrada.' });
+      const creator = await getCreatorById(Number(creatorId));
+      if (!creator) {
+        return reply.status(404).send({ error: 'Criadora não encontrada.' });
+      }
 
-    const plans = parseVipPlans(creator.vip_plans);
-    const chosen = plans[planKey] || plans.m1;
-    const finalPrice = Number(amount || chosen.por || creator.vip_monthly_price || 25.99);
-    const days = planDaysFromKey(planKey);
-    const itemTitle = `Assinatura VIP (${planKey}) - ${creator.stage_name}`;
+      const plans = parseVipPlans(creator.vip_plans);
+      const chosen = plans[planKey] || plans.m1;
+      const rawAmount =
+        amount !== undefined && amount !== null && amount !== ''
+          ? Number(amount)
+          : Number(chosen.por ?? creator.vip_monthly_price ?? 25.99);
+      const finalPrice = Number.isFinite(rawAmount) && rawAmount > 0 ? Number(rawAmount.toFixed(2)) : 25.99;
+      const days = planDaysFromKey(planKey);
+      const itemTitle = `Assinatura VIP (${planKey}) - ${creator.stage_name}`;
 
-    const ins = await pool.query(
-      `INSERT INTO vip_subscriptions (creator_id, buyer_identifier, fan_code, fan_nickname, item_title, device_hash, price, paid, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() + ($8 || ' days')::INTERVAL)
-       RETURNING id`,
-      [
-        creator.id,
-        sanitizePlainText(buyerIdentifier, 120) || 'Cliente VIP',
-        sanitizePlainText(fanCode, 40) || null,
-        sanitizePlainText(fanNickname, 60) || 'Cliente VIP',
-        itemTitle,
-        cleanDev,
-        finalPrice,
-        String(days),
-      ]
-    );
-    const subId = ins.rows[0].id;
+      const ins = await pool.query(
+        `INSERT INTO vip_subscriptions (creator_id, buyer_identifier, fan_code, fan_nickname, item_title, device_hash, price, paid, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() + ($8 || ' days')::INTERVAL)
+         RETURNING id`,
+        [
+          creator.id,
+          sanitizePlainText(buyerIdentifier, 120) || 'Cliente VIP',
+          sanitizePlainText(fanCode, 40) || null,
+          sanitizePlainText(fanNickname, 60) || 'Cliente VIP',
+          itemTitle,
+          cleanDev,
+          finalPrice,
+          String(days),
+        ]
+      );
+      const subId = ins.rows[0].id;
 
-    const pix = await generateVipPix({
-      amount: finalPrice,
-      description: `Clube VIP - ${creator.stage_name} (${planKey})`,
-      externalRef: `vip_sub:${subId}`,
-      payerEmail: creator.email,
-    });
-    if (!pix) return reply.status(500).send({ error: 'Falha ao gerar Pix.' });
+      const payerEmail =
+        creator.email && String(creator.email).includes('@')
+          ? String(creator.email).trim()
+          : 'cliente@portalvip.com';
 
-    await pool.query(`UPDATE vip_subscriptions SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), subId]);
+      const pix = await generateVipPix({
+        amount: finalPrice,
+        description: `Clube VIP - ${creator.stage_name} (${planKey})`,
+        externalRef: `vip_sub:${subId}`,
+        payerEmail,
+      });
 
-    return reply.send({
-      ok: true,
-      subId,
-      boundDevice: cleanDev.slice(0, 8).toUpperCase(),
-      qrCode: pix.qrCode,
-      qrCodeBase64: pix.qrCodeBase64,
-    });
+      if (!pix || !pix.qrCode) {
+        return reply.status(502).send({ error: 'Não foi possível gerar o Pix no Mercado Pago agora.' });
+      }
+
+      await pool.query(`UPDATE vip_subscriptions SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), subId]);
+
+      return reply.send({
+        ok: true,
+        subId,
+        boundDevice: cleanDev.slice(0, 8).toUpperCase(),
+        qrCode: pix.qrCode,
+        qrCodeBase64: pix.qrCodeBase64,
+      });
+    } catch (err) {
+      app.log.error(err?.response?.data || err, '[VIP] Erro ao criar subscribe-intent');
+      const mpMsg = err?.response?.data?.message || err?.message || 'Erro interno ao gerar Pix da assinatura.';
+      return reply.status(500).send({ error: mpMsg });
+    }
   });
 
   app.get('/api/vip/sub-status/:subId', async (req, reply) => {
@@ -705,54 +728,72 @@ export function registerVipFeedRoutes(app, requireCreatorAuth) {
   });
 
   app.post('/api/vip/unlock-intent', async (req, reply) => {
-    const { postId, price, buyerIdentifier, fanCode, fanNickname, deviceHash } = req.body || {};
-    const cleanDev = sanitizePlainText(deviceHash, 128);
-    if (!postId || !cleanDev) return reply.status(400).send({ error: 'Dados incompletos.' });
+    try {
+      await ensureVipTables();
+      const { postId, price, buyerIdentifier, fanCode, fanNickname, deviceHash } = req.body || {};
+      const cleanDev = sanitizePlainText(deviceHash, 128);
+      if (!postId || !cleanDev) {
+        return reply.status(400).send({ error: 'Dados incompletos.' });
+      }
 
-    const pRes = await pool.query(
-      `SELECT p.*, c.stage_name, c.email AS creator_email
-       FROM vip_posts p
-       JOIN creator_accounts c ON c.id = p.creator_id
-       WHERE p.id = $1`,
-      [Number(postId)]
-    );
-    const post = pRes.rows[0];
-    const finalPrice = Number(price || post?.price || 19.90);
-    const itemTitle = sanitizePlainText(post?.caption, 140) || `Conteúdo Avulso VIP #${Number(postId)}`;
+      const pRes = await pool.query(
+        `SELECT p.*, c.stage_name, c.email AS creator_email
+         FROM vip_posts p
+         JOIN creator_accounts c ON c.id = p.creator_id
+         WHERE p.id = $1`,
+        [Number(postId)]
+      );
+      const post = pRes.rows[0];
+      const rawPrice = price !== undefined && price !== null && price !== '' ? Number(price) : Number(post?.price ?? 19.90);
+      const finalPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? Number(rawPrice.toFixed(2)) : 19.90;
+      const itemTitle = sanitizePlainText(post?.caption, 140) || `Conteúdo Avulso VIP #${Number(postId)}`;
 
-    const ins = await pool.query(
-      `INSERT INTO ppv_unlocks (post_id, buyer_identifier, fan_code, fan_nickname, item_title, device_hash, price, paid, views_used, max_views)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 0, 1)
-       RETURNING id`,
-      [
-        Number(postId),
-        sanitizePlainText(buyerIdentifier, 120) || 'Cliente VIP',
-        sanitizePlainText(fanCode, 40) || null,
-        sanitizePlainText(fanNickname, 60) || 'Cliente VIP',
-        itemTitle,
-        cleanDev,
-        finalPrice,
-      ]
-    );
-    const unlockId = ins.rows[0].id;
+      const ins = await pool.query(
+        `INSERT INTO ppv_unlocks (post_id, buyer_identifier, fan_code, fan_nickname, item_title, device_hash, price, paid, views_used, max_views)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 0, 1)
+         RETURNING id`,
+        [
+          Number(postId),
+          sanitizePlainText(buyerIdentifier, 120) || 'Cliente VIP',
+          sanitizePlainText(fanCode, 40) || null,
+          sanitizePlainText(fanNickname, 60) || 'Cliente VIP',
+          itemTitle,
+          cleanDev,
+          finalPrice,
+        ]
+      );
+      const unlockId = ins.rows[0].id;
 
-    const pix = await generateVipPix({
-      amount: finalPrice,
-      description: `Conteúdo Avulso 1x - ${post?.stage_name || 'VIP'}`,
-      externalRef: `vip_ppv:${unlockId}`,
-      payerEmail: post?.creator_email,
-    });
-    if (!pix) return reply.status(500).send({ error: 'Falha ao gerar Pix.' });
+      const payerEmail =
+        post?.creator_email && String(post.creator_email).includes('@')
+          ? String(post.creator_email).trim()
+          : 'cliente@portalvip.com';
 
-    await pool.query(`UPDATE ppv_unlocks SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), unlockId]);
+      const pix = await generateVipPix({
+        amount: finalPrice,
+        description: `Conteúdo Avulso 1x - ${post?.stage_name || 'VIP'}`,
+        externalRef: `vip_ppv:${unlockId}`,
+        payerEmail,
+      });
 
-    return reply.send({
-      ok: true,
-      unlockId,
-      boundDevice: cleanDev.slice(0, 8).toUpperCase(),
-      qrCode: pix.qrCode,
-      qrCodeBase64: pix.qrCodeBase64,
-    });
+      if (!pix || !pix.qrCode) {
+        return reply.status(502).send({ error: 'Não foi possível gerar o Pix para este conteúdo agora.' });
+      }
+
+      await pool.query(`UPDATE ppv_unlocks SET mp_payment_id = $1 WHERE id = $2`, [String(pix.paymentId), unlockId]);
+
+      return reply.send({
+        ok: true,
+        unlockId,
+        boundDevice: cleanDev.slice(0, 8).toUpperCase(),
+        qrCode: pix.qrCode,
+        qrCodeBase64: pix.qrCodeBase64,
+      });
+    } catch (err) {
+      app.log.error(err?.response?.data || err, '[VIP] Erro ao criar unlock-intent');
+      const mpMsg = err?.response?.data?.message || err?.message || 'Erro interno ao gerar Pix do conteúdo avulso.';
+      return reply.status(500).send({ error: mpMsg });
+    }
   });
 
   app.get('/api/vip/unlock-status/:unlockId', async (req, reply) => {
